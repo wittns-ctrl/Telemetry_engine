@@ -1,0 +1,11 @@
+[project]
+name = "telemetry-engine"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "alembic>=1.19.0",
+    "asyncpg>=0.31.0",
+    "fastapi[standard]>=0.141.1",
+    "pydantic-settings>=2.14.2",
+    "sqlalchemy[asyncio]>=2.0.51",
+]
