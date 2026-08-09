@@ -5,7 +5,9 @@ requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.19.0",
     "asyncpg>=0.31.0",
+    "beanie>=2.2.0",
     "fastapi[standard]>=0.141.1",
+    "motor>=3.7.1",
     "pydantic-settings>=2.14.2",
     "sqlalchemy[asyncio]>=2.0.51",
 ]
