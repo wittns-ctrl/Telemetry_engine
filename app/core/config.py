@@ -5,6 +5,12 @@ class Settings(BaseSettings):
     MONGODB_URI: str 
     MONGO_DB: str 
 
+    #jwt settings
+
+    SECRET_KEY: str
+    ALGORITHM: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: str
+
     model_config =  SettingsConfigDict(env_file=".env",extra="ignore")
 
 
