@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.db.session import init_db
-from app.models.metric import Metric
+from app.models.metric import Metrics
 from app.models.user import User, UserCreate, UserResponse, Token
 from app.api.deps import get_current_user
 
@@ -64,6 +64,6 @@ async def create_metric(
     payload: dict,
     current_user: User = Depends(get_current_user)  # Requires valid JWT
 ):
-    metric = Metric(**payload)
+    metric = Metrics(**payload)
     await metric.insert()
     return metric
