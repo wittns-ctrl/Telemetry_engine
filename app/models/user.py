@@ -4,7 +4,7 @@ from datetime import datetime,timezone
 
 
 class User(Document):
-    email: Indexed[EmailStr] = Indexed(unique=True)
+    email: Indexed(EmailStr, unique=True)
     hashed_password: str
     is_active: bool = True
     created_at: datetime = Field(
