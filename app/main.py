@@ -8,6 +8,8 @@ from app.db.session import init_db
 from app.models.metric import Metrics
 from app.models.user import User, UserCreate, UserResponse, Token
 from app.api.deps import get_current_user
+from app.models.telemetry import TelemetryPayload
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,6 +18,42 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Telemetry Engine", lifespan=lifespan)
 
+
+@app.post(
+        "/api/v1/metrics",
+        status_code = status.HTTP_201_CREATED,
+        summary="Ingest Polymophic Telemetry Data"
+)
+async def ingest_metric(
+    payload: TelemetryPayload,
+    current_user: User = Depends(get_current_user)
+):
+
+    # Dump payload model into a dictionary
+
+    payload_dict = payload.model_dump()
+
+    # separate payload model into a dictionary
+    sensor_id = payload_dict.pop("sensor_id")
+    metric_type = payload_dict.pop("metric_type")
+    value = payload_dict.pop("value")
+
+    # Persist in  MongoDB via Beanie
+    metric = Metrics(
+        sensor_id = sensor_id,
+        metric_type = metric_type,
+        value = value,
+        payload_data = payload_dict
+    )
+
+    await metric.insert()
+
+    return{
+        "status":"success",
+        "metric_id": str(metric.id),
+        "validated_as": metric_type,
+        "data":metric
+    }
 # --- AUTH ROUTES ---
 
 @app.post("/api/v1/auth/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -47,7 +85,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": str(user.id)}, expires_delta=access_token_expires
     )
@@ -59,7 +97,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
 
 # --- PROTECTED METRICS ROUTE ---
 
-@app.post("/api/v1/metrics", status_code=status.HTTP_201_CREATED)
+@app.post("/api/v2/metrics", status_code=status.HTTP_201_CREATED)
 async def create_metric(
     payload: dict,
     current_user: User = Depends(get_current_user)  # Requires valid JWT
