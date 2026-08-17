@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Telemetry Alert Dashboard</title>
+</head>
+
+<body>
+    <h1>⚡ Live Telemetry Alerts Stream</h1>
+
+    <p id="status">Connecting to WebSocket...</p>
+
+    <div id="alerts"></div>
+
+    <script>
+        const websocket = new WebSocket("ws://localhost:8000/ws/alerts");
+
+        websocket.onopen = function () {
+            document.getElementById("status").textContent =
+                "STATUS: Connected to Alert Stream.";
+        };
+
+        websocket.onmessage = function (event) {
+            const alert = JSON.parse(event.data);
+
+            const alertBox = document.createElement("div");
+
+            alertBox.innerHTML = `
+                <h2>🚨 ${alert.severity}</h2>
+                <p>${alert.message}</p>
+            `;
+
+            document.getElementById("alerts").prepend(alertBox);
+        };
+
+        websocket.onclose = function () {
+            document.getElementById("status").textContent =
+                "STATUS: Disconnected.";
+        };
+
+        websocket.onerror = function () {
+            document.getElementById("status").textContent =
+                "STATUS: WebSocket connection error.";
+        };
+    </script>
+</body>
+</html>
