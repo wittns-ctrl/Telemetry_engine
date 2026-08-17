@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import timedelta
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect,BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password, create_access_token
@@ -11,6 +11,9 @@ from app.api.deps import get_current_user
 from app.models.telemetry import TelemetryPayload
 from app.core.sockets import manager
 from app.services.alerting import evaluate_metric_alert
+from app.services.notifications import send_email_alert,send_webhook_alert
+
+
 
 
 @asynccontextmanager
@@ -41,6 +44,7 @@ async def websocket_alerts_endpoint(websocket: WebSocket):
 )
 async def ingest_metric(
     payload: TelemetryPayload,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user)
 ):
 
@@ -72,6 +76,19 @@ async def ingest_metric(
     if alert_event:
         await manager.broadcast(alert_event)
 
+
+    background_tasks.add_task(
+        send_webhook_alert,
+        webhook_url="https://httpbin.org/post",
+        alert_payload=alert_event
+    )
+
+    background_tasks.add_task(
+        send_email_alert,
+        recipient_email=current_user.email,
+        alert_payload=alert_event
+    )
+    
     return{
         "status":"success",
         "metric_id": str(metric.id),
