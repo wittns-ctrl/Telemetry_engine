@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import timedelta
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.security import OAuth2PasswordRequestForm
 from app.core.config import settings
 from app.core.security import get_password_hash, verify_password, create_access_token
@@ -9,6 +9,8 @@ from app.models.metric import Metrics
 from app.models.user import User, UserCreate, UserResponse, Token
 from app.api.deps import get_current_user
 from app.models.telemetry import TelemetryPayload
+from app.core.sockets import manager
+from app.services.alerting import evaluate_metric_alert
 
 
 @asynccontextmanager
@@ -17,6 +19,19 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Telemetry Engine", lifespan=lifespan)
+
+# ---WEBSOCKET ENDPOINT ---
+
+@app.websocket("/ws/alerts")
+async def websocket_alerts_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+         # keep socket connection open & handle incoming client messages if any
+         while True:
+             await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket) 
 
 
 @app.post(
@@ -48,11 +63,19 @@ async def ingest_metric(
 
     await metric.insert()
 
+    # 2. check for alerts
+
+    alert_event = evaluate_metric_alert(payload)
+
+    # 3. Broadcast alert to all Websocket clients in real-time
+
+    if alert_event:
+        await manager.broadcast(alert_event)
+
     return{
         "status":"success",
         "metric_id": str(metric.id),
-        "validated_as": metric_type,
-        "data":metric
+        "alert_triggered": alert_event is not None
     }
 # --- AUTH ROUTES ---
 
