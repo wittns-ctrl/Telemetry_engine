@@ -25,7 +25,7 @@ class CPUTelemetryPayload(BaseTelemetryPayload):
 
 class NetworkTelemetryPayload(BaseTelemetryPayload):
     metric_type: Literal["network"]
-    value: PositiveFloat = Field(...,ldescription="Throughput in MB/s")
+    value: PositiveFloat = Field(..., description="Throughput in MB/s")
     bytes_sent: int = Field(..., ge=0)
     bytes_recv: int = Field(..., ge=0)
 

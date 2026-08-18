@@ -20,16 +20,28 @@
         };
 
         websocket.onmessage = function (event) {
-            const alert = JSON.parse(event.data);
+            try {
+                const data = JSON.parse(event.data);
+                if (data.severity && data.message) {
+                    const alertBox = document.createElement("div");
+                    alertBox.style.padding = "12px";
+                    alertBox.style.marginBottom = "8px";
+                    alertBox.style.borderRadius = "6px";
+                    alertBox.style.backgroundColor = data.severity === "CRITICAL" ? "#fee2e2" : "#fef3c7";
+                    alertBox.style.border = data.severity === "CRITICAL" ? "1px solid #ef4444" : "1px solid #f59e0b";
+                    alertBox.style.color = "#1f2937";
 
-            const alertBox = document.createElement("div");
+                    alertBox.innerHTML = `
+                        <h3 style="margin: 0 0 4px 0; color: #b91c1c;">🚨 ${data.severity} - ${data.sensor_id || 'Alert'}</h3>
+                        <p style="margin: 0; font-size: 14px;">${data.message}</p>
+                        <small style="color: #6b7280;">Value: ${data.current_value}${data.unit} | Max Limit: ${data.threshold_max}${data.unit}</small>
+                    `;
 
-            alertBox.innerHTML = `
-                <h2>🚨 ${alert.severity}</h2>
-                <p>${alert.message}</p>
-            `;
-
-            document.getElementById("alerts").prepend(alertBox);
+                    document.getElementById("alerts").prepend(alertBox);
+                }
+            } catch (err) {
+                console.error("Error processing websocket message", err);
+            }
         };
 
         websocket.onclose = function () {
