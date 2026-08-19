@@ -4,7 +4,7 @@ import {
   CheckSquare,
   Calendar,
   BarChart3,
-  Users,
+  Server,
   Settings,
   HelpCircle,
   LogOut,
@@ -16,7 +16,7 @@ export function Sidebar({ activeNav, setActiveNav, alertsCount = 12 }) {
     { id: "tasks", label: "Tasks", icon: CheckSquare, badge: `${alertsCount}+` },
     { id: "live", label: "Calendar", icon: Calendar },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "team", label: "Team", icon: Users },
+    { id: "team", label: "Sensors", icon: Server },
   ];
 
   const generalItems = [
