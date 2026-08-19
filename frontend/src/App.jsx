@@ -8,6 +8,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { TeamView } from './components/TeamView';
 import { SettingsView } from './components/SettingsView';
 import { AuthModal } from './components/AuthModal';
+import { LayoutGrid, CheckSquare, Calendar, BarChart3, Server, Settings, HelpCircle } from 'lucide-react';
 
 import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
 import { fetchStats, fetchThresholds, fetchCurrentUser, ingestMetric } from './services/api';
@@ -123,6 +124,19 @@ function App() {
     setIsSimulating((prev) => !prev);
   };
 
+  // Define menu items for lookup
+  const menuItems = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
+    { id: "tasks", label: "Tasks", icon: CheckSquare },
+    { id: "live", label: "Calendar", icon: Calendar },
+    { id: "analytics", label: "Analytics", icon: BarChart3 },
+    { id: "team", label: "Sensors", icon: Server },
+    { id: "settings", label: "Settings", icon: Settings },
+    { id: "help", label: "Help", icon: HelpCircle },
+  ];
+
+  const activeItem = menuItems.find(item => item.id === activeNav) || menuItems[0];
+
   return (
     <div className="flex min-h-screen bg-[#f3f5f7] text-slate-900 font-sans">
 
@@ -141,6 +155,7 @@ function App() {
           user={user}
           onOpenAuth={() => setIsAuthOpen(true)}
           alertsCount={alerts.length}
+          activeItem={activeItem}
         />
 
         {/* Dynamic Route View Body */}

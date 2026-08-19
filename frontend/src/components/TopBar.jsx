@@ -1,11 +1,25 @@
 import React from "react";
 import { Search, Mail, Bell, User } from "lucide-react";
 
-export function TopBar({ user, onOpenAuth, alertsCount = 0 }) {
+export function TopBar({ user, onOpenAuth, alertsCount = 0, activeItem }) {
+  const Icon = activeItem?.icon;
+
   return (
     <header className="flex items-center justify-between gap-4 py-4 px-6 font-sans">
+      {/* Active Page Header */}
+      <div className="flex items-center gap-3">
+        {Icon && (
+          <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/80 shadow-2xs flex items-center justify-center text-[#0d3b2e]">
+            <Icon className="w-5 h-5" />
+          </div>
+        )}
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+          {activeItem?.label || "Dashboard"}
+        </h1>
+      </div>
+
       {/* Search Input Box */}
-      <div className="relative flex items-center w-80">
+      <div className="hidden md:flex relative items-center w-80">
         <Search className="w-4 h-4 text-slate-400 absolute left-4" />
         <input
           type="text"
@@ -44,15 +58,16 @@ export function TopBar({ user, onOpenAuth, alertsCount = 0 }) {
           onClick={onOpenAuth}
           className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-full pl-1.5 pr-4 py-1 shadow-2xs cursor-pointer hover:bg-slate-50 transition-colors"
         >
-          <div className="w-8 h-8 rounded-full bg-amber-100 border border-amber-200 text-amber-800 font-extrabold text-xs flex items-center justify-center overflow-hidden">
-            <User className="w-4 h-4 text-amber-800" />
+          <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-slate-100">
+            <img 
+              src={user?.profileImage || "https://ui-avatars.com/api/?name=Roland+Donald&background=f1f5f9&color=0f172a&size=150"} 
+              alt="Profile" 
+              className="w-full h-full object-cover"
+            />
           </div>
           <div className="text-left">
-            <div className="text-xs font-extrabold text-slate-900 leading-tight">
-              {user?.email?.split("@")[0] || "Totok Michael"}
-            </div>
-            <div className="text-[10px] text-slate-400 leading-tight">
-              {user?.email || "tmichael20@gmail.com"}
+            <div className="text-sm font-bold text-slate-900 leading-tight">
+              {user?.firstName || user?.email?.split("@")[0].split(".")[0] || "Roland"}
             </div>
           </div>
         </div>
