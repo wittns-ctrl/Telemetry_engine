@@ -8,8 +8,6 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  Download,
-  Zap,
 } from "lucide-react";
 
 export function Sidebar({ activeNav, setActiveNav, alertsCount = 12 }) {
@@ -118,27 +116,6 @@ export function Sidebar({ activeNav, setActiveNav, alertsCount = 12 }) {
             <span>Logout</span>
           </button>
         </nav>
-      </div>
-
-      {/* Download Mobile App Dark Emerald Card */}
-      <div className="bg-gradient-to-br from-[#073327] to-[#0d4f3b] text-white rounded-2xl p-4 relative overflow-hidden shadow-xs">
-        <div className="absolute top-2 right-2 w-12 h-12 bg-emerald-500/10 rounded-full blur-xl"></div>
-        <div className="w-6 h-6 rounded-full bg-emerald-800/80 flex items-center justify-center text-emerald-300 text-[10px] font-bold mb-2">
-          <Zap className="w-3.5 h-3.5 text-emerald-300" />
-        </div>
-        <h4 className="text-xs font-extrabold leading-snug">
-          Download our Mobile App
-        </h4>
-        <p className="text-[10px] text-emerald-200/70 mt-0.5 mb-3">
-          Get easy in another way
-        </p>
-        <button
-          type="button"
-          className="w-full bg-[#10684f] hover:bg-[#137d61] text-white text-[11px] font-bold py-1.5 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-        >
-          <Download className="w-3 h-3" />
-          <span>Download</span>
-        </button>
       </div>
     </aside>
   );
