@@ -10,7 +10,7 @@ import {
   LogOut,
 } from "lucide-react";
 
-export function Sidebar({ activeNav, setActiveNav, alertsCount = 12 }) {
+export function Sidebar({ activeNav, setActiveNav, onLogout, alertsCount = 12 }) {
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
     { id: "tasks", label: "Tasks", icon: CheckSquare, badge: `${alertsCount}+` },
@@ -109,7 +109,7 @@ export function Sidebar({ activeNav, setActiveNav, alertsCount = 12 }) {
 
           <button
             type="button"
-            onClick={() => setActiveNav("logout")}
+            onClick={onLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-xs font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all"
           >
             <LogOut className="w-4 h-4 text-slate-400" />

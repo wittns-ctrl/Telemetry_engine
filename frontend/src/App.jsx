@@ -8,6 +8,7 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { TeamView } from './components/TeamView';
 import { SettingsView } from './components/SettingsView';
 import { AuthModal } from './components/AuthModal';
+import { LogoutModal } from './components/LogoutModal';
 import { LayoutGrid, CheckSquare, Calendar, BarChart3, Server, Settings, HelpCircle } from 'lucide-react';
 
 import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
@@ -16,6 +17,7 @@ import { fetchStats, fetchThresholds, fetchCurrentUser, ingestMetric } from './s
 function App() {
   const [user, setUser] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const [stats, setStats] = useState(null);
   const [thresholds, setThresholds] = useState({
@@ -135,6 +137,9 @@ function App() {
     { id: "help", label: "Help", icon: HelpCircle },
   ];
 
+  // Profile Image State
+  const [profileImage, setProfileImage] = useState("https://ui-avatars.com/api/?name=Roland+Donald&background=f1f5f9&color=0f172a&size=150");
+
   const activeItem = menuItems.find(item => item.id === activeNav) || menuItems[0];
 
   return (
@@ -144,6 +149,7 @@ function App() {
       <Sidebar
         activeNav={activeNav}
         setActiveNav={setActiveNav}
+        onLogout={() => setIsLogoutModalOpen(true)}
         alertsCount={alerts.length || 12}
       />
 
@@ -156,6 +162,7 @@ function App() {
           onOpenAuth={() => setIsAuthOpen(true)}
           alertsCount={alerts.length}
           activeItem={activeItem}
+          profileImage={profileImage}
         />
 
         {/* Dynamic Route View Body */}
@@ -210,6 +217,8 @@ function App() {
                 }));
               }}
               onOpenAuth={() => setIsAuthOpen(true)}
+              profileImage={profileImage}
+              setProfileImage={setProfileImage}
             />
           )}
 
@@ -222,6 +231,15 @@ function App() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onAuthSuccess={loadInitialData}
+      />
+
+      <LogoutModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={() => {
+          setIsLogoutModalOpen(false);
+          setUser(null);
+        }}
       />
 
     </div>

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { User, Lock, Check, ChevronDown, Calendar, Edit2, KeyRound } from "lucide-react";
 
-export function SettingsView({ thresholds, onUpdateThresholds, onOpenAuth }) {
+export function SettingsView({ thresholds, onUpdateThresholds, onOpenAuth, profileImage, setProfileImage }) {
   const [activeTab, setActiveTab] = useState('personal'); // 'personal' or 'security'
 
   // Mock User Data
@@ -27,9 +27,6 @@ export function SettingsView({ thresholds, onUpdateThresholds, onOpenAuth }) {
     const { name, value } = e.target;
     setUser(prev => ({ ...prev, [name]: value }));
   };
-
-  // Profile Image State
-  const [profileImage, setProfileImage] = useState("https://ui-avatars.com/api/?name=Roland+Donald&background=f1f5f9&color=0f172a&size=150");
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
