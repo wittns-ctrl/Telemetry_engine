@@ -7,7 +7,7 @@ import { LiveStreamView } from './components/LiveStreamView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { TeamView } from './components/TeamView';
 import { SettingsView } from './components/SettingsView';
-import { AuthModal } from './components/AuthModal';
+import { AuthPage } from './components/AuthPage';
 import { LogoutModal } from './components/LogoutModal';
 import { LayoutGrid, CheckSquare, Calendar, BarChart3, Server, Settings, HelpCircle } from 'lucide-react';
 
@@ -16,7 +16,7 @@ import { fetchStats, fetchThresholds, fetchCurrentUser, ingestMetric } from './s
 
 function App() {
   const [user, setUser] = useState(null);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const [stats, setStats] = useState(null);
@@ -142,6 +142,18 @@ function App() {
 
   const activeItem = menuItems.find(item => item.id === activeNav) || menuItems[0];
 
+  // Show full-page auth if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <AuthPage
+        onAuthSuccess={() => {
+          setIsAuthenticated(true);
+          loadInitialData();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-[#f3f5f7] text-slate-900 font-sans">
 
@@ -159,7 +171,7 @@ function App() {
         {/* Donezo Top Search & Profile Bar */}
         <TopBar
           user={user}
-          onOpenAuth={() => setIsAuthOpen(true)}
+          onOpenAuth={() => {}}
           alertsCount={alerts.length}
           activeItem={activeItem}
           profileImage={profileImage}
@@ -226,19 +238,13 @@ function App() {
 
       </div>
 
-      {/* Authentication Modal */}
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onAuthSuccess={loadInitialData}
-      />
-
       <LogoutModal
         isOpen={isLogoutModalOpen}
         onClose={() => setIsLogoutModalOpen(false)}
         onConfirm={() => {
           setIsLogoutModalOpen(false);
           setUser(null);
+          setIsAuthenticated(false);
         }}
       />
 
