@@ -1,430 +1,222 @@
 import React, { useState } from "react";
-import {
-  User,
-  SlidersHorizontal,
-  Bell,
-  Key,
-  Pencil,
-  Thermometer,
-  Cpu,
-  Radio,
-  Save,
-  Eye,
-  EyeOff,
-  Copy,
-  Check,
-  FileText,
-} from "lucide-react";
+import { User, Lock, LogOut, Check, ChevronDown, Calendar, Edit2 } from "lucide-react";
 
 export function SettingsView({ thresholds, onUpdateThresholds, onOpenAuth }) {
-  // Threshold state
-  const [tempMax, setTempMax] = useState(thresholds?.temperature?.max || 100);
-  const [cpuMax, setCpuMax] = useState(thresholds?.cpu?.max || 90);
-  const [netMax, setNetMax] = useState(thresholds?.network?.max || 1000);
-  const [thresholdSaved, setThresholdSaved] = useState(false);
+  // Mock User Data
+  const [user, setUser] = useState({
+    firstName: "Roland",
+    lastName: "Donald",
+    email: "rolandDonald@mail.com",
+    address: "3605 Parker Rd.",
+    phone: "(405) 555-0128",
+    dob: "1 Feb, 1995",
+    location: "Atlanta, USA",
+    postalCode: "30301",
+    gender: "Male"
+  });
 
-  // Notification state
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [webhookAlerts, setWebhookAlerts] = useState(true);
-  const [emailAddress, setEmailAddress] = useState("mugisha@example.com");
-  const [webhookUrl, setWebhookUrl] = useState("https://httpbin.org/post");
-  const [notificationSaved, setNotificationSaved] = useState(false);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setUser(prev => ({ ...prev, [name]: value }));
+  };
 
-  // Token state
-  const [showToken, setShowToken] = useState(false);
-  const [copiedToken, setCopiedToken] = useState(false);
-  const [rawToken, setRawToken] = useState(
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI2NmI1YTlk...",
-  );
-
-  const handleSaveThresholds = (e) => {
+  const handleSave = (e) => {
     e.preventDefault();
-    if (onUpdateThresholds) {
-      onUpdateThresholds({
-        temperature: { max: Number(tempMax) },
-        cpu: { max: Number(cpuMax) },
-        network: { max: Number(netMax) },
-      });
-    }
-    setThresholdSaved(true);
-    setTimeout(() => setThresholdSaved(false), 2000);
+    // Simulate save
   };
 
-  const handleSaveNotifications = (e) => {
-    e.preventDefault();
-    setNotificationSaved(true);
-    setTimeout(() => setNotificationSaved(false), 2000);
-  };
-
-  const handleCopyToken = () => {
-    navigator.clipboard.writeText(rawToken);
-    setCopiedToken(true);
-    setTimeout(() => setCopiedToken(false), 2000);
-  };
-
-  const handleRegenerateToken = () => {
-    const newToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.sub_${Math.random().toString(36).substring(2, 10)}`;
-    setRawToken(newToken);
-    localStorage.setItem("telemetry_jwt_token", newToken);
+  const handleDiscard = () => {
+    // Simulate discard (reset state)
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-      {/* Page Title & Breadcrumb */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div>
-          <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-            WORKSPACE / SETTINGS
+    <div className="max-w-6xl mx-auto h-full p-4 flex gap-6">
+      {/* LEFT COLUMN: Profile Sidebar */}
+      <div className="w-[300px] shrink-0 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center p-8">
+        <div className="relative mb-4">
+          <div className="w-32 h-32 rounded-full overflow-hidden bg-slate-200 border-4 border-white shadow-sm">
+            {/* Placeholder for avatar image */}
+            <img 
+              src="https://ui-avatars.com/api/?name=Roland+Donald&background=f1f5f9&color=0f172a&size=150" 
+              alt="Profile avatar" 
+              className="w-full h-full object-cover"
+            />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1">
-            Settings & Configuration
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Manage your account, thresholds, and notification channels.
-          </p>
+          <button className="absolute bottom-1 right-1 bg-[#0d3b2e] text-white p-2 rounded-full shadow-md hover:bg-emerald-800 transition-colors cursor-pointer border-2 border-white">
+            <Edit2 className="w-4 h-4" />
+          </button>
         </div>
+        
+        <h2 className="text-xl font-bold text-slate-900 mb-1">Roland Donald</h2>
+        <p className="text-slate-500 text-sm font-medium mb-8">Cashier</p>
 
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Changes sync automatically</span>
+        <div className="w-full space-y-2">
+          <button className="w-full flex items-center gap-3 px-5 py-3.5 bg-emerald-50 text-emerald-900 rounded-xl font-semibold transition-colors cursor-pointer text-sm">
+            <User className="w-5 h-5 text-emerald-600" />
+            Personal Information
+          </button>
+          <button className="w-full flex items-center gap-3 px-5 py-3.5 text-slate-500 hover:bg-slate-50 rounded-xl font-medium transition-colors cursor-pointer text-sm">
+            <Lock className="w-5 h-5" />
+            Login & Password
+          </button>
+          <button className="w-full flex items-center gap-3 px-5 py-3.5 text-slate-500 hover:bg-slate-50 rounded-xl font-medium transition-colors cursor-pointer text-sm">
+            <LogOut className="w-5 h-5" />
+            Log Out
+          </button>
         </div>
       </div>
 
-      {/* 2x2 Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* CARD 1: User Profile */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  User Profile
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Your account information
-                </p>
+      {/* RIGHT COLUMN: Personal Information Form */}
+      <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 p-10">
+        <h1 className="text-2xl font-bold text-slate-900 mb-8">Personal Information</h1>
+        
+        <form className="space-y-6" onSubmit={handleSave}>
+          
+          {/* Gender Radios */}
+          <div className="flex items-center gap-6 mb-8 text-sm">
+            <label className="flex items-center gap-2 cursor-pointer text-slate-700 font-medium">
+              <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${user.gender === 'Male' ? 'border-[#0d3b2e]' : 'border-slate-300'}`}>
+                {user.gender === 'Male' && <div className="w-2.5 h-2.5 rounded-full bg-[#0d3b2e]"></div>}
               </div>
-              <User className="w-4 h-4 text-emerald-700" />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-800 font-bold text-lg flex items-center justify-center border border-emerald-200 shadow-2xs">
-                  MB
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-slate-900">
-                      Mugisha B.
-                    </h3>
-                  </div>
-                  <p className="text-xs text-slate-500 font-mono">
-                    mugisha@example.com
-                  </p>
-                </div>
+              <input type="radio" name="gender" value="Male" checked={user.gender === 'Male'} onChange={handleChange} className="hidden" />
+              Male
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer text-slate-700 font-medium">
+              <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${user.gender === 'Female' ? 'border-[#0d3b2e]' : 'border-slate-300'}`}>
+                {user.gender === 'Female' && <div className="w-2.5 h-2.5 rounded-full bg-[#0d3b2e]"></div>}
               </div>
-
-              <span className="bg-emerald-100 text-emerald-700 font-extrabold text-[10px] tracking-wider px-2.5 py-0.5 rounded-md uppercase">
-                ACTIVE
-              </span>
-            </div>
+              <input type="radio" name="gender" value="Female" checked={user.gender === 'Female'} onChange={handleChange} className="hidden" />
+              Female
+            </label>
           </div>
 
-          <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between">
-            <div className="text-[11px] text-slate-400 font-mono">
-              <span className="uppercase text-[10px] block text-slate-400 font-sans">
-                JOINED
-              </span>
-              <span className="font-bold text-slate-700">Aug 9, 2026</span>
+          {/* Form Grid */}
+          <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+            
+            {/* First Name */}
+            <div>
+              <label className="block text-slate-500 text-sm font-medium mb-2">First Name</label>
+              <input 
+                type="text" 
+                name="firstName"
+                value={user.firstName}
+                onChange={handleChange}
+                className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              />
+            </div>
+            
+            {/* Last Name */}
+            <div>
+              <label className="block text-slate-500 text-sm font-medium mb-2">Last Name</label>
+              <input 
+                type="text" 
+                name="lastName"
+                value={user.lastName}
+                onChange={handleChange}
+                className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              />
             </div>
 
-            <button
-              type="button"
-              onClick={onOpenAuth}
-              className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+            {/* Email (Full width) */}
+            <div className="col-span-2 relative">
+              <label className="block text-slate-500 text-sm font-medium mb-2">Email</label>
+              <input 
+                type="email" 
+                name="email"
+                value={user.email}
+                onChange={handleChange}
+                className="w-full bg-slate-50/70 border-none rounded-xl pl-4 pr-24 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              />
+              <div className="absolute right-4 top-[38px] flex items-center gap-1 text-emerald-500 font-medium text-sm">
+                <Check className="w-4 h-4 bg-emerald-500 text-white rounded-full p-0.5" />
+                Verified
+              </div>
+            </div>
+
+            {/* Address (Full width) */}
+            <div className="col-span-2">
+              <label className="block text-slate-500 text-sm font-medium mb-2">Address</label>
+              <input 
+                type="text" 
+                name="address"
+                value={user.address}
+                onChange={handleChange}
+                className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              />
+            </div>
+
+            {/* Phone Number */}
+            <div>
+              <label className="block text-slate-500 text-sm font-medium mb-2">Phone Number</label>
+              <input 
+                type="text" 
+                name="phone"
+                value={user.phone}
+                onChange={handleChange}
+                className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              />
+            </div>
+
+            {/* Date of Birth */}
+            <div className="relative">
+              <label className="block text-slate-500 text-sm font-medium mb-2">Date of Birth</label>
+              <input 
+                type="text" 
+                name="dob"
+                value={user.dob}
+                onChange={handleChange}
+                className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all pr-10"
+              />
+              <Calendar className="w-5 h-5 text-slate-400 absolute right-4 top-[38px] pointer-events-none" />
+            </div>
+
+            {/* Location */}
+            <div className="relative">
+              <label className="block text-slate-500 text-sm font-medium mb-2">Location</label>
+              <input 
+                type="text" 
+                name="location"
+                value={user.location}
+                onChange={handleChange}
+                className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all pr-10"
+              />
+              <ChevronDown className="w-5 h-5 text-slate-400 absolute right-4 top-[38px] pointer-events-none" />
+            </div>
+
+            {/* Postal Code */}
+            <div>
+              <label className="block text-slate-500 text-sm font-medium mb-2">Postal Code</label>
+              <input 
+                type="text" 
+                name="postalCode"
+                value={user.postalCode}
+                onChange={handleChange}
+                className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+              />
+            </div>
+            
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-4 pt-6">
+            <button 
+              type="button" 
+              onClick={handleDiscard}
+              className="flex-1 py-4 border-2 border-[#0d3b2e] text-[#0d3b2e] rounded-xl font-bold hover:bg-emerald-50 transition-colors cursor-pointer"
             >
-              <Pencil className="w-3.5 h-3.5 text-slate-500" />
-              <span>Edit Profile</span>
+              Discard Changes
+            </button>
+            <button 
+              type="submit" 
+              className="flex-1 py-4 bg-[#0d3b2e] text-white rounded-xl font-bold hover:bg-emerald-900 transition-colors cursor-pointer shadow-md shadow-emerald-900/20"
+            >
+              Save Changes
             </button>
           </div>
-        </div>
-
-        {/* CARD 2: Threshold Configuration */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 flex flex-col justify-between">
-          <form onSubmit={handleSaveThresholds}>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  Threshold Configuration
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Set limits for your sensor alerts
-                </p>
-              </div>
-              <SlidersHorizontal className="w-4 h-4 text-emerald-700" />
-            </div>
-
-            <div className="space-y-3">
-              {/* Row 1: Temp Max */}
-              <div className="flex items-center justify-between bg-slate-50/70 border border-slate-200/80 rounded-xl px-3.5 py-2">
-                <div className="flex items-center gap-2.5">
-                  <Thermometer className="w-4 h-4 text-emerald-700" />
-                  <span className="text-xs font-semibold text-slate-700">
-                    Temperature Max
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={tempMax}
-                    onChange={(e) => setTempMax(e.target.value)}
-                    className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-right font-mono font-bold text-slate-800 outline-none focus:border-emerald-600"
-                  />
-                  <span className="text-xs text-slate-400 font-mono w-6">
-                    °C
-                  </span>
-                </div>
-              </div>
-
-              {/* Row 2: CPU Max */}
-              <div className="flex items-center justify-between bg-slate-50/70 border border-slate-200/80 rounded-xl px-3.5 py-2">
-                <div className="flex items-center gap-2.5">
-                  <Cpu className="w-4 h-4 text-amber-600" />
-                  <span className="text-xs font-semibold text-slate-700">
-                    CPU Max
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={cpuMax}
-                    onChange={(e) => setCpuMax(e.target.value)}
-                    className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-right font-mono font-bold text-slate-800 outline-none focus:border-emerald-600"
-                  />
-                  <span className="text-xs text-slate-400 font-mono w-6">
-                    %
-                  </span>
-                </div>
-              </div>
-
-              {/* Row 3: Network Max */}
-              <div className="flex items-center justify-between bg-slate-50/70 border border-slate-200/80 rounded-xl px-3.5 py-2">
-                <div className="flex items-center gap-2.5">
-                  <Radio className="w-4 h-4 text-cyan-600" />
-                  <span className="text-xs font-semibold text-slate-700">
-                    Network Max
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    value={netMax}
-                    onChange={(e) => setNetMax(e.target.value)}
-                    className="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-right font-mono font-bold text-slate-800 outline-none focus:border-emerald-600"
-                  />
-                  <span className="text-xs text-slate-400 font-mono w-6">
-                    MB/s
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-              <p className="text-[11px] text-slate-400 max-w-[220px]">
-                Alerts are triggered when sensor values exceed these limits.
-              </p>
-
-              <button
-                type="submit"
-                className="bg-[#0d3b2e] hover:bg-[#082920] text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
-              >
-                {thresholdSaved ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-300" />
-                ) : (
-                  <Save className="w-3.5 h-3.5" />
-                )}
-                <span>{thresholdSaved ? "Saved!" : "Save Thresholds"}</span>
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* CARD 3: Notification Settings */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 flex flex-col justify-between">
-          <form onSubmit={handleSaveNotifications}>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  Notification Settings
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Choose how alerts reach your team
-                </p>
-              </div>
-              <Bell className="w-4 h-4 text-emerald-700" />
-            </div>
-
-            <div className="space-y-4">
-              {/* Option 1: Email Alerts */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-800">
-                      Email Alerts
-                    </h3>
-                    <p className="text-[11px] text-slate-400">
-                      Send email when threshold is breached
-                    </p>
-                  </div>
-
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={emailAlerts}
-                      onChange={(e) => setEmailAlerts(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-                  </label>
-                </div>
-
-                <input
-                  type="email"
-                  value={emailAddress}
-                  onChange={(e) => setEmailAddress(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-700 font-mono outline-none focus:bg-white focus:border-emerald-600 transition-all"
-                />
-              </div>
-
-              {/* Option 2: Webhook Alerts */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-800">
-                      Webhook Alerts
-                    </h3>
-                    <p className="text-[11px] text-slate-400">
-                      Post to webhook URL on alert
-                    </p>
-                  </div>
-
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={webhookAlerts}
-                      onChange={(e) => setWebhookAlerts(e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-                  </label>
-                </div>
-
-                <input
-                  type="url"
-                  value={webhookUrl}
-                  onChange={(e) => setWebhookUrl(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-700 font-mono outline-none focus:bg-white focus:border-emerald-600 transition-all"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6 pt-4 border-t border-slate-100 text-right">
-              <button
-                type="submit"
-                className="bg-[#0d3b2e] hover:bg-[#082920] text-white font-bold text-xs px-4 py-2 rounded-lg shadow-xs transition-colors"
-              >
-                {notificationSaved ? "Saved!" : "Save Notification Settings"}
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {/* CARD 4: API Access & Authentication */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">
-                  API Access & Authentication
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Manage programmatic access
-                </p>
-              </div>
-              <Key className="w-4 h-4 text-emerald-700" />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                CURRENT ACCESS TOKEN
-              </label>
-
-              <div className="relative">
-                <input
-                  type={showToken ? "text" : "password"}
-                  readOnly
-                  value={rawToken}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3.5 pr-20 py-2 text-xs text-slate-700 font-mono outline-none"
-                />
-
-                <div className="absolute right-2 top-2 flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowToken(!showToken)}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
-                    title={showToken ? "Hide token" : "Show token"}
-                  >
-                    {showToken ? (
-                      <EyeOff className="w-3.5 h-3.5" />
-                    ) : (
-                      <Eye className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleCopyToken}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
-                    title="Copy token"
-                  >
-                    {copiedToken ? (
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    ) : (
-                      <Copy className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between">
-            <div className="text-xs text-slate-500 font-mono">
-              Token expiry{" "}
-              <strong className="text-slate-800">30 minutes</strong>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleRegenerateToken}
-                className="border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Regenerate Token
-              </button>
-
-              <button
-                type="button"
-                onClick={() => window.open("http://localhost:8000/docs", "_blank")}
-                className="text-slate-600 hover:text-[#0b4d36] text-xs font-semibold flex items-center gap-1 transition-colors px-2 py-1.5 cursor-pointer"
-              >
-                <FileText className="w-3.5 h-3.5 text-slate-500" />
-                <span>View Docs</span>
-              </button>
-            </div>
-          </div>
-        </div>
+          
+        </form>
       </div>
     </div>
   );
 }
+
