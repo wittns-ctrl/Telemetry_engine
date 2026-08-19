@@ -76,17 +76,17 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
   const netMaxThreshold = thresholds?.network?.max || 1000;
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl my-6">
+    <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs my-6 font-sans">
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-ping"></div>
-            <h2 className="text-base font-bold text-white tracking-tight">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></div>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">
               Real-Time Telemetry Streams
             </h2>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5">
+          <p className="text-xs text-slate-500 mt-0.5">
             Live time-series visualization with threshold breach lines
           </p>
         </div>
@@ -94,18 +94,18 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
         {/* Tab & Filter Controls */}
         <div className="flex items-center flex-wrap gap-3">
           {/* Sensor Dropdown */}
-          <div className="flex items-center gap-1.5 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-xs">
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
             <select
               value={selectedSensor}
               onChange={(e) => setSelectedSensor(e.target.value)}
-              className="bg-transparent text-slate-200 outline-none cursor-pointer"
+              className="bg-transparent text-slate-800 outline-none cursor-pointer font-medium"
             >
-              <option value="all" className="bg-slate-900">
+              <option value="all" className="bg-white">
                 All Sensors
               </option>
               {sensorsList.map((s) => (
-                <option key={s} value={s} className="bg-slate-900">
+                <option key={s} value={s} className="bg-white">
                   {s}
                 </option>
               ))}
@@ -113,13 +113,13 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
           </div>
 
           {/* Metric View Tabs */}
-          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <div className="flex items-center bg-slate-50 p-1 rounded-2xl border border-slate-200">
             <button
               onClick={() => setActiveTab("all")}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === "all"
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-[#0b4d36] text-white shadow-2xs"
+                  : "text-slate-500 hover:text-slate-800"
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -127,10 +127,10 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
             </button>
             <button
               onClick={() => setActiveTab("temperature")}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === "temperature"
-                  ? "bg-amber-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-amber-600 text-white shadow-2xs"
+                  : "text-slate-500 hover:text-slate-800"
               }`}
             >
               <Thermometer className="w-3.5 h-3.5" />
@@ -138,10 +138,10 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
             </button>
             <button
               onClick={() => setActiveTab("cpu")}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === "cpu"
-                  ? "bg-cyan-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-cyan-600 text-white shadow-2xs"
+                  : "text-slate-500 hover:text-slate-800"
               }`}
             >
               <Cpu className="w-3.5 h-3.5" />
@@ -149,10 +149,10 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
             </button>
             <button
               onClick={() => setActiveTab("network")}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === "network"
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-emerald-600 text-white shadow-2xs"
+                  : "text-slate-500 hover:text-slate-800"
               }`}
             >
               <Radio className="w-3.5 h-3.5" />
@@ -168,23 +168,23 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
       >
         {/* TEMPERATURE CHART */}
         {(activeTab === "all" || activeTab === "temperature") && (
-          <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Thermometer className="w-4 h-4 text-amber-400" />
-                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                <Thermometer className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                   Temperature (°C)
                 </span>
               </div>
-              <span className="text-[10px] font-mono text-rose-400 bg-rose-950/40 border border-rose-800/50 px-2 py-0.5 rounded">
-                Max Threshold: {tempMaxThreshold}°C
+              <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                Max Limit: {tempMaxThreshold}°C
               </span>
             </div>
             <div className="h-56 w-full">
               {tempChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={tempChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis
                       dataKey="time"
                       stroke="#64748b"
@@ -197,10 +197,11 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "#0f172a",
-                        borderColor: "#334155",
-                        borderRadius: "8px",
+                        backgroundColor: "#ffffff",
+                        borderColor: "#cbd5e1",
+                        borderRadius: "12px",
                         fontSize: "12px",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                       }}
                       formatter={(val) => [`${val}°C`, "Temperature"]}
                     />
@@ -210,7 +211,7 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
                       strokeDasharray="4 4"
                       label={{
                         value: `LIMIT ${tempMaxThreshold}°C`,
-                        fill: "#f87171",
+                        fill: "#ef4444",
                         fontSize: 10,
                         position: "insideTopRight",
                       }}
@@ -227,7 +228,7 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">
+                <div className="h-full flex items-center justify-center text-xs text-slate-400 font-mono">
                   Awaiting temperature stream...
                 </div>
               )}
@@ -237,23 +238,23 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
 
         {/* CPU CHART */}
         {(activeTab === "all" || activeTab === "cpu") && (
-          <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-cyan-400" />
-                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                <Cpu className="w-4 h-4 text-cyan-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                   CPU Usage (%)
                 </span>
               </div>
-              <span className="text-[10px] font-mono text-rose-400 bg-rose-950/40 border border-rose-800/50 px-2 py-0.5 rounded">
-                Max Threshold: {cpuMaxThreshold}%
+              <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                Max Limit: {cpuMaxThreshold}%
               </span>
             </div>
             <div className="h-56 w-full">
               {cpuChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={cpuChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis
                       dataKey="time"
                       stroke="#64748b"
@@ -266,10 +267,11 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "#0f172a",
-                        borderColor: "#334155",
-                        borderRadius: "8px",
+                        backgroundColor: "#ffffff",
+                        borderColor: "#cbd5e1",
+                        borderRadius: "12px",
                         fontSize: "12px",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                       }}
                       formatter={(val) => [`${val}%`, "CPU Load"]}
                     />
@@ -279,7 +281,7 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
                       strokeDasharray="4 4"
                       label={{
                         value: `LIMIT ${cpuMaxThreshold}%`,
-                        fill: "#f87171",
+                        fill: "#ef4444",
                         fontSize: 10,
                         position: "insideTopRight",
                       }}
@@ -296,7 +298,7 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">
+                <div className="h-full flex items-center justify-center text-xs text-slate-400 font-mono">
                   Awaiting CPU stream...
                 </div>
               )}
@@ -306,23 +308,23 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
 
         {/* NETWORK CHART */}
         {(activeTab === "all" || activeTab === "network") && (
-          <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl p-4 flex flex-col justify-between">
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Radio className="w-4 h-4 text-emerald-400" />
-                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                <Radio className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                   Network Throughput (MB/s)
                 </span>
               </div>
-              <span className="text-[10px] font-mono text-rose-400 bg-rose-950/40 border border-rose-800/50 px-2 py-0.5 rounded">
-                Max Threshold: {netMaxThreshold} MB/s
+              <span className="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md">
+                Max Limit: {netMaxThreshold} MB/s
               </span>
             </div>
             <div className="h-56 w-full">
               {netChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={netChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis
                       dataKey="time"
                       stroke="#64748b"
@@ -335,10 +337,11 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: "#0f172a",
-                        borderColor: "#334155",
-                        borderRadius: "8px",
+                        backgroundColor: "#ffffff",
+                        borderColor: "#cbd5e1",
+                        borderRadius: "12px",
                         fontSize: "12px",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                       }}
                       formatter={(val) => [`${val} MB/s`, "Throughput"]}
                     />
@@ -348,7 +351,7 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
                       strokeDasharray="4 4"
                       label={{
                         value: `LIMIT ${netMaxThreshold}MB/s`,
-                        fill: "#f87171",
+                        fill: "#ef4444",
                         fontSize: 10,
                         position: "insideTopRight",
                       }}
@@ -365,7 +368,7 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">
+                <div className="h-full flex items-center justify-center text-xs text-slate-400 font-mono">
                   Awaiting network stream...
                 </div>
               )}

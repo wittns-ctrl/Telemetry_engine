@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
-import { TopHeader } from './components/TopHeader';
+import { TopBar } from './components/TopBar';
+import { DonezoDashboard } from './components/DonezoDashboard';
+import { MetricsStudioView } from './components/MetricsStudioView';
+import { LiveStreamView } from './components/LiveStreamView';
+import { AnalyticsView } from './components/AnalyticsView';
+import { TeamView } from './components/TeamView';
 import { SettingsView } from './components/SettingsView';
-import { DashboardView } from './components/DashboardView';
-import { LiveMonitorView } from './components/LiveMonitorView';
-import { SensorsView } from './components/SensorsView';
-import { AlertsView } from './components/AlertsView';
 import { AuthModal } from './components/AuthModal';
 
 import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
 import { fetchStats, fetchThresholds, fetchCurrentUser, ingestMetric } from './services/api';
 
 function App() {
-  const [_user, setUser] = useState(null);
+  const [user, setUser] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   const [stats, setStats] = useState(null);
@@ -22,8 +23,8 @@ function App() {
     network: { max: 1000 },
   });
 
-  // Sidebar Active Navigation State ('settings' default as shown in image, or switchable)
-  const [activeNav, setActiveNav] = useState('settings');
+  // Navigation state ('dashboard' default as shown in Donezo design)
+  const [activeNav, setActiveNav] = useState('dashboard');
 
   // Automated Simulator State
   const [isSimulating, setIsSimulating] = useState(false);
@@ -123,39 +124,49 @@ function App() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-emerald-500 selection:text-white">
+    <div className="flex min-h-screen bg-[#f3f5f7] text-slate-900 font-sans">
 
-      {/* Dark Emerald Sidebar */}
+      {/* Floating Donezo White Card Sidebar */}
       <Sidebar
         activeNav={activeNav}
         setActiveNav={setActiveNav}
-        alertsCount={alerts.length || 3}
+        alertsCount={alerts.length || 12}
       />
 
-      {/* Main Right Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-slate-50">
+      {/* Main Right Body */}
+      <div className="flex-1 flex flex-col min-w-0 bg-[#f3f5f7] py-2 px-4 md:px-6">
 
-        {/* Top Header */}
-        <TopHeader
-          userName="Mugisha B."
+        {/* Donezo Top Search & Profile Bar */}
+        <TopBar
+          user={user}
+          onOpenAuth={() => setIsAuthOpen(true)}
+          alertsCount={alerts.length}
         />
 
-        {/* View Router Body */}
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+        {/* Dynamic Route View Body */}
+        <main className="flex-1 p-2 md:p-4 overflow-y-auto">
 
           {activeNav === 'dashboard' && (
-            <DashboardView
+            <DonezoDashboard
               stats={stats}
-              alertsCount={alerts.length}
-              liveMetrics={liveMetrics}
-              thresholds={thresholds}
+              alerts={alerts}
+              onIngestClick={() => setActiveNav('tasks')}
+              onSimulateClick={toggleSimulation}
+              onViewAlerts={() => setActiveNav('live')}
             />
           )}
 
-          {activeNav === 'live-monitor' && (
-            <LiveMonitorView
+          {activeNav === 'tasks' && (
+            <MetricsStudioView onRefreshStats={loadInitialData} />
+          )}
+
+          {activeNav === 'live' && (
+            <LiveStreamView
               liveMetrics={liveMetrics}
               thresholds={thresholds}
+              alerts={alerts}
+              clearAlerts={clearAlerts}
+              dismissAlert={dismissAlert}
               isSimulating={isSimulating}
               toggleSimulation={toggleSimulation}
               simInterval={simInterval}
@@ -166,16 +177,12 @@ function App() {
             />
           )}
 
-          {activeNav === 'sensors' && (
-            <SensorsView onRefreshStats={loadInitialData} />
+          {activeNav === 'analytics' && (
+            <AnalyticsView stats={stats} />
           )}
 
-          {activeNav === 'alerts' && (
-            <AlertsView
-              alerts={alerts}
-              clearAlerts={clearAlerts}
-              dismissAlert={dismissAlert}
-            />
+          {activeNav === 'team' && (
+            <TeamView stats={stats} />
           )}
 
           {activeNav === 'settings' && (
@@ -194,7 +201,7 @@ function App() {
 
       </div>
 
-      {/* Auth Modal */}
+      {/* Authentication Modal */}
       <AuthModal
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
