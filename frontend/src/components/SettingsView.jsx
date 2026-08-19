@@ -16,7 +16,7 @@ import {
   FileText,
 } from "lucide-react";
 
-export function SettingsView({ thresholds, onUpdateThresholds }) {
+export function SettingsView({ thresholds, onUpdateThresholds, onOpenAuth }) {
   // Threshold state
   const [tempMax, setTempMax] = useState(thresholds?.temperature?.max || 100);
   const [cpuMax, setCpuMax] = useState(thresholds?.cpu?.max || 90);
@@ -140,7 +140,8 @@ export function SettingsView({ thresholds, onUpdateThresholds }) {
 
             <button
               type="button"
-              className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+              onClick={onOpenAuth}
+              className="border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Pencil className="w-3.5 h-3.5 text-slate-500" />
               <span>Edit Profile</span>
@@ -414,7 +415,8 @@ export function SettingsView({ thresholds, onUpdateThresholds }) {
 
               <button
                 type="button"
-                className="text-slate-600 hover:text-slate-900 text-xs font-semibold flex items-center gap-1 transition-colors px-2 py-1.5"
+                onClick={() => window.open("http://localhost:8000/docs", "_blank")}
+                className="text-slate-600 hover:text-[#0b4d36] text-xs font-semibold flex items-center gap-1 transition-colors px-2 py-1.5 cursor-pointer"
               >
                 <FileText className="w-3.5 h-3.5 text-slate-500" />
                 <span>View Docs</span>

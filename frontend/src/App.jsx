@@ -194,6 +194,7 @@ function App() {
                   ...newLimits,
                 }));
               }}
+              onOpenAuth={() => setIsAuthOpen(true)}
             />
           )}
 
