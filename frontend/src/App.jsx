@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { DonezoDashboard } from './components/DonezoDashboard';
@@ -8,16 +9,18 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { TeamView } from './components/TeamView';
 import { SettingsView } from './components/SettingsView';
 import { AuthPage } from './components/AuthPage';
-import { LogoutModal } from './components/LogoutModal';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import { LayoutGrid, CheckSquare, Calendar, BarChart3, Server, Settings, HelpCircle } from 'lucide-react';
 
 import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
 import { fetchStats, fetchThresholds, fetchCurrentUser, ingestMetric } from './services/api';
 
 function App() {
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
   const [stats, setStats] = useState(null);
   const [thresholds, setThresholds] = useState({
@@ -122,6 +125,16 @@ function App() {
     };
   }, [isSimulating, simInterval, generateSimulatedPayload]);
 
+  const handleSignOut = () => {
+    // Clear authentication
+    localStorage.removeItem("telemetry_jwt_token");
+    setUser(null);
+    setIsAuthenticated(false);
+    
+    // Redirect to sign in page
+    navigate("/signin");
+  };
+
   const toggleSimulation = () => {
     setIsSimulating((prev) => !prev);
   };
@@ -145,12 +158,13 @@ function App() {
   // Show full-page auth if not authenticated
   if (!isAuthenticated) {
     return (
-      <AuthPage
-        onAuthSuccess={() => {
-          setIsAuthenticated(true);
-          loadInitialData();
-        }}
-      />
+      <Routes>
+        <Route path="/signin" element={<AuthPage onAuthSuccess={() => { setIsAuthenticated(true); loadInitialData(); }} />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="*" element={<AuthPage onAuthSuccess={() => { setIsAuthenticated(true); loadInitialData(); }} />} />
+      </Routes>
     );
   }
 
@@ -161,7 +175,7 @@ function App() {
       <Sidebar
         activeNav={activeNav}
         setActiveNav={setActiveNav}
-        onLogout={() => setIsLogoutModalOpen(true)}
+        onLogout={handleSignOut}
         alertsCount={alerts.length || 12}
       />
 
@@ -238,18 +252,16 @@ function App() {
 
       </div>
 
-      <LogoutModal
-        isOpen={isLogoutModalOpen}
-        onClose={() => setIsLogoutModalOpen(false)}
-        onConfirm={() => {
-          setIsLogoutModalOpen(false);
-          setUser(null);
-          setIsAuthenticated(false);
-        }}
-      />
-
     </div>
   );
 }
 
-export default App;
+function AppWrapper() {
+  return (
+    <Router>
+      <App />
+    </Router>
+  );
+}
+
+export default AppWrapper;
