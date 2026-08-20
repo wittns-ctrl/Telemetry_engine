@@ -215,6 +215,7 @@ export function AuthPage({ onAuthSuccess }) {
       <ErrorBanner msg={errorMsg} />
       <form onSubmit={handleSignUp} className="space-y-3">
         <div>
+          <label className="block text-xs font-medium text-slate-700 mb-1.5">Full name</label>
           <div className="relative">
             <User className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input 
@@ -222,12 +223,13 @@ export function AuthPage({ onAuthSuccess }) {
               required 
               value={fullName} 
               onChange={e => setFullName(e.target.value)} 
-              placeholder="Full name"
+              placeholder="Enter your full name"
               className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
             />
           </div>
         </div>
         <div>
+          <label className="block text-xs font-medium text-slate-700 mb-1.5">Email address</label>
           <div className="relative">
             <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input 
@@ -235,12 +237,13 @@ export function AuthPage({ onAuthSuccess }) {
               required 
               value={email} 
               onChange={e => setEmail(e.target.value)} 
-              placeholder="Email address"
+              placeholder="you@company.com"
               className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
             />
           </div>
         </div>
         <div>
+          <label className="block text-xs font-medium text-slate-700 mb-1.5">Password</label>
           <div className="relative">
             <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input 
@@ -248,7 +251,7 @@ export function AuthPage({ onAuthSuccess }) {
               required 
               value={password} 
               onChange={e => setPassword(e.target.value)} 
-              placeholder="Password"
+              placeholder="Create a password"
               className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
             />
             <button 
@@ -262,6 +265,7 @@ export function AuthPage({ onAuthSuccess }) {
           <p className="text-[11px] text-slate-400 mt-1.5">Password must be at least <span className="text-[#003D30] font-semibold">8 characters</span></p>
         </div>
         <div>
+          <label className="block text-xs font-medium text-slate-700 mb-1.5">Confirm password</label>
           <div className="relative">
             <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input 
@@ -269,7 +273,7 @@ export function AuthPage({ onAuthSuccess }) {
               required 
               value={confirmPassword} 
               onChange={e => setConfirmPassword(e.target.value)} 
-              placeholder="Confirm password"
+              placeholder="Confirm your password"
               className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
             />
             <button 
