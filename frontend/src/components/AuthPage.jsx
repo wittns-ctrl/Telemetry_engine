@@ -8,135 +8,268 @@ import {
   CheckCircle2,
   ArrowLeft,
   Check,
+  Activity,
+  BarChart3,
+  Bell,
+  Cpu,
+  Server,
+  Database,
+  Cloud,
 } from "lucide-react";
 import { loginUser, signupUser } from "../services/api";
 
-// ── Shared right decorative panel ─────────────────────────────────────────────
-function RightPanel() {
+// ── Left Brand Panel with Telemetry Illustration ─────────────────────────────
+function BrandPanel() {
   return (
-    <div className="hidden lg:flex flex-col items-center justify-center bg-[#0d3b2e] p-12 relative overflow-hidden flex-1">
-      {/* Background circles */}
+    <div className="hidden lg:flex flex-col bg-[#003D30] relative overflow-hidden w-1/2 rounded-l-3xl">
+      {/* Background decorative elements */}
       <div className="absolute w-96 h-96 rounded-full bg-white/5 -top-20 -right-20" />
       <div className="absolute w-64 h-64 rounded-full bg-white/5 bottom-10 -left-16" />
       <div className="absolute w-40 h-40 rounded-full bg-emerald-400/10 top-1/2 right-8" />
 
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 mb-8 relative z-10">
+      {/* Logo positioned at top-left */}
+      <div className="flex items-center gap-2.5 mt-8 ml-8 relative z-10">
         <div className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
           <div className="w-4 h-4 border-2 border-white rounded-full" />
         </div>
         <span className="font-bold text-white text-lg tracking-tight">Donezo</span>
       </div>
 
-      {/* Heading */}
-      <div className="text-center relative z-10 mb-8">
-        <h2 className="text-white font-bold text-3xl mb-3 leading-tight">
+      {/* Main heading and description */}
+      <div className="mt-12 ml-8 mr-8 relative z-10">
+        <h2 className="text-white font-bold text-[32px] leading-tight mb-4">
           Real-time telemetry.<br />Smarter decisions.
         </h2>
         <p className="text-white/70 text-base leading-relaxed max-w-sm">
-          Monitor, ingest, and analyze your telemetry streams in real time.
+          Monitor, ingest, and analyze your telemetry<br />streams in real time.
         </p>
       </div>
 
-      {/* Illustration with gauge and graph */}
-      <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-3xl p-8 w-full max-w-md mb-8 relative z-10">
-        <div className="grid grid-cols-2 gap-6">
-          {/* Gauge */}
-          <div className="bg-white/5 rounded-2xl p-4 flex flex-col items-center justify-center">
-            <div className="relative w-20 h-20 mb-2">
-              <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36">
+      {/* Telemetry Illustration */}
+      <div className="flex-1 flex items-center justify-center p-8 relative z-10">
+        <TelemetryIllustration />
+      </div>
+
+      {/* Feature highlights at bottom */}
+      <div className="grid grid-cols-3 gap-4 p-8 relative z-10">
+        <FeatureItem 
+          icon={<Activity className="w-5 h-5" />} 
+          title="Real-time Monitoring" 
+          description="Track everything as it happens." 
+        />
+        <FeatureItem 
+          icon={<BarChart3 className="w-5 h-5" />} 
+          title="Powerful Analytics" 
+          description="Visualize and analyze data." 
+        />
+        <FeatureItem 
+          icon={<Bell className="w-5 h-5" />} 
+          title="Instant Alerts" 
+          description="Get notified instantly." 
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Mobile Brand Header (shown on mobile/tablet) ───────────────────────────────
+function MobileBrandHeader() {
+  return (
+    <div className="lg:hidden flex flex-col items-center justify-center bg-[#003D30] p-6 rounded-t-3xl">
+      <div className="flex items-center gap-2.5 mb-4">
+        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+          <div className="w-3.5 h-3.5 border-2 border-white rounded-full" />
+        </div>
+        <span className="font-bold text-white text-base tracking-tight">Donezo</span>
+      </div>
+      <h2 className="text-white font-bold text-xl text-center leading-tight mb-2">
+        Real-time telemetry.<br />Smarter decisions.
+      </h2>
+      <p className="text-white/70 text-sm text-center leading-relaxed">
+        Monitor, ingest, and analyze your telemetry streams in real time.
+      </p>
+    </div>
+  );
+}
+
+// ── Telemetry Illustration Component ────────────────────────────────────────
+function TelemetryIllustration() {
+  return (
+    <div className="relative w-full max-w-lg">
+      {/* Connection lines */}
+      <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 0 }}>
+        {/* Line from left sensor to dashboard */}
+        <line x1="10%" y1="50%" x2="30%" y2="50%" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="4,4" />
+        {/* Line from right device to dashboard */}
+        <line x1="70%" y1="30%" x2="50%" y2="50%" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="4,4" />
+        {/* Line from database to dashboard */}
+        <line x1="15%" y1="75%" x2="35%" y2="60%" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="4,4" />
+        {/* Line from cloud to dashboard */}
+        <line x1="85%" y1="70%" x2="65%" y2="55%" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="4,4" />
+      </svg>
+
+      {/* Left sensor device */}
+      <div className="absolute left-0 top-1/2 -translate-y-1/2" style={{ zIndex: 1 }}>
+        <div className="w-16 h-16 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center">
+          <div className="w-8 h-8 bg-emerald-400/30 rounded-lg flex items-center justify-center">
+            <Cpu className="w-5 h-5 text-emerald-300" />
+          </div>
+        </div>
+      </div>
+
+      {/* Right connected device with WiFi signal */}
+      <div className="absolute right-0 top-[20%]" style={{ zIndex: 1 }}>
+        <div className="relative">
+          {/* WiFi signal lines */}
+          <div className="absolute -top-4 left-1/2 -translate-x-1/2 space-y-1">
+            <div className="w-6 h-1 bg-white/30 rounded" />
+            <div className="w-4 h-1 bg-white/40 rounded ml-1" />
+            <div className="w-2 h-1 bg-white/50 rounded ml-2" />
+          </div>
+          <div className="w-16 h-16 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center">
+            <div className="w-8 h-8 bg-emerald-400/30 rounded-lg flex items-center justify-center">
+              <Server className="w-5 h-5 text-emerald-300" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Database cylinder (lower left) */}
+      <div className="absolute left-[5%] bottom-[15%]" style={{ zIndex: 1 }}>
+        <div className="w-14 h-14 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center">
+          <Database className="w-6 h-6 text-emerald-300" />
+        </div>
+      </div>
+
+      {/* Cloud icon (lower right) */}
+      <div className="absolute right-[5%] bottom-[20%]" style={{ zIndex: 1 }}>
+        <div className="w-14 h-14 bg-white/10 border border-white/20 rounded-2xl flex items-center justify-center">
+          <Cloud className="w-6 h-6 text-emerald-300" />
+        </div>
+      </div>
+
+      {/* Central dashboard panel */}
+      <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-3xl p-6 relative" style={{ zIndex: 2 }}>
+        {/* Dashboard header with indicators */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-400/50" />
+            <div className="w-3 h-3 rounded-full bg-yellow-400/50" />
+            <div className="w-3 h-3 rounded-full bg-green-400/50" />
+          </div>
+          <div className="flex gap-2">
+            <div className="w-6 h-6 rounded bg-white/10 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-white/50" />
+            </div>
+          </div>
+        </div>
+
+        {/* Dashboard content grid */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Left side - data indicators */}
+          <div className="space-y-3">
+            <div className="bg-white/5 rounded-xl p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                <div className="text-white/60 text-xs">Status</div>
+              </div>
+              <div className="text-white font-semibold text-sm">Active</div>
+            </div>
+            <div className="bg-white/5 rounded-xl p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 rounded-full bg-blue-400" />
+                <div className="text-white/60 text-xs">Connections</div>
+              </div>
+              <div className="text-white font-semibold text-sm">247</div>
+            </div>
+          </div>
+
+          {/* Right side - uptime gauge */}
+          <div className="bg-white/5 rounded-xl p-3 flex flex-col items-center justify-center">
+            <div className="relative w-16 h-16 mb-2">
+              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 36 36">
                 <path
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
                   stroke="rgba(255,255,255,0.2)"
-                  strokeWidth="3"
+                  strokeWidth="2.5"
                 />
                 <path
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
                   stroke="#34d399"
-                  strokeWidth="3"
+                  strokeWidth="2.5"
                   strokeDasharray="98.2, 100"
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">98.2%</span>
+                <span className="text-white font-bold text-xs">98.2%</span>
               </div>
             </div>
             <div className="text-white/60 text-xs">Uptime</div>
           </div>
+        </div>
 
-          {/* Graph */}
-          <div className="bg-white/5 rounded-2xl p-4">
-            <div className="flex items-end gap-1.5 h-16">
-              {[30, 45, 35, 60, 50, 75, 65, 85, 55, 95].map((h, i) => (
+        {/* Line chart */}
+        <div className="mt-4 bg-white/5 rounded-xl p-3">
+          <div className="flex items-end gap-1 h-12">
+            {[25, 40, 35, 55, 45, 70, 60, 80, 50, 90, 65, 85].map((h, i) => (
+              <div
+                key={i}
+                className="flex-1 rounded-t-sm transition-all"
+                style={{
+                  height: `${h}%`,
+                  backgroundColor: i === 11 ? "rgba(52,211,153,0.9)" : "rgba(255,255,255,0.15)",
+                }}
+              />
+            ))}
+          </div>
+          <div className="text-white/60 text-xs mt-2 text-center">Telemetry Stream</div>
+        </div>
+
+        {/* Bottom row - bar chart and list */}
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <div className="bg-white/5 rounded-xl p-3">
+            <div className="flex items-end gap-1 h-8">
+              {[40, 60, 35, 80, 55, 70, 45, 90].map((h, i) => (
                 <div
                   key={i}
-                  className="flex-1 rounded-t-sm transition-all"
+                  className="flex-1 rounded-t-sm"
                   style={{
                     height: `${h}%`,
-                    backgroundColor: i === 9 ? "rgba(52,211,153,0.9)" : "rgba(255,255,255,0.2)",
+                    backgroundColor: i === 7 ? "rgba(52,211,153,0.8)" : "rgba(255,255,255,0.15)",
                   }}
                 />
               ))}
             </div>
-            <div className="text-white/60 text-xs mt-2 text-center">Events/s</div>
+            <div className="text-white/60 text-xs mt-1 text-center">Metrics</div>
           </div>
-        </div>
-
-        {/* Stats row */}
-        <div className="flex gap-3 mt-6">
-          <div className="flex-1 bg-white/5 rounded-xl p-3 text-center">
-            <div className="text-emerald-300 font-bold text-lg">4.2k</div>
-            <div className="text-white/60 text-xs">Events/s</div>
-          </div>
-          <div className="flex-1 bg-white/5 rounded-xl p-3 text-center">
-            <div className="text-emerald-300 font-bold text-lg">12ms</div>
-            <div className="text-white/60 text-xs">Latency</div>
-          </div>
-          <div className="flex-1 bg-white/5 rounded-xl p-3 text-center">
-            <div className="text-emerald-300 font-bold text-lg">99.9%</div>
-            <div className="text-white/60 text-xs">Success</div>
+          <div className="bg-white/5 rounded-xl p-3">
+            <div className="space-y-1.5">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <div className="h-1.5 bg-white/20 rounded flex-1" style={{ width: `${60 + i * 10}%` }} />
+                </div>
+              ))}
+            </div>
+            <div className="text-white/60 text-xs mt-1 text-center">Events</div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Feature highlights */}
-      <div className="space-y-4 relative z-10 w-full max-w-md">
-        <div className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl p-4">
-          <div className="w-10 h-10 rounded-xl bg-emerald-400/20 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </div>
-          <div>
-            <div className="text-white font-semibold text-sm">Real-time Monitoring</div>
-            <div className="text-white/60 text-xs">Track metrics as they happen</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl p-4">
-          <div className="w-10 h-10 rounded-xl bg-emerald-400/20 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
-          <div>
-            <div className="text-white font-semibold text-sm">Powerful Analytics</div>
-            <div className="text-white/60 text-xs">Deep insights and trends</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-2xl p-4">
-          <div className="w-10 h-10 rounded-xl bg-emerald-400/20 flex items-center justify-center shrink-0">
-            <svg className="w-5 h-5 text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-          </div>
-          <div>
-            <div className="text-white font-semibold text-sm">Instant Alerts</div>
-            <div className="text-white/60 text-xs">Get notified immediately</div>
-          </div>
-        </div>
+// ── Feature Item Component ───────────────────────────────────────────────────
+function FeatureItem({ icon, title, description }) {
+  return (
+    <div className="flex flex-col items-center text-center">
+      <div className="w-10 h-10 rounded-xl bg-emerald-400/20 flex items-center justify-center mb-2">
+        <div className="text-emerald-300">{icon}</div>
       </div>
+      <div className="text-white font-semibold text-xs mb-1">{title}</div>
+      <div className="text-white/50 text-[10px] leading-tight">{description}</div>
     </div>
   );
 }
@@ -181,15 +314,19 @@ const ErrorBanner = ({ msg }) => msg ? (
   <div className="mb-4 text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">{msg}</div>
 ) : null;
 
-// ── Page wrapper ───────────────────────────────────────────────────────────────
+// ── Page wrapper with centered card layout ────────────────────────────────────
 function PageLayout({ children }) {
   return (
-    <div className="min-h-screen flex font-sans bg-[#f3f5f7]">
-      {/* Left decorative panel */}
-      <RightPanel />
-      {/* Right form column with frosted glass effect */}
-      <div className="flex flex-col justify-center flex-1 max-w-lg px-8 md:px-16 py-12 bg-white/90 backdrop-blur-md min-h-screen">
-        {children}
+    <div className="min-h-screen flex items-center justify-center font-sans bg-[#e8ecef] p-4 md:p-8">
+      <div className="w-full max-w-6xl h-[90vh] md:h-auto min-h-[600px] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row">
+        {/* Mobile brand header */}
+        <MobileBrandHeader />
+        {/* Left brand panel (desktop only) */}
+        <BrandPanel />
+        {/* Right form panel */}
+        <div className="flex-1 bg-white/95 backdrop-blur-sm rounded-r-none lg:rounded-r-3xl flex flex-col justify-center px-6 md:px-12 lg:px-16 py-8 lg:py-12">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -209,6 +346,8 @@ export function AuthPage({ onAuthSuccess }) {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const clearError = () => setErrorMsg(null);
   const navigate = (s) => { clearError(); setScreen(s); };
@@ -233,8 +372,15 @@ export function AuthPage({ onAuthSuccess }) {
 
   const handleSignUp = async (e) => {
     e.preventDefault();
+    
+    // Validation
+    if (!fullName.trim()) return setErrorMsg("Please enter your full name.");
+    if (!email.trim()) return setErrorMsg("Please enter your email address.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setErrorMsg("Please enter a valid email address.");
+    if (!password) return setErrorMsg("Please enter a password.");
+    if (password.length < 8) return setErrorMsg("Password must be at least 8 characters.");
     if (password !== confirmPassword) return setErrorMsg("Passwords do not match.");
-    if (!agreeTerms) return setErrorMsg("Please agree to the Terms of Service.");
+    
     setLoading(true); clearError();
     try {
       await signupUser(email, password);
@@ -244,6 +390,11 @@ export function AuthPage({ onAuthSuccess }) {
     } catch (err) {
       setErrorMsg(err.message || "Could not create account.");
     } finally { setLoading(false); }
+  };
+
+  const handleGoogleSignup = () => {
+    // Placeholder for Google signup
+    setErrorMsg("Google signup is not yet implemented.");
   };
 
   const handleForgotPassword = (e) => {
@@ -309,57 +460,114 @@ export function AuthPage({ onAuthSuccess }) {
   // ─── SIGN UP ────────────────────────────────────────────────────────────────
   if (screen === "signup") return (
     <PageLayout>
-      <Logo />
-      <h1 className="text-3xl font-bold text-slate-900 mb-2">Sign Up</h1>
-      <p className="text-sm text-slate-400 mb-8">Create your account to get started</p>
+      <div className="text-center mb-8">
+        <h1 className="text-[28px] font-bold text-slate-900 mb-2">Sign Up</h1>
+        <p className="text-sm text-slate-500">Create your account to get started</p>
+      </div>
       <ErrorBanner msg={errorMsg} />
       <form onSubmit={handleSignUp} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Full name</label>
           <div className="relative">
-            <User className="w-4 h-4 text-slate-300 absolute left-3.5 top-3.5" />
-            <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="John Doe"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 outline-none focus:border-[#0d3b2e] focus:bg-white transition-all" />
+            <User className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              required 
+              value={fullName} 
+              onChange={e => setFullName(e.target.value)} 
+              placeholder="Full name"
+              className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-4 py-3.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+            />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Email address</label>
           <div className="relative">
-            <Mail className="w-4 h-4 text-slate-300 absolute left-3.5 top-3.5" />
-            <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 outline-none focus:border-[#0d3b2e] focus:bg-white transition-all" />
+            <Mail className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input 
+              type="email" 
+              required 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              placeholder="Email address"
+              className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-4 py-3.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+            />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-          <PasswordInput placeholder="Create a strong password" value={password} onChange={e => setPassword(e.target.value)} name="password" />
-          <p className="text-xs text-slate-400 mt-1.5">Password must be at least 8 characters</p>
+          <div className="relative">
+            <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input 
+              type={showPassword ? "text" : "password"}
+              required 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              placeholder="Password"
+              className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-12 py-3.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          <p className="text-xs text-slate-400 mt-2">Password must be at least <span className="text-[#003D30] font-semibold">8 characters</span></p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Confirm password</label>
-          <PasswordInput placeholder="Confirm your password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} name="confirmPassword" />
-        </div>
-        <label className="flex items-start gap-2 cursor-pointer text-sm text-slate-600" onClick={() => setAgreeTerms(a => !a)}>
-          <div className={`w-4 h-4 rounded border flex items-center justify-center mt-0.5 shrink-0 transition-colors ${agreeTerms ? "bg-[#0d3b2e] border-[#0d3b2e]" : "border-slate-300 bg-white"}`}>
-            {agreeTerms && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
+          <div className="relative">
+            <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input 
+              type={showConfirmPassword ? "text" : "password"}
+              required 
+              value={confirmPassword} 
+              onChange={e => setConfirmPassword(e.target.value)} 
+              placeholder="Confirm password"
+              className="w-full bg-white border border-slate-200 rounded-xl pl-12 pr-12 py-3.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+            />
+            <button 
+              type="button" 
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
           </div>
-          <span className="select-none">I agree to the <span className="text-[#0d3b2e] font-semibold">Terms of Service</span> and <span className="text-[#0d3b2e] font-semibold">Privacy Policy</span></span>
-        </label>
-        <button type="submit" disabled={loading}
-          className="w-full py-3.5 rounded-xl bg-[#0d3b2e] text-white font-bold text-sm hover:bg-emerald-900 transition-colors disabled:opacity-60 shadow-lg shadow-emerald-900/20">
+        </div>
+        <button 
+          type="submit" 
+          disabled={loading}
+          className="w-full py-3.5 rounded-xl bg-[#003D30] text-white font-bold text-sm hover:bg-[#004d3f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-[#003D30]/20 active:scale-[0.98]"
+        >
           {loading ? "Creating account..." : "Create Account"}
         </button>
       </form>
-      <div className="flex items-center gap-3 my-5">
-        <div className="flex-1 h-px bg-slate-100" /><span className="text-xs text-slate-400">or</span><div className="flex-1 h-px bg-slate-100" />
+      <div className="flex items-center gap-3 my-6">
+        <div className="flex-1 h-px bg-slate-200" />
+        <span className="text-xs text-slate-400">or</span>
+        <div className="flex-1 h-px bg-slate-200" />
       </div>
-      <button type="button" className="w-full py-3.5 rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors bg-white">
-        <img src="https://www.google.com/favicon.ico" alt="" className="w-4 h-4" />
+      <button 
+        type="button" 
+        onClick={handleGoogleSignup}
+        className="w-full py-3.5 rounded-xl border border-slate-200 flex items-center justify-center gap-3 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors bg-white"
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
         Sign up with Google
       </button>
       <p className="text-center text-sm text-slate-500 mt-6">
         Already have an account?{" "}
-        <button type="button" onClick={() => navigate("signin")} className="text-[#0d3b2e] font-bold hover:underline">Sign in</button>
+        <button 
+          type="button" 
+          onClick={() => navigate("signin")} 
+          className="text-[#003D30] font-semibold hover:underline"
+        >
+          Sign in
+        </button>
       </p>
     </PageLayout>
   );
