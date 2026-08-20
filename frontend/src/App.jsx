@@ -20,7 +20,7 @@ import { fetchStats, fetchThresholds, fetchCurrentUser, ingestMetric } from './s
 function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true); // Always authenticated for development
 
   const [stats, setStats] = useState(null);
   const [thresholds, setThresholds] = useState({
@@ -129,7 +129,7 @@ function App() {
     // Clear authentication
     localStorage.removeItem("telemetry_jwt_token");
     setUser(null);
-    setIsAuthenticated(false);
+    setIsAuthenticated(true); // Keep authenticated for development
     
     // Redirect to sign in page
     navigate("/signin");
@@ -155,106 +155,103 @@ function App() {
 
   const activeItem = menuItems.find(item => item.id === activeNav) || menuItems[0];
 
-  // Show full-page auth if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <Routes>
-        <Route path="/signin" element={<AuthPage onAuthSuccess={() => { setIsAuthenticated(true); loadInitialData(); }} />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="*" element={<AuthPage onAuthSuccess={() => { setIsAuthenticated(true); loadInitialData(); }} />} />
-      </Routes>
-    );
-  }
-
+  // Show full-page auth routes
   return (
-    <div className="flex min-h-screen bg-[#f3f5f7] text-slate-900 font-sans">
+    <Routes>
+      <Route path="/signin" element={<AuthPage onAuthSuccess={() => { loadInitialData(); navigate("/"); }} />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/" element={
+        <div className="flex min-h-screen bg-[#f3f5f7] text-slate-900 font-sans">
+          {/* Floating Donezo White Card Sidebar */}
+          <Sidebar
+            activeNav={activeNav}
+            setActiveNav={setActiveNav}
+            onLogout={handleSignOut}
+            alertsCount={alerts.length || 12}
+          />
 
-      {/* Floating Donezo White Card Sidebar */}
-      <Sidebar
-        activeNav={activeNav}
-        setActiveNav={setActiveNav}
-        onLogout={handleSignOut}
-        alertsCount={alerts.length || 12}
-      />
+          {/* Main Right Body */}
+          <div className="flex-1 flex flex-col min-w-0 bg-[#f3f5f7] py-2 px-4 md:px-6">
 
-      {/* Main Right Body */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#f3f5f7] py-2 px-4 md:px-6">
-
-        {/* Donezo Top Search & Profile Bar */}
-        <TopBar
-          user={user}
-          onOpenAuth={() => {}}
-          alertsCount={alerts.length}
-          activeItem={activeItem}
-          profileImage={profileImage}
-        />
-
-        {/* Dynamic Route View Body */}
-        <main className="flex-1 p-2 md:p-4 overflow-y-auto">
-
-          {activeNav === 'dashboard' && (
-            <DonezoDashboard
-              stats={stats}
-              alerts={alerts}
-              onIngestClick={() => setActiveNav('tasks')}
-              onSimulateClick={toggleSimulation}
-              onViewAlerts={() => setActiveNav('live')}
-            />
-          )}
-
-          {activeNav === 'tasks' && (
-            <MetricsStudioView onRefreshStats={loadInitialData} />
-          )}
-
-          {activeNav === 'live' && (
-            <LiveStreamView
-              liveMetrics={liveMetrics}
-              thresholds={thresholds}
-              alerts={alerts}
-              clearAlerts={clearAlerts}
-              dismissAlert={dismissAlert}
-              isSimulating={isSimulating}
-              toggleSimulation={toggleSimulation}
-              simInterval={simInterval}
-              setSimInterval={setSimInterval}
-              breachRate={breachRate}
-              setBreachRate={setBreachRate}
-              simStats={simStats}
-            />
-          )}
-
-          {activeNav === 'analytics' && (
-            <AnalyticsView stats={stats} />
-          )}
-
-          {activeNav === 'team' && (
-            <TeamView stats={stats} />
-          )}
-
-          {activeNav === 'settings' && (
-            <SettingsView
-              thresholds={thresholds}
-              onUpdateThresholds={(newLimits) => {
-                setThresholds((prev) => ({
-                  ...prev,
-                  ...newLimits,
-                }));
-              }}
-              onOpenAuth={() => setIsAuthOpen(true)}
+            {/* Donezo Top Search & Profile Bar */}
+            <TopBar
+              user={user}
+              onOpenAuth={() => {}}
+              alertsCount={alerts.length}
+              activeItem={activeItem}
               profileImage={profileImage}
-              setProfileImage={setProfileImage}
             />
-          )}
 
-        </main>
+            {/* Dynamic Route View Body */}
+            <main className="flex-1 p-2 md:p-4 overflow-y-auto">
 
-      </div>
+              {activeNav === 'dashboard' && (
+                <DonezoDashboard
+                  stats={stats}
+                  alerts={alerts}
+                  onIngestClick={() => setActiveNav('tasks')}
+                  onSimulateClick={toggleSimulation}
+                  onViewAlerts={() => setActiveNav('live')}
+                />
+              )}
 
-    </div>
+              {activeNav === 'tasks' && (
+                <MetricsStudioView onRefreshStats={loadInitialData} />
+              )}
+
+              {activeNav === 'live' && (
+                <LiveStreamView
+                  liveMetrics={liveMetrics}
+                  thresholds={thresholds}
+                  alerts={alerts}
+                  clearAlerts={clearAlerts}
+                  dismissAlert={dismissAlert}
+                  isSimulating={isSimulating}
+                  toggleSimulation={toggleSimulation}
+                  simInterval={simInterval}
+                  setSimInterval={setSimInterval}
+                  breachRate={breachRate}
+                  setBreachRate={setBreachRate}
+                  simStats={simStats}
+                />
+              )}
+
+              {activeNav === 'analytics' && (
+                <AnalyticsView stats={stats} />
+              )}
+
+              {activeNav === 'team' && (
+                <TeamView stats={stats} />
+              )}
+
+              {activeNav === 'settings' && (
+                <SettingsView
+                  thresholds={thresholds}
+                  onUpdateThresholds={(newLimits) => {
+                    setThresholds((prev) => ({
+                      ...prev,
+                      ...newLimits,
+                    }));
+                  }}
+                  onOpenAuth={() => setIsAuthOpen(true)}
+                  profileImage={profileImage}
+                  setProfileImage={setProfileImage}
+                />
+              )}
+
+            </main>
+
+          </div>
+
+        </div>
+      } />
+      <Route path="*" element={<AuthPage onAuthSuccess={() => { loadInitialData(); navigate("/"); }} />} />
+    </Routes>
   );
 }
+
 
 function AppWrapper() {
   return (

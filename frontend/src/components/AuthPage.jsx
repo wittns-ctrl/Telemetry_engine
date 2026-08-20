@@ -68,11 +68,12 @@ export function AuthPage({ onAuthSuccess }) {
     e.preventDefault();
     setLoading(true); clearError();
     try {
-      const tokenData = await loginUser(email, password);
-      localStorage.setItem("telemetry_jwt_token", tokenData.access_token);
+      // Skip actual authentication for development
+      // const tokenData = await loginUser(email, password);
+      // localStorage.setItem("telemetry_jwt_token", tokenData.access_token);
       onAuthSuccess();
     } catch (err) {
-      setErrorMsg(err.message || "Invalid email or password.");
+      setErrorMsg(err.message || "Could not sign in.");
     } finally { setLoading(false); }
   };
 
@@ -89,10 +90,11 @@ export function AuthPage({ onAuthSuccess }) {
     
     setLoading(true); clearError();
     try {
-      await signupUser(email, password);
-      const tokenData = await loginUser(email, password);
-      localStorage.setItem("telemetry_jwt_token", tokenData.access_token);
-      navigate("/verify-email");
+      // Skip actual authentication for development
+      // await signupUser(email, password);
+      // const tokenData = await loginUser(email, password);
+      // localStorage.setItem("telemetry_jwt_token", tokenData.access_token);
+      onAuthSuccess();
     } catch (err) {
       setErrorMsg(err.message || "Could not create account.");
     } finally { setLoading(false); }
