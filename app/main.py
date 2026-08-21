@@ -13,6 +13,7 @@ from app.models.telemetry import TelemetryPayload
 from app.core.sockets import manager
 from app.services.alerting import evaluate_metric_alert, THRESHOLDS
 from app.services.notifications import send_email_alert, send_webhook_alert
+from app.api.v1 import auth as auth_router
 
 
 @asynccontextmanager
@@ -30,9 +31,9 @@ app = FastAPI(
 # Enable CORS for Frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[settings.FRONTEND_URL],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -196,46 +197,7 @@ async def get_metrics_stats():
 
 
 # --- AUTH ROUTES ---
-
-@app.post("/api/v1/auth/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def signup(user_in: UserCreate):
-    # Check if user exists
-    existing_user = await User.find_one(User.email == user_in.email)
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User with this email already exists."
-        )
-
-    # Save user with hashed password
-    user = User(
-        email=user_in.email,
-        hashed_password=get_password_hash(user_in.password)
-    )
-    await user.insert()
-    return UserResponse(id=str(user.id), email=user.email, is_active=user.is_active)
-
-
-@app.post("/api/v1/auth/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = await User.find_one(User.email == form_data.username)
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": str(user.id)}, expires_delta=access_token_expires
-    )
-    return Token(access_token=access_token, token_type="bearer")
-
-
-@app.get("/api/v1/users/me", response_model=UserResponse)
-async def get_me(current_user: User = Depends(get_current_user)):
-    return UserResponse(id=str(current_user.id), email=current_user.email, is_active=current_user.is_active)
+app.include_router(auth_router.router, prefix="/api/v1")
 
 
 # --- PROTECTED METRICS ROUTE ---

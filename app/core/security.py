@@ -1,10 +1,11 @@
-from datetime import datetime, timedelta , timezone
+from datetime import datetime, timedelta, timezone
 import jwt
+import secrets
+import hashlib
 from pwdlib import PasswordHash
 from app.core.config import settings
 
-# Modern password hasher using Argon2id]
-
+# Modern password hasher using Argon2id
 password_hash = PasswordHash.recommended()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -17,30 +18,65 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
-
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    to_encode.update({
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "type": "access"
+    })
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
 
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm = settings.ALGORITHM)
-    return encoded_jwt  
+def create_refresh_token() -> str:
+    """Generate a cryptographically secure random refresh token."""
+    return secrets.token_urlsafe(32)
+
+def hash_token(token: str) -> str:
+    """Hash a token for secure storage."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+def verify_token_hash(token: str, token_hash: str) -> bool:
+    """Verify a token against its hash."""
+    return hashlib.sha256(token.encode()).hexdigest() == token_hash
+
+def generate_family_id() -> str:
+    """Generate a unique family ID for token rotation tracking."""
+    return secrets.token_urlsafe(16)
 
 def password_reset_token(email: str) -> str:
     expires = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode = {
-        "scope":"password_reset",
-        "sub":{email},
-        "expires":{expires}
-    } 
-    return jwt.encode(to_encode,settings.SECRET_KEY,algorithm=settings.ALGORITHM)
+        "scope": "password_reset",
+        "sub": email,
+        "exp": expires
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 def verify_reset_token(token: str) -> str | None:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY,algorithm=settings.ALGORITHM)
-
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         if payload.get("scope") != "password_reset":
             return None
+        return payload.get("sub")
+    except jwt.InvalidTokenError:
+        return None
 
+def email_verification_token(user_id: str) -> str:
+    expires = datetime.now(timezone.utc) + timedelta(hours=24)
+    to_encode = {
+        "scope": "email_verification",
+        "sub": user_id,
+        "exp": expires
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+def verify_email_token(token: str) -> str | None:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        if payload.get("scope") != "email_verification":
+            return None
         return payload.get("sub")
     except jwt.InvalidTokenError:
         return None
