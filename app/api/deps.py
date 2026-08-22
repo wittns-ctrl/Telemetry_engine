@@ -1,5 +1,6 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, WebSocket, Query
 from fastapi.security import OAuth2PasswordBearer
+from typing import Optional
 import jwt
 from beanie import PydanticObjectId
 from app.core.config import settings
@@ -78,3 +79,87 @@ def require_role(required_role: UserRole):
 def require_admin():
     """Dependency for admin-only endpoints."""
     return require_role(UserRole.ADMIN)
+
+
+async def get_current_user_ws(
+    websocket: WebSocket,
+    token: Optional[str] = Query(None)
+) -> User:
+    """
+    Authenticate WebSocket connections via JWT query parameter.
+    
+    This dependency validates the JWT token provided as a query parameter
+    (e.g., ws://.../ws/telemetry?token=YOUR_JWT) and returns the
+    authenticated user. Invalid or expired tokens result in connection
+    closure with code 1008 (Policy Violation).
+    
+    Args:
+        websocket: The WebSocket connection to authenticate
+        token: The JWT token from query parameters
+        
+    Returns:
+        The authenticated User object
+        
+    Raises:
+        WebSocketDisconnect: If authentication fails (closes connection)
+    """
+    if not token:
+        await websocket.close(code=1008, reason="Missing authentication token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authentication token"
+        )
+    
+    try:
+        # Decode token
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        
+        if user_id is None:
+            await websocket.close(code=1008, reason="Invalid token: missing user_id")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: missing user_id"
+            )
+        
+        if token_type != "access":
+            await websocket.close(code=1008, reason="Invalid token type")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type"
+            )
+        
+        token_data = TokenData(user_id=user_id, token_type=token_type)
+    
+    except jwt.ExpiredSignatureError:
+        await websocket.close(code=1008, reason="Token expired")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired"
+        )
+    except jwt.InvalidTokenError as e:
+        await websocket.close(code=1008, reason="Invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}"
+        )
+    
+    # Query user from MongoDB by PydanticObjectId
+    user = await User.get(PydanticObjectId(token_data.user_id))
+    
+    if user is None:
+        await websocket.close(code=1008, reason="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found"
+        )
+    
+    if not user.is_active:
+        await websocket.close(code=1008, reason="Inactive user")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Inactive user"
+        )
+    
+    return user

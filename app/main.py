@@ -14,6 +14,7 @@ from app.core.sockets import manager
 from app.services.alerting import evaluate_metric_alert, THRESHOLDS
 from app.services.notifications import send_email_alert, send_webhook_alert
 from app.api.v1 import auth as auth_router
+from app.api.v1 import websocket as websocket_router
 
 
 @asynccontextmanager
@@ -198,6 +199,9 @@ async def get_metrics_stats():
 
 # --- AUTH ROUTES ---
 app.include_router(auth_router.router, prefix="/api/v1")
+
+# --- WEBSOCKET ROUTES ---
+app.include_router(websocket_router.router, prefix="/api/v1")
 
 
 # --- PROTECTED METRICS ROUTE ---
