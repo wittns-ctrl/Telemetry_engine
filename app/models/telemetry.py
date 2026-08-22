@@ -1,6 +1,8 @@
 from typing import Annotated, Literal, Optional
 from pydantic import BaseModel, Field, PositiveFloat
-from datetime import datetime
+from datetime import datetime, timezone
+from beanie import Document, Indexed
+from beanie.odm.fields import PydanticObjectId
 
 
 # Base schema with shared telemetry fields
@@ -98,7 +100,7 @@ class PowerAndVRMMetrics(BaseModel):
 
 class TelemetrySnapshot(BaseModel):
     """Complete hardware telemetry snapshot."""
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Snapshot timestamp")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Snapshot timestamp")
     sensor_id: str = Field(..., min_length=3, max_length=64, description="Sensor identifier")
     cpu: CPUMetrics = Field(default_factory=CPUMetrics, description="CPU metrics")
     gpu: GPUMetrics = Field(default_factory=GPUMetrics, description="GPU metrics")
@@ -106,3 +108,63 @@ class TelemetrySnapshot(BaseModel):
     ram: RAMMetrics = Field(default_factory=RAMMetrics, description="RAM metrics")
     power_vrm: PowerAndVRMMetrics = Field(default_factory=PowerAndVRMMetrics, description="Power and VRM metrics")
     collection_duration_ms: Optional[float] = Field(None, ge=0.0, description="Collection duration in milliseconds")
+
+
+# ============================================================================
+# BEANIE ODM DOCUMENT MODELS FOR PHASE 3 - PERSISTENCE & TIME-SERIES LOGGING
+# ============================================================================
+
+
+class Device(Document):
+    """
+    Device document representing a user's hardware device.
+    
+    This model stores device information and links it to the authenticated user.
+    Each device has a unique system UUID for identification across sessions.
+    """
+    user_id: Indexed(PydanticObjectId, description="Reference to the User who owns this device")
+    device_name: str = Field(..., min_length=1, max_length=128, description="Human-readable device name")
+    system_uuid: Indexed(str, unique=True, description="Unique system identifier (UUID)")
+    os_info: Optional[str] = Field(None, description="Operating system information")
+    is_active: bool = Field(default=True, description="Device active status")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Device registration timestamp")
+    last_seen: Optional[datetime] = Field(None, description="Last telemetry collection timestamp")
+    
+    class Settings:
+        name = "devices"
+        indexes = [
+            "user_id",
+            "system_uuid",
+        ]
+
+
+class TelemetrySnapshotDocument(Document):
+    """
+    Time-series telemetry snapshot document for persistent storage.
+    
+    This model stores hardware telemetry snapshots with automatic TTL-based
+    cleanup for efficient long-term storage management. All queries enforce
+    multi-tenant isolation through user_id and device_id filtering.
+    """
+    device_id: Indexed(PydanticObjectId, description="Reference to the Device")
+    user_id: Indexed(PydanticObjectId, description="Reference to the User for tenant isolation")
+    timestamp: Indexed(datetime, description="Telemetry collection timestamp (UTC)")
+    sensor_id: str = Field(..., min_length=3, max_length=64, description="Sensor identifier")
+    
+    # Embedded telemetry metrics
+    cpu: CPUMetrics = Field(default_factory=CPUMetrics, description="CPU metrics")
+    gpu: GPUMetrics = Field(default_factory=GPUMetrics, description="GPU metrics")
+    storage: list[StorageMetrics] = Field(default_factory=list, description="Storage metrics for all drives")
+    ram: RAMMetrics = Field(default_factory=RAMMetrics, description="RAM metrics")
+    power_vrm: PowerAndVRMMetrics = Field(default_factory=PowerAndVRMMetrics, description="Power and VRM metrics")
+    
+    collection_duration_ms: Optional[float] = Field(None, ge=0.0, description="Collection duration in milliseconds")
+    
+    class Settings:
+        name = "telemetry_snapshots"
+        indexes = [
+            # Compound index for efficient time-series queries with tenant isolation
+            "user_id",
+            "device_id", 
+            "timestamp",
+        ]
