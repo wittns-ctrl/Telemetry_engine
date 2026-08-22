@@ -79,9 +79,9 @@ class Settings(BaseSettings):
     ANOMALY_ENGINE_AUTO_RESOLUTION: bool = True
 
     # AI Diagnostic Settings
-    OPENAI_API_KEY: str | None = None
-    OPENAI_MODEL: str = "gpt-4"
-    AI_DIAGNOSTIC_TIMEOUT: float = 30.0  # seconds
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_TIMEOUT_SECONDS: float = 5.0
 
     model_config =  SettingsConfigDict(env_file=".env",extra="ignore")
 

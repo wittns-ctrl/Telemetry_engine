@@ -14,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional, Any
 from beanie import PydanticObjectId
 
-import httpx
+from openai import AsyncOpenAI, APIError, APIConnectionError, RateLimitError
 from app.core.config import settings
 from app.models.alert import AnomalyAlertDocument
 from app.models.telemetry import TelemetrySnapshotDocument
@@ -35,11 +35,20 @@ class AIDiagnosticService:
     
     def __init__(self):
         """Initialize the AI diagnostic service."""
-        self.openai_api_key = getattr(settings, 'OPENAI_API_KEY', None)
-        self.openai_model = getattr(settings, 'OPENAI_MODEL', 'gpt-4')
-        self.api_timeout = 30.0  # seconds
+        self.openai_api_key = settings.OPENAI_API_KEY
+        self.openai_model = settings.OPENAI_MODEL
+        self.api_timeout = settings.OPENAI_TIMEOUT_SECONDS
         
-        logger.info("AIDiagnosticService initialized")
+        # Initialize AsyncOpenAI client if API key is provided
+        self.client = None
+        if self.openai_api_key:
+            self.client = AsyncOpenAI(
+                api_key=self.openai_api_key,
+                timeout=self.api_timeout
+            )
+            logger.info("AIDiagnosticService initialized with OpenAI client")
+        else:
+            logger.info("AIDiagnosticService initialized without OpenAI client (rule-based fallback only)")
     
     async def generate_diagnostic_report(
         self,
@@ -96,8 +105,8 @@ class AIDiagnosticService:
                 limit=20
             )
             
-            # Attempt LLM-based analysis if API key is available
-            if self.openai_api_key:
+            # Attempt LLM-based analysis if client is available
+            if self.client:
                 try:
                     report = await self._generate_llm_diagnostic(
                         alert=alert,
@@ -190,57 +199,52 @@ Device ID: {device_id}
 
 Provide a diagnostic report with root cause analysis, urgency assessment, and step-by-step troubleshooting instructions."""
         
-        # Call OpenAI API
+        # Call OpenAI API using AsyncOpenAI client
         try:
-            async with httpx.AsyncClient(timeout=self.api_timeout) as client:
-                response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.openai_api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": self.openai_model,
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt}
-                        ],
-                        "temperature": 0.7,
-                        "response_format": {"type": "json_object"}
-                    }
+            response = await self.client.chat.completions.create(
+                model=self.openai_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.7,
+                response_format={"type": "json_object"}
+            )
+            
+            # Parse LLM response
+            llm_content = response.choices[0].message.content
+            llm_data = json.loads(llm_content)
+            
+            # Build diagnostic report
+            actionable_steps = [
+                ActionableStep(
+                    step_number=step["step_number"],
+                    instruction=step["instruction"],
+                    category=step["category"],
+                    estimated_time_minutes=step.get("estimated_time_minutes")
                 )
-                
-                response.raise_for_status()
-                result = response.json()
-                
-                # Parse LLM response
-                llm_content = result["choices"][0]["message"]["content"]
-                llm_data = json.loads(llm_content)
-                
-                # Build diagnostic report
-                actionable_steps = [
-                    ActionableStep(
-                        step_number=step["step_number"],
-                        instruction=step["instruction"],
-                        category=step["category"],
-                        estimated_time_minutes=step.get("estimated_time_minutes")
-                    )
-                    for step in llm_data.get("actionable_steps", [])
-                ]
-                
-                return DiagnosticReport(
-                    alert_id=str(alert.id),
-                    device_id=device_id,
-                    generated_at=datetime.now(timezone.utc),
-                    analysis_method="LLM",
-                    root_cause_analysis=llm_data["root_cause_analysis"],
-                    urgency_level=llm_data["urgency_level"],
-                    actionable_steps=actionable_steps,
-                    additional_context=llm_data.get("additional_context")
-                )
+                for step in llm_data.get("actionable_steps", [])
+            ]
+            
+            return DiagnosticReport(
+                alert_id=str(alert.id),
+                device_id=device_id,
+                generated_at=datetime.now(timezone.utc),
+                analysis_method="LLM",
+                root_cause_analysis=llm_data["root_cause_analysis"],
+                urgency_level=llm_data["urgency_level"],
+                actionable_steps=actionable_steps,
+                additional_context=llm_data.get("additional_context")
+            )
         
-        except httpx.HTTPError as e:
-            logger.error(f"OpenAI API HTTP error: {e}")
+        except APIError as e:
+            logger.error(f"OpenAI API error: {e}")
+            raise
+        except APIConnectionError as e:
+            logger.error(f"OpenAI API connection error: {e}")
+            raise
+        except RateLimitError as e:
+            logger.error(f"OpenAI API rate limit error: {e}")
             raise
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response: {e}")
@@ -569,6 +573,53 @@ Provide a diagnostic report with root cause analysis, urgency assessment, and st
         }
         
         return diagnostic_matrix.get(rule_name, default_diagnosis)
+
+
+async def check_openai_connection() -> bool:
+    """
+    Safely ping or validate the OpenAI client initialization on app startup.
+    
+    This function performs a lightweight check to verify that the OpenAI client
+    is properly initialized and can communicate with the API.
+    
+    Returns:
+        bool: True if OpenAI client is available and responsive, False otherwise
+    """
+    if not ai_diagnostic_service.client:
+        logger.warning("OpenAI client not initialized - API key may be missing")
+        return False
+    
+    try:
+        # Perform a minimal API call to verify connectivity
+        # Using a minimal completion request with a simple prompt
+        response = await ai_diagnostic_service.client.chat.completions.create(
+            model=ai_diagnostic_service.openai_model,
+            messages=[
+                {"role": "user", "content": "ping"}
+            ],
+            max_tokens=1,
+            timeout=ai_diagnostic_service.api_timeout
+        )
+        
+        if response and response.choices:
+            logger.info("OpenAI API connection verified successfully")
+            return True
+        else:
+            logger.warning("OpenAI API connection check failed - no response")
+            return False
+    
+    except APIConnectionError as e:
+        logger.error(f"OpenAI API connection check failed - connection error: {e}")
+        return False
+    except RateLimitError as e:
+        logger.error(f"OpenAI API connection check failed - rate limit: {e}")
+        return False
+    except APIError as e:
+        logger.error(f"OpenAI API connection check failed - API error: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"OpenAI API connection check failed - unexpected error: {e}")
+        return False
 
 
 # Global service instance

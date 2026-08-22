@@ -21,12 +21,8 @@ class DeviceResponse(BaseModel):
     
     id: str = Field(..., description="Device ID")
     device_name: str = Field(..., description="Human-readable device name")
-    device_type: str = Field(..., description="Device type (e.g., 'desktop', 'laptop')")
+    system_uuid: str = Field(..., description="Unique system identifier (UUID)")
     os_info: Optional[str] = Field(None, description="Operating system information")
-    cpu_info: Optional[str] = Field(None, description="CPU information")
-    gpu_info: Optional[str] = Field(None, description="GPU information")
-    ram_info: Optional[str] = Field(None, description="RAM information")
-    storage_info: Optional[List[str]] = Field(None, description="Storage information")
     last_seen: Optional[datetime] = Field(None, description="Last telemetry timestamp")
     is_active: bool = Field(True, description="Whether device is actively reporting")
     created_at: datetime = Field(..., description="Device registration timestamp")

@@ -139,12 +139,8 @@ async def get_device(
         return DeviceResponse(
             id=str(device.id),
             device_name=device.device_name,
-            device_type=device.device_type,
+            system_uuid=device.system_uuid,
             os_info=device.os_info,
-            cpu_info=device.cpu_info,
-            gpu_info=device.gpu_info,
-            ram_info=device.ram_info,
-            storage_info=device.storage_info,
             last_seen=device.last_seen,
             is_active=device.is_active,
             created_at=device.created_at
