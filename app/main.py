@@ -15,6 +15,10 @@ from app.services.alerting import evaluate_metric_alert, THRESHOLDS
 from app.services.notifications import send_email_alert, send_webhook_alert
 from app.api.v1 import auth as auth_router
 from app.api.v1 import websocket as websocket_router
+from app.api.v1 import devices as devices_router
+from app.api.v1 import metrics as metrics_router
+from app.api.v1 import alerts as alerts_router
+from app.api.v1 import diagnostics as diagnostics_router
 
 
 @asynccontextmanager
@@ -202,6 +206,18 @@ app.include_router(auth_router.router, prefix="/api/v1")
 
 # --- WEBSOCKET ROUTES ---
 app.include_router(websocket_router.router, prefix="/api/v1")
+
+# --- DEVICES ROUTES ---
+app.include_router(devices_router.router, prefix="/api/v1")
+
+# --- METRICS ROUTES ---
+app.include_router(metrics_router.router, prefix="/api/v1")
+
+# --- ALERTS ROUTES ---
+app.include_router(alerts_router.router, prefix="/api/v1")
+
+# --- DIAGNOSTICS ROUTES ---
+app.include_router(diagnostics_router.router, prefix="/api/v1")
 
 
 # --- PROTECTED METRICS ROUTE ---
