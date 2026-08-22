@@ -8,6 +8,7 @@ from app.models.email_verification import EmailVerification
 from app.models.password_reset import PasswordReset
 from app.models.audit_log import AuditLog
 from app.models.telemetry import Device, TelemetrySnapshotDocument
+from app.models.alert import AnomalyAlertDocument
 
 
 async def init_db():
@@ -23,6 +24,7 @@ async def init_db():
             PasswordReset,
             AuditLog,
             Device,
-            TelemetrySnapshotDocument
+            TelemetrySnapshotDocument,
+            AnomalyAlertDocument
         ]
     )
