@@ -9,6 +9,8 @@ python-jose[cryptography]
 passlib[bcrypt]
 httpx
 openai>=3.0.0
+psutil
+wmi
 pytest
 pytest-asyncio
 mongomock-motor

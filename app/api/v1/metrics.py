@@ -243,9 +243,14 @@ async def get_latest_metrics(
             )
         
         # Query latest telemetry (limit=1, sorted by timestamp descending)
+        # Use a default time range of last 24 hours
+        end_time = datetime.now(timezone.utc)
+        start_time = end_time - timedelta(hours=24)
         snapshots = await StorageService.get_historical_telemetry(
             user_id=user_id,
             device_id=device_id,
+            start_time=start_time,
+            end_time=end_time,
             limit=1
         )
         
@@ -259,60 +264,60 @@ async def get_latest_metrics(
         
         # Convert to response model
         cpu_response = None
-        if snapshot.telemetry and snapshot.telemetry.cpu:
+        if snapshot.cpu:
             cpu_response = CPUMetricsResponse(
-                utilization_percent=snapshot.telemetry.cpu.utilization_percent,
-                core_temperature_c=snapshot.telemetry.cpu.core_temperature_c,
-                package_temperature_c=snapshot.telemetry.cpu.package_temperature_c,
-                clock_speed_mhz=snapshot.telemetry.cpu.clock_speed_mhz,
-                core_count=snapshot.telemetry.cpu.core_count
+                utilization_percent=snapshot.cpu.utilization_percent,
+                core_temperature_c=snapshot.cpu.core_temperature_c,
+                package_temperature_c=snapshot.cpu.package_temperature_c,
+                clock_speed_mhz=snapshot.cpu.clock_speed_ghz * 1000 if snapshot.cpu.clock_speed_ghz else None,
+                core_count=None
             )
         
         gpu_response = None
-        if snapshot.telemetry and snapshot.telemetry.gpu:
+        if snapshot.gpu:
             gpu_response = GPUMetricsResponse(
-                utilization_percent=snapshot.telemetry.gpu.utilization_percent,
-                core_temperature_c=snapshot.telemetry.gpu.core_temperature_c,
-                hotspot_temperature_c=snapshot.telemetry.gpu.hotspot_temperature_c,
-                memory_clock_mhz=snapshot.telemetry.gpu.memory_clock_mhz,
-                core_clock_mhz=snapshot.telemetry.gpu.core_clock_mhz,
-                fan_speed_percent=snapshot.telemetry.gpu.fan_speed_percent,
-                power_draw_watts=snapshot.telemetry.gpu.power_draw_watts
+                utilization_percent=snapshot.gpu.utilization_percent,
+                core_temperature_c=snapshot.gpu.core_temperature_c,
+                hotspot_temperature_c=snapshot.gpu.hotspot_temperature_c,
+                memory_clock_mhz=None,
+                core_clock_mhz=None,
+                fan_speed_percent=snapshot.gpu.fan_speed_percent,
+                power_draw_watts=snapshot.gpu.board_power_w
             )
         
         storage_responses = []
-        if snapshot.telemetry and snapshot.telemetry.storage:
-            for storage in snapshot.telemetry.storage:
+        if snapshot.storage:
+            for storage in snapshot.storage:
                 storage_responses.append(StorageMetricsResponse(
-                    device_id=storage.device_id,
-                    model=storage.model,
-                    serial_number=storage.serial_number,
-                    health_percent=storage.health_percent,
+                    device_id=storage.device_name or "unknown",
+                    model=None,
+                    serial_number=None,
+                    health_percent=storage.smart_health_percent,
                     temperature_c=storage.temperature_c,
-                    used_gb=storage.used_gb,
-                    total_gb=storage.total_gb,
-                    read_speed_mb_s=storage.read_speed_mb_s,
-                    write_speed_mb_s=storage.write_speed_mb_s
+                    used_gb=storage.total_capacity_gb - storage.available_capacity_gb if storage.total_capacity_gb and storage.available_capacity_gb else None,
+                    total_gb=storage.total_capacity_gb,
+                    read_speed_mb_s=None,
+                    write_speed_mb_s=None
                 ))
         
         ram_response = None
-        if snapshot.telemetry and snapshot.telemetry.ram:
+        if snapshot.ram:
             ram_response = RAMMetricsResponse(
-                usage_percent=snapshot.telemetry.ram.usage_percent,
-                used_gb=snapshot.telemetry.ram.used_gb,
-                total_gb=snapshot.telemetry.ram.total_gb,
-                clock_speed_mhz=snapshot.telemetry.ram.clock_speed_mhz
+                usage_percent=snapshot.ram.usage_percent,
+                used_gb=snapshot.ram.used_gb,
+                total_gb=snapshot.ram.total_gb,
+                clock_speed_mhz=None
             )
         
         power_response = None
-        if snapshot.telemetry and snapshot.telemetry.power_vrm:
+        if snapshot.power_vrm:
             power_response = PowerAndVRMMetricsResponse(
-                vrm_temperature_c=snapshot.telemetry.power_vrm.vrm_temperature_c,
-                psu_12v_voltage=snapshot.telemetry.power_vrm.psu_12v_voltage,
-                psu_5v_voltage=snapshot.telemetry.power_vrm.psu_5v_voltage,
-                psu_3v3_voltage=snapshot.telemetry.power_vrm.psu_3v3_voltage,
-                cpu_package_power_w=snapshot.telemetry.power_vrm.cpu_package_power_w,
-                gpu_package_power_w=snapshot.telemetry.power_vrm.gpu_package_power_w
+                vrm_temperature_c=snapshot.power_vrm.vrm_temperature_c,
+                psu_12v_voltage=snapshot.power_vrm.psu_12v_voltage,
+                psu_5v_voltage=None,
+                psu_3v3_voltage=None,
+                cpu_package_power_w=None,
+                gpu_package_power_w=None
             )
         
         return TelemetrySnapshotResponse(

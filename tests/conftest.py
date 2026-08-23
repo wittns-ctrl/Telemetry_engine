@@ -450,7 +450,12 @@ async def synthetic_telemetry_snapshot(
         device_id=test_device.id,
         timestamp=datetime.now(timezone.utc),
         sensor_id=test_device.system_uuid,
-        telemetry=snapshot_data
+        cpu=synthetic_cpu_metrics,
+        gpu=synthetic_gpu_metrics,
+        ram=synthetic_ram_metrics,
+        storage=synthetic_storage_metrics,
+        power_vrm=synthetic_power_vrm_metrics,
+        collection_duration_ms=150.0
     )
     await snapshot.insert()
     yield snapshot

@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from beanie import PydanticObjectId
 
 from app.api.deps import get_current_user
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.telemetry import Device
 from app.services.storage_service import StorageService
 from app.schemas.api import DeviceResponse, DeviceListResponse
@@ -47,8 +47,11 @@ async def list_devices(
     try:
         user_id = str(current_user.id)
         
-        # Get devices for the user
-        devices = await StorageService.get_user_devices(user_id)
+        # Get devices for the user (or all devices if admin)
+        if current_user.role == UserRole.ADMIN:
+            devices = await Device.find_all().to_list()
+        else:
+            devices = await StorageService.get_user_devices(user_id)
         
         # Apply active filter if provided
         if is_active is not None:
@@ -59,12 +62,8 @@ async def list_devices(
             DeviceResponse(
                 id=str(device.id),
                 device_name=device.device_name,
-                device_type=device.device_type,
+                system_uuid=device.system_uuid,
                 os_info=device.os_info,
-                cpu_info=device.cpu_info,
-                gpu_info=device.gpu_info,
-                ram_info=device.ram_info,
-                storage_info=device.storage_info,
                 last_seen=device.last_seen,
                 is_active=device.is_active,
                 created_at=device.created_at
@@ -129,8 +128,8 @@ async def get_device(
                 detail="Device not found"
             )
         
-        # Verify device belongs to user (tenant isolation)
-        if str(device.user_id) != user_id:
+        # Verify device belongs to user (tenant isolation), unless admin
+        if current_user.role != UserRole.ADMIN and str(device.user_id) != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Device does not belong to user"

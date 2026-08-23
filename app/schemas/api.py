@@ -42,8 +42,8 @@ class DeviceListResponse(BaseModel):
 class CPUMetricsResponse(BaseModel):
     """Response model for CPU metrics."""
     
-    utilization_percent: float
-    core_temperature_c: float
+    utilization_percent: Optional[float] = None
+    core_temperature_c: Optional[float] = None
     package_temperature_c: Optional[float] = None
     clock_speed_mhz: Optional[float] = None
     core_count: Optional[int] = None
@@ -52,8 +52,8 @@ class CPUMetricsResponse(BaseModel):
 class GPUMetricsResponse(BaseModel):
     """Response model for GPU metrics."""
     
-    utilization_percent: float
-    core_temperature_c: float
+    utilization_percent: Optional[float] = None
+    core_temperature_c: Optional[float] = None
     hotspot_temperature_c: Optional[float] = None
     memory_clock_mhz: Optional[float] = None
     core_clock_mhz: Optional[float] = None
@@ -78,9 +78,9 @@ class StorageMetricsResponse(BaseModel):
 class RAMMetricsResponse(BaseModel):
     """Response model for RAM metrics."""
     
-    usage_percent: float
-    used_gb: float
-    total_gb: float
+    usage_percent: Optional[float] = None
+    used_gb: Optional[float] = None
+    total_gb: Optional[float] = None
     clock_speed_mhz: Optional[float] = None
 
 

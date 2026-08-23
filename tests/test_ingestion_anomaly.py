@@ -20,6 +20,20 @@ from app.models.alert import AlertSeverity
 from app.core.config import settings
 
 
+def document_to_snapshot(doc):
+    """Convert TelemetrySnapshotDocument to TelemetrySnapshot for anomaly engine."""
+    return TelemetrySnapshot(
+        timestamp=doc.timestamp,
+        sensor_id=doc.sensor_id,
+        cpu=doc.cpu,
+        gpu=doc.gpu,
+        ram=doc.ram,
+        storage=doc.storage,
+        power_vrm=doc.power_vrm,
+        collection_duration_ms=doc.collection_duration_ms
+    )
+
+
 class TestSensorService:
     """Test suite for SensorService hardware snapshot parsing."""
     
@@ -132,12 +146,12 @@ class TestAnomalyEngine:
         engine = AnomalyEngine()
         
         # Modify snapshot to trigger CPU overheating
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 95.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) == 1
@@ -152,12 +166,12 @@ class TestAnomalyEngine:
         engine = AnomalyEngine()
         
         # Modify snapshot to trigger GPU overheating
-        synthetic_telemetry_snapshot.telemetry.gpu.core_temperature_c = 98.0
+        synthetic_telemetry_snapshot.gpu.core_temperature_c = 98.0
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) == 1
@@ -171,12 +185,12 @@ class TestAnomalyEngine:
         engine = AnomalyEngine()
         
         # Modify snapshot to trigger PSU voltage issue
-        synthetic_telemetry_snapshot.telemetry.power_vrm.voltage_12v = 11.2  # Below 11.4V threshold
+        synthetic_telemetry_snapshot.power_vrm.psu_12v_voltage = 11.2  # Below 11.4V threshold
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) == 1
@@ -189,12 +203,12 @@ class TestAnomalyEngine:
         engine = AnomalyEngine()
         
         # Modify snapshot to trigger NVMe health issue
-        synthetic_telemetry_snapshot.telemetry.storage[0].health_percentage = 5.0
+        synthetic_telemetry_snapshot.storage[0].smart_health_percent = 5.0
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) == 1
@@ -207,12 +221,12 @@ class TestAnomalyEngine:
         engine = AnomalyEngine()
         
         # Modify snapshot to trigger VRM overheating
-        synthetic_telemetry_snapshot.telemetry.power_vrm.vrm_temperature_c = 105.0
+        synthetic_telemetry_snapshot.power_vrm.vrm_temperature_c = 105.0
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) == 1
@@ -225,16 +239,16 @@ class TestAnomalyEngine:
         engine = AnomalyEngine()
         
         # Ensure all metrics are within normal ranges
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 65.0
-        synthetic_telemetry_snapshot.telemetry.gpu.core_temperature_c = 70.0
-        synthetic_telemetry_snapshot.telemetry.power_vrm.voltage_12v = 12.1
-        synthetic_telemetry_snapshot.telemetry.storage[0].health_percentage = 98.0
-        synthetic_telemetry_snapshot.telemetry.power_vrm.vrm_temperature_c = 65.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 65.0
+        synthetic_telemetry_snapshot.gpu.core_temperature_c = 70.0
+        synthetic_telemetry_snapshot.power_vrm.psu_12v_voltage = 12.1
+        synthetic_telemetry_snapshot.storage[0].smart_health_percent = 98.0
+        synthetic_telemetry_snapshot.power_vrm.vrm_temperature_c = 65.0
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) == 0
@@ -245,14 +259,14 @@ class TestAnomalyEngine:
         engine = AnomalyEngine()
         
         # Trigger multiple breaches
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 95.0
-        synthetic_telemetry_snapshot.telemetry.gpu.core_temperature_c = 98.0
-        synthetic_telemetry_snapshot.telemetry.power_vrm.vrm_temperature_c = 105.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
+        synthetic_telemetry_snapshot.gpu.core_temperature_c = 98.0
+        synthetic_telemetry_snapshot.power_vrm.vrm_temperature_c = 105.0
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) >= 2  # At least 2 alerts should be triggered
@@ -266,13 +280,13 @@ class TestAnomalyEngine:
         engine.debounce_enabled = True
         
         # Trigger a brief spike
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 95.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
         
         # First evaluation - should not trigger due to debouncing
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         # With debouncing, first spike may not trigger immediately
@@ -280,13 +294,13 @@ class TestAnomalyEngine:
         assert len(alerts) <= 1
         
         # Immediately return to normal
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 65.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 65.0
         
         # Second evaluation - should not trigger
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) == 0
@@ -299,13 +313,13 @@ class TestAnomalyEngine:
         engine.debounce_duration = 0.1  # Short debounce for testing
         
         # Trigger sustained breach
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 95.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
         
         # First evaluation - start the breach
         await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         # Wait for debounce duration
@@ -315,7 +329,7 @@ class TestAnomalyEngine:
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) >= 1
@@ -329,30 +343,30 @@ class TestAnomalyEngine:
         engine.auto_resolution_duration = 0.1  # Short duration for testing
         
         # Trigger an alert
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 95.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
         
         # Wait for debounce and trigger
         await asyncio.sleep(0.15)
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) >= 1
         alert_id = alerts[0].id
         
         # Return to normal
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 65.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 65.0
         
         # Wait for auto-resolution duration
         await asyncio.sleep(0.15)
         
         # Evaluate again - should auto-resolve
-        await engine.evaluate_telemetry(
-            telemetry=synthetic_telemetry_snapshot.telemetry,
-            device_id=test_device.id,
-            user_id=str(test_device.user_id)
+        await engine.evaluate_snapshot(
+            user_id=str(test_device.user_id),
+            device_id=str(test_device.id),
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         # Check if alert was resolved
@@ -367,13 +381,13 @@ class TestAnomalyEngine:
         engine = AnomalyEngine()
         
         # Trigger an alert
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 95.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
         
         await asyncio.sleep(0.15)
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) >= 1
@@ -393,13 +407,13 @@ class TestAnomalyEngine:
         """Test that alert messages are generated correctly."""
         engine = AnomalyEngine()
         
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 95.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
         
         await asyncio.sleep(0.15)
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         assert len(alerts) >= 1
@@ -413,22 +427,22 @@ class TestAnomalyEngine:
         engine = AnomalyEngine()
         
         # Trigger alert on test_device
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 95.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
         
         await asyncio.sleep(0.15)
-        alerts1 = await engine.evaluate_telemetry(
-            telemetry=synthetic_telemetry_snapshot.telemetry,
-            device_id=test_device.id,
-            user_id=str(test_device.user_id)
+        alerts1 = await engine.evaluate_snapshot(
+            user_id=str(test_device.user_id),
+            device_id=str(test_device.id),
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         # Normal metrics on other_device
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 65.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 65.0
         
-        alerts2 = await engine.evaluate_telemetry(
-            telemetry=synthetic_telemetry_snapshot.telemetry,
-            device_id=other_device.id,
-            user_id=str(other_device.user_id)
+        alerts2 = await engine.evaluate_snapshot(
+            user_id=str(other_device.user_id),
+            device_id=str(other_device.id),
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         # test_device should have alerts, other_device should not
@@ -472,12 +486,12 @@ class TestAnomalyEngineEdgeCases:
         engine = AnomalyEngine()
         
         # Set invalid values
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = -50.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = -50.0
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         # Should handle gracefully
@@ -489,13 +503,13 @@ class TestAnomalyEngineEdgeCases:
         engine = AnomalyEngine()
         
         # Set extreme values
-        synthetic_telemetry_snapshot.telemetry.cpu.core_temperature_c = 200.0
-        synthetic_telemetry_snapshot.telemetry.cpu.utilization_percent = 150.0
+        synthetic_telemetry_snapshot.cpu.core_temperature_c = 200.0
+        synthetic_telemetry_snapshot.cpu.utilization_percent = 150.0
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
             device_id=str(test_device.id),
-            snapshot=synthetic_telemetry_snapshot.telemetry
+            snapshot=document_to_snapshot(synthetic_telemetry_snapshot)
         )
         
         # Should handle gracefully
