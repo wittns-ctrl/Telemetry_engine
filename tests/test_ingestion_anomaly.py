@@ -144,6 +144,7 @@ class TestAnomalyEngine:
     async def test_cpu_overheating_critical_trigger(self, test_device, synthetic_telemetry_snapshot):
         """Test that CPU temperature > 90°C triggers a CRITICAL alert."""
         engine = AnomalyEngine()
+        engine.debounce_enabled = False  # Disable debouncing for immediate trigger
         
         # Modify snapshot to trigger CPU overheating
         synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
@@ -164,6 +165,7 @@ class TestAnomalyEngine:
     async def test_gpu_overheating_critical_trigger(self, test_device, synthetic_telemetry_snapshot):
         """Test that GPU temperature > 95°C triggers a CRITICAL alert."""
         engine = AnomalyEngine()
+        engine.debounce_enabled = False  # Disable debouncing for immediate trigger
         
         # Modify snapshot to trigger GPU overheating
         synthetic_telemetry_snapshot.gpu.core_temperature_c = 98.0
@@ -183,6 +185,7 @@ class TestAnomalyEngine:
     async def test_psu_voltage_critical_trigger(self, test_device, synthetic_telemetry_snapshot):
         """Test that PSU voltage outside ±5% tolerance triggers a CRITICAL alert."""
         engine = AnomalyEngine()
+        engine.debounce_enabled = False  # Disable debouncing for immediate trigger
         
         # Modify snapshot to trigger PSU voltage issue
         synthetic_telemetry_snapshot.power_vrm.psu_12v_voltage = 11.2  # Below 11.4V threshold
@@ -201,6 +204,7 @@ class TestAnomalyEngine:
     async def test_nvme_health_critical_trigger(self, test_device, synthetic_telemetry_snapshot):
         """Test that NVMe health < 10% triggers a CRITICAL alert."""
         engine = AnomalyEngine()
+        engine.debounce_enabled = False  # Disable debouncing for immediate trigger
         
         # Modify snapshot to trigger NVMe health issue
         synthetic_telemetry_snapshot.storage[0].smart_health_percent = 5.0
@@ -219,6 +223,7 @@ class TestAnomalyEngine:
     async def test_vrm_temperature_critical_trigger(self, test_device, synthetic_telemetry_snapshot):
         """Test that VRM temperature > 100°C triggers a CRITICAL alert."""
         engine = AnomalyEngine()
+        engine.debounce_enabled = False  # Disable debouncing for immediate trigger
         
         # Modify snapshot to trigger VRM overheating
         synthetic_telemetry_snapshot.power_vrm.vrm_temperature_c = 105.0
@@ -257,6 +262,7 @@ class TestAnomalyEngine:
     async def test_multiple_alerts_for_multiple_breaches(self, test_device, synthetic_telemetry_snapshot):
         """Test that multiple metric breaches trigger multiple alerts."""
         engine = AnomalyEngine()
+        engine.debounce_enabled = False  # Disable debouncing for immediate trigger
         
         # Trigger multiple breaches
         synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
@@ -379,6 +385,7 @@ class TestAnomalyEngine:
     async def test_alert_persistence(self, test_device, synthetic_telemetry_snapshot):
         """Test that alerts are persisted to the database."""
         engine = AnomalyEngine()
+        engine.debounce_enabled = False  # Disable debouncing for immediate trigger
         
         # Trigger an alert
         synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
@@ -406,6 +413,7 @@ class TestAnomalyEngine:
     async def test_alert_message_generation(self, test_device, synthetic_telemetry_snapshot):
         """Test that alert messages are generated correctly."""
         engine = AnomalyEngine()
+        engine.debounce_enabled = False  # Disable debouncing for immediate trigger
         
         synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
         
@@ -425,6 +433,7 @@ class TestAnomalyEngine:
     async def test_state_tracking_per_device(self, test_device, other_device, synthetic_telemetry_snapshot):
         """Test that anomaly state is tracked separately per device."""
         engine = AnomalyEngine()
+        engine.debounce_enabled = False  # Disable debouncing for immediate trigger
         
         # Trigger alert on test_device
         synthetic_telemetry_snapshot.cpu.core_temperature_c = 95.0
