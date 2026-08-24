@@ -124,11 +124,26 @@ class StorageService:
             
         Returns:
             TelemetrySnapshotDocument: The persisted document
+            
+        Raises:
+            ValueError: If device does not belong to user
         """
         try:
             # Convert IDs to PydanticObjectId
             user_oid = PydanticObjectId(user_id)
             device_oid = PydanticObjectId(device_id)
+            
+            # CRITICAL: Validate device ownership before saving (multi-tenant isolation)
+            device = await Device.get(device_oid)
+            if not device:
+                raise ValueError(f"Device {device_id} not found")
+            
+            if str(device.user_id) != user_id:
+                logger.warning(
+                    f"Security violation: User {user_id} attempted to save telemetry "
+                    f"for device {device_id} owned by user {device.user_id}"
+                )
+                raise ValueError(f"Device {device_id} does not belong to user {user_id}")
             
             # Create document from snapshot
             telemetry_doc = TelemetrySnapshotDocument(
