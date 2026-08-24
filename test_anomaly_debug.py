@@ -2,11 +2,15 @@
 Debug script to test AnomalyEngine alert triggering
 """
 import asyncio
+import logging
 from datetime import datetime, timezone
 from beanie import PydanticObjectId
 from app.models.telemetry import TelemetrySnapshot, CPUMetrics
 from app.services.anomaly_engine import AnomalyEngine
 from app.core.anomaly_rules import BASELINE_RULES, evaluate_rule
+
+# Enable debug logging
+logging.basicConfig(level=logging.DEBUG)
 
 async def test_anomaly_engine():
     print("=== AnomalyEngine Debug Test ===\n")
@@ -47,7 +51,8 @@ async def test_anomaly_engine():
         # Test with engine - use valid ObjectIds
         print("\n--- Testing with AnomalyEngine ---")
         engine = AnomalyEngine()
-        engine.debounce_enabled = False
+        engine._debounce_enabled = False  # Use internal attribute
+        engine._auto_resolution = False  # Use internal attribute
         
         # Use valid ObjectId strings
         user_id = str(PydanticObjectId())
@@ -55,6 +60,9 @@ async def test_anomaly_engine():
         
         print(f"Using user_id: {user_id}")
         print(f"Using device_id: {device_id}")
+        print(f"Engine enabled: {engine._enabled}")
+        print(f"Debounce enabled: {engine._debounce_enabled}")
+        print(f"Auto resolution: {engine._auto_resolution}")
         
         alerts = await engine.evaluate_snapshot(
             user_id=user_id,
@@ -62,7 +70,7 @@ async def test_anomaly_engine():
             snapshot=snapshot
         )
         
-        print(f"Alerts returned: {len(alerts)}")
+        print(f"\nAlerts returned: {len(alerts)}")
         if alerts:
             for alert in alerts:
                 print(f"  - {alert.rule_name}: {alert.message}")
