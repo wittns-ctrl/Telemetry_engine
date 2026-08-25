@@ -275,10 +275,11 @@ class TestWebSocketConnectionLifecycle:
         # Disconnect
         await manager.disconnect(mock_ws, user_id="user_001", device_id="device_001")
         
-        # Verify cleanup
-        if not manager._connections["user_001"]:
-            # User entry should be removed if no connections remain
-            pass
+        # Verify cleanup - user entry may be removed after disconnect
+        if "user_001" in manager._connections:
+            if not manager._connections["user_001"]:
+                # User entry should be removed if no connections remain
+                pass
     
     @pytest.mark.asyncio
     async def test_multiple_disconnects_safe(self):

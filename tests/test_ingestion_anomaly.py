@@ -466,17 +466,17 @@ class TestAnomalyEngineEdgeCases:
         """Test handling of missing telemetry data."""
         engine = AnomalyEngine()
         
-        from app.models.telemetry import TelemetrySnapshot
+        from app.models.telemetry import TelemetrySnapshot, CPUMetrics, GPUMetrics, RAMMetrics, PowerAndVRMMetrics
         
-        # Create snapshot with missing data
+        # Create snapshot with default/empty metrics (not None, since fields are required)
         incomplete_snapshot = TelemetrySnapshot(
             timestamp=datetime.now(timezone.utc),
             sensor_id="test_sensor",
-            cpu=None,
-            gpu=None,
-            ram=None,
-            storage=[],
-            power_vrm=None
+            cpu=CPUMetrics(),  # Default values
+            gpu=GPUMetrics(),  # Default values
+            ram=RAMMetrics(),  # Default values
+            storage=[],  # Empty list
+            power_vrm=PowerAndVRMMetrics()  # Default values
         )
         
         alerts = await engine.evaluate_snapshot(
@@ -485,8 +485,8 @@ class TestAnomalyEngineEdgeCases:
             snapshot=incomplete_snapshot
         )
         
-        # Should handle gracefully
-        assert alerts is not None or alerts == []
+        # Should handle missing data gracefully without errors
+        assert len(alerts) == 0
     
     @pytest.mark.asyncio
     async def test_invalid_metric_values(self, test_device, synthetic_telemetry_snapshot):

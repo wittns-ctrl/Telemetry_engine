@@ -11,24 +11,17 @@ Version: 6.0.0
 import pytest
 from datetime import datetime, timezone, timedelta
 from beanie import PydanticObjectId
-from fastapi.testclient import TestClient
+from httpx import AsyncClient, ASGITransport
 
 from app.models.user import User, UserRole
 from app.models.telemetry import Device, TelemetrySnapshot, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument, AlertSeverity
 from app.core.security import get_password_hash, create_access_token
-from app.db.session import init_db
+from app.main import app
 
 
 @pytest.fixture
-async def setup_db():
-    """Initialize database for tests."""
-    await init_db()
-    yield
-
-
-@pytest.fixture
-async def test_user(setup_db):
+async def test_user(mock_mongo_client):
     """Create a test user for API tests."""
     # Clean up any existing test user
     existing_user = await User.find_one(User.email == "api_test@example.com")
@@ -59,16 +52,20 @@ def auth_headers(test_user):
     return {"Authorization": f"Bearer {token}"}
 
 
+@pytest.fixture
+async def async_client():
+    """Create an async HTTP client for testing."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        yield client
+
+
 class TestDevicesEndpoints:
     """Test suite for devices API endpoints."""
     
     @pytest.mark.asyncio
-    async def test_list_devices_empty(self, test_user, auth_headers):
+    async def test_list_devices_empty(self, test_user, auth_headers, async_client):
         """Test listing devices when none exist."""
-        from app.main import app
-        
-        client = TestClient(app)
-        response = client.get("/api/v1/devices", headers=auth_headers)
+        response = await async_client.get("/api/v1/devices", headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -77,9 +74,8 @@ class TestDevicesEndpoints:
         assert data["devices"] == []
     
     @pytest.mark.asyncio
-    async def test_list_devices_with_data(self, test_user, auth_headers):
+    async def test_list_devices_with_data(self, test_user, auth_headers, async_client):
         """Test listing devices with existing devices."""
-        from app.main import app
         import uuid
         
         # Create a test device
@@ -98,8 +94,7 @@ class TestDevicesEndpoints:
         await device.insert()
         
         try:
-            client = TestClient(app)
-            response = client.get("/api/v1/devices", headers=auth_headers)
+            response = await async_client.get("/api/v1/devices", headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -111,9 +106,8 @@ class TestDevicesEndpoints:
             await device.delete()
     
     @pytest.mark.asyncio
-    async def test_get_device_details(self, test_user, auth_headers):
+    async def test_get_device_details(self, test_user, auth_headers, async_client):
         """Test getting device details."""
-        from app.main import app
         import uuid
         
         # Create a test device
@@ -127,8 +121,7 @@ class TestDevicesEndpoints:
         await device.insert()
         
         try:
-            client = TestClient(app)
-            response = client.get(f"/api/v1/devices/{device.id}", headers=auth_headers)
+            response = await async_client.get(f"/api/v1/devices/{device.id}", headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -139,9 +132,8 @@ class TestDevicesEndpoints:
             await device.delete()
     
     @pytest.mark.asyncio
-    async def test_get_device_unauthorized(self, test_user, auth_headers):
+    async def test_get_device_unauthorized(self, test_user, auth_headers, async_client):
         """Test getting device without authentication."""
-        from app.main import app
         import uuid
         
         # Create a test device for another user
@@ -166,8 +158,7 @@ class TestDevicesEndpoints:
         await device.insert()
         
         try:
-            client = TestClient(app)
-            response = client.get(f"/api/v1/devices/{device.id}", headers=auth_headers)
+            response = await async_client.get(f"/api/v1/devices/{device.id}", headers=auth_headers)
             
             assert response.status_code == 403  # Forbidden
         
@@ -180,9 +171,8 @@ class TestMetricsEndpoints:
     """Test suite for metrics API endpoints."""
     
     @pytest.mark.asyncio
-    async def test_get_historical_metrics_empty(self, test_user, auth_headers):
+    async def test_get_historical_metrics_empty(self, test_user, auth_headers, async_client):
         """Test getting historical metrics when none exist."""
-        from app.main import app
         import uuid
         
         # Create a test device
@@ -196,8 +186,7 @@ class TestMetricsEndpoints:
         await device.insert()
         
         try:
-            client = TestClient(app)
-            response = client.get(
+            response = await async_client.get(
                 f"/api/v1/metrics/history?device_id={device.id}",
                 headers=auth_headers
             )
@@ -211,9 +200,8 @@ class TestMetricsEndpoints:
             await device.delete()
     
     @pytest.mark.asyncio
-    async def test_get_metrics_summary(self, test_user, auth_headers):
+    async def test_get_metrics_summary(self, test_user, auth_headers, async_client):
         """Test getting metrics summary."""
-        from app.main import app
         import uuid
         
         # Create a test device
@@ -227,8 +215,7 @@ class TestMetricsEndpoints:
         await device.insert()
         
         try:
-            client = TestClient(app)
-            response = client.get(
+            response = await async_client.get(
                 f"/api/v1/metrics/summary?device_id={device.id}",
                 headers=auth_headers
             )
@@ -246,12 +233,9 @@ class TestAlertsEndpoints:
     """Test suite for alerts API endpoints."""
     
     @pytest.mark.asyncio
-    async def test_list_alerts_empty(self, test_user, auth_headers):
+    async def test_list_alerts_empty(self, test_user, auth_headers, async_client):
         """Test listing alerts when none exist."""
-        from app.main import app
-        
-        client = TestClient(app)
-        response = client.get("/api/v1/alerts", headers=auth_headers)
+        response = await async_client.get("/api/v1/alerts", headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -259,9 +243,8 @@ class TestAlertsEndpoints:
         assert data["total_count"] == 0
     
     @pytest.mark.asyncio
-    async def test_list_alerts_with_data(self, test_user, auth_headers):
+    async def test_list_alerts_with_data(self, test_user, auth_headers, async_client):
         """Test listing alerts with existing alerts."""
-        from app.main import app
         import uuid
         
         # Create a test device
@@ -290,8 +273,7 @@ class TestAlertsEndpoints:
         await alert.insert()
         
         try:
-            client = TestClient(app)
-            response = client.get("/api/v1/alerts", headers=auth_headers)
+            response = await async_client.get("/api/v1/alerts", headers=auth_headers)
             
             assert response.status_code == 200
             data = response.json()
@@ -303,12 +285,9 @@ class TestAlertsEndpoints:
             await device.delete()
     
     @pytest.mark.asyncio
-    async def test_get_alert_statistics(self, test_user, auth_headers):
+    async def test_get_alert_statistics(self, test_user, auth_headers, async_client):
         """Test getting alert statistics."""
-        from app.main import app
-        
-        client = TestClient(app)
-        response = client.get("/api/v1/alerts/statistics", headers=auth_headers)
+        response = await async_client.get("/api/v1/alerts/statistics", headers=auth_headers)
         
         assert response.status_code == 200
         data = response.json()
@@ -321,12 +300,9 @@ class TestDiagnosticsEndpoints:
     """Test suite for diagnostics API endpoints."""
     
     @pytest.mark.asyncio
-    async def test_diagnostic_health_check(self):
+    async def test_diagnostics_health_check(self, test_user, auth_headers, async_client):
         """Test diagnostic service health check."""
-        from app.main import app
-        
-        client = TestClient(app)
-        response = client.get("/api/v1/diagnostics/health")
+        response = await async_client.get("/api/v1/diagnostics/health")
         
         assert response.status_code == 200
         data = response.json()
@@ -336,9 +312,8 @@ class TestDiagnosticsEndpoints:
         assert "rule_based_fallback" in data
     
     @pytest.mark.asyncio
-    async def test_analyze_diagnostic_rule_based(self, test_user, auth_headers):
-        """Test diagnostic analysis with rule-based fallback."""
-        from app.main import app
+    async def test_analyze_diagnostic_rule_based(self, test_user, auth_headers, async_client):
+        """Test rule-based diagnostic analysis."""
         import uuid
         
         # Create a test device
@@ -367,8 +342,7 @@ class TestDiagnosticsEndpoints:
         await alert.insert()
         
         try:
-            client = TestClient(app)
-            response = client.post(
+            response = await async_client.post(
                 "/api/v1/diagnostics/analyze",
                 headers=auth_headers,
                 json={
@@ -395,20 +369,17 @@ class TestAuthentication:
     """Test suite for authentication across endpoints."""
     
     @pytest.mark.asyncio
-    async def test_unauthorized_access(self):
+    async def test_unauthorized_access(self, test_user, auth_headers, async_client):
         """Test that unauthorized access is rejected."""
-        from app.main import app
-        
-        client = TestClient(app)
         
         # Test without authentication
-        response = client.get("/api/v1/devices")
+        response = await async_client.get("/api/v1/devices")
         assert response.status_code == 401
         
-        response = client.get("/api/v1/alerts")
+        response = await async_client.get("/api/v1/alerts")
         assert response.status_code == 401
         
-        response = client.get("/api/v1/metrics/history?device_id=test")
+        response = await async_client.get("/api/v1/metrics/history?device_id=test")
         assert response.status_code == 401
 
 
