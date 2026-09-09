@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-route
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { DonezoDashboard } from './components/DonezoDashboard';
+import { LectioDashboard } from './components/LectioDashboard';
 import { MetricsStudioView } from './components/MetricsStudioView';
 import { LiveStreamView } from './components/LiveStreamView';
 import { AnalyticsView } from './components/AnalyticsView';
@@ -142,6 +143,7 @@ function App() {
   // Define menu items for lookup
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
+    { id: "lectio", label: "Lectio Dashboard", icon: LayoutGrid },
     { id: "tasks", label: "Tasks", icon: CheckSquare },
     { id: "live", label: "Calendar", icon: Calendar },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -195,6 +197,10 @@ function App() {
                   onSimulateClick={toggleSimulation}
                   onViewAlerts={() => setActiveNav('live')}
                 />
+              )}
+
+              {activeNav === 'lectio' && (
+                <LectioDashboard />
               )}
 
               {activeNav === 'tasks' && (
