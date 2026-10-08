@@ -10,7 +10,7 @@ import {
   X,
   Check,
 } from "lucide-react";
-import { loginUser, signupUser } from "../services/api";
+import { loginUser, signupUser, forgotPassword } from "../services/api";
 
 function Logo() {
   return (
@@ -76,10 +76,9 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     e.preventDefault();
     setLoading(true); clearError();
     try {
-      const tokenData = await loginUser(email, password);
-      localStorage.setItem("telemetry_jwt_token", tokenData.access_token);
-      onAuthSuccess();
-      onClose();
+      await loginUser(email, password);
+      onAuthSuccess?.();
+      onClose?.();
     } catch (err) {
       setErrorMsg(err.message || "Invalid email or password.");
     } finally { setLoading(false); }
@@ -87,22 +86,36 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
 
   const handleSignUp = async (e) => {
     e.preventDefault();
+    if (!fullName.trim()) return setErrorMsg("Please enter your full name.");
+    if (password.length < 8) return setErrorMsg("Password must be at least 8 characters.");
     if (password !== confirmPassword) return setErrorMsg("Passwords do not match.");
     if (!agreeTerms) return setErrorMsg("Please agree to the Terms of Service.");
     setLoading(true); clearError();
     try {
-      await signupUser(email, password);
-      const tokenData = await loginUser(email, password);
-      localStorage.setItem("telemetry_jwt_token", tokenData.access_token);
-      navigate("verify");
+      await signupUser({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password,
+        confirmPassword,
+      });
+      await loginUser(email, password);
+      onAuthSuccess?.();
+      onClose?.();
     } catch (err) {
       setErrorMsg(err.message || "Could not create account.");
     } finally { setLoading(false); }
   };
 
-  const handleForgotPassword = (e) => {
+  const handleForgotPassword = async (e) => {
     e.preventDefault();
-    navigate("reset");
+    if (!email.trim()) return setErrorMsg("Please enter your email.");
+    setLoading(true); clearError();
+    try {
+      await forgotPassword(email.trim());
+      navigate("reset");
+    } catch (err) {
+      setErrorMsg(err.message || "Failed to process request.");
+    } finally { setLoading(false); }
   };
 
   const handleResetPassword = (e) => {

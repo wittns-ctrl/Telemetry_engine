@@ -68,12 +68,10 @@ export function AuthPage({ onAuthSuccess }) {
     e.preventDefault();
     setLoading(true); clearError();
     try {
-      // Skip actual authentication for development
-      // const tokenData = await loginUser(email, password);
-      // localStorage.setItem("telemetry_jwt_token", tokenData.access_token);
+      await loginUser(email, password);
       onAuthSuccess();
     } catch (err) {
-      setErrorMsg(err.message || "Could not sign in.");
+      setErrorMsg(err.message || "Could not sign in. Please verify your credentials.");
     } finally { setLoading(false); }
   };
 
@@ -86,14 +84,21 @@ export function AuthPage({ onAuthSuccess }) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setErrorMsg("Please enter a valid email address.");
     if (!password) return setErrorMsg("Please enter a password.");
     if (password.length < 8) return setErrorMsg("Password must be at least 8 characters.");
+    if (!/[A-Z]/.test(password)) return setErrorMsg("Password must contain at least one uppercase letter.");
+    if (!/[a-z]/.test(password)) return setErrorMsg("Password must contain at least one lowercase letter.");
+    if (!/\d/.test(password)) return setErrorMsg("Password must contain at least one digit.");
     if (password !== confirmPassword) return setErrorMsg("Passwords do not match.");
     
     setLoading(true); clearError();
     try {
-      // Skip actual authentication for development
-      // await signupUser(email, password);
-      // const tokenData = await loginUser(email, password);
-      // localStorage.setItem("telemetry_jwt_token", tokenData.access_token);
+      await signupUser({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password,
+        confirmPassword,
+      });
+      // Automatically authenticate on successful registration
+      await loginUser(email, password);
       onAuthSuccess();
     } catch (err) {
       setErrorMsg(err.message || "Could not create account.");

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { AuthPageLayout, ErrorBanner, SuccessBanner } from "../components/AuthLayout";
+import { resetPassword } from "../services/api";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -20,8 +21,12 @@ export default function ResetPassword() {
     e.preventDefault();
     
     // Validation
+    if (!token) return setErrorMsg("Missing or invalid password reset token. Please request a new link.");
     if (!newPassword) return setErrorMsg("Please enter a new password.");
     if (newPassword.length < 8) return setErrorMsg("Password must be at least 8 characters.");
+    if (!/[A-Z]/.test(newPassword)) return setErrorMsg("Password must contain at least one uppercase letter.");
+    if (!/[a-z]/.test(newPassword)) return setErrorMsg("Password must contain at least one lowercase letter.");
+    if (!/\d/.test(newPassword)) return setErrorMsg("Password must contain at least one digit.");
     if (newPassword !== confirmPassword) return setErrorMsg("Passwords do not match.");
     
     setLoading(true);
@@ -29,17 +34,12 @@ export default function ResetPassword() {
     setSuccessMsg(null);
     
     try {
-      // TODO: Replace with actual API call
-      // await resetPassword(token, newPassword);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setSuccessMsg("Your password has been successfully reset. You can now sign in with your new password.");
+      const res = await resetPassword(token, newPassword, confirmPassword);
+      setSuccessMsg(res.message || "Your password has been successfully reset. You can now sign in with your new password.");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
-      setErrorMsg(err.message || "Something went wrong. Please try again.");
+      setErrorMsg(err.message || "Something went wrong. The link may have expired.");
     } finally {
       setLoading(false);
     }

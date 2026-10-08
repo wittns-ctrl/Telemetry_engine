@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, ArrowLeft } from "lucide-react";
 import { AuthPageLayout, ErrorBanner, SuccessBanner } from "../components/AuthLayout";
+import { forgotPassword } from "../services/api";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -22,13 +23,8 @@ export default function ForgotPassword() {
     setSuccessMsg(null);
     
     try {
-      // TODO: Replace with actual API call
-      // await forgotPassword(email);
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setSuccessMsg("If an account exists with this email, a password reset link has been sent.");
+      const res = await forgotPassword(email.trim());
+      setSuccessMsg(res.message || "If an account exists with this email, a password reset link has been sent.");
       setEmail("");
     } catch (err) {
       setErrorMsg(err.message || "Something went wrong. Please try again.");

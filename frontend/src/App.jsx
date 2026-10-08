@@ -10,18 +10,22 @@ import { AnalyticsView } from './components/AnalyticsView';
 import { TeamView } from './components/TeamView';
 import { SettingsView } from './components/SettingsView';
 import { AuthPage } from './components/AuthPage';
+import { AuthModal } from './components/AuthModal';
+import { LogoutModal } from './components/LogoutModal';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import { LayoutGrid, CheckSquare, Calendar, BarChart3, Server, Settings, HelpCircle } from 'lucide-react';
 
 import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
-import { fetchStats, fetchThresholds, fetchCurrentUser, ingestMetric } from './services/api';
+import { fetchStats, fetchThresholds, fetchCurrentUser, logoutUser, ingestMetric } from './services/api';
 
 function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(true); // Always authenticated for development
+  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(localStorage.getItem("telemetry_jwt_token")));
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
   const [stats, setStats] = useState(null);
   const [thresholds, setThresholds] = useState({
@@ -126,13 +130,11 @@ function App() {
     };
   }, [isSimulating, simInterval, generateSimulatedPayload]);
 
-  const handleSignOut = () => {
-    // Clear authentication
-    localStorage.removeItem("telemetry_jwt_token");
+  const handleConfirmSignOut = async () => {
+    await logoutUser();
     setUser(null);
-    setIsAuthenticated(true); // Keep authenticated for development
-    
-    // Redirect to sign in page
+    setIsAuthenticated(false);
+    setIsLogoutOpen(false);
     navigate("/signin");
   };
 
@@ -170,7 +172,7 @@ function App() {
           <Sidebar
             activeNav={activeNav}
             setActiveNav={setActiveNav}
-            onLogout={handleSignOut}
+            onLogout={() => setIsLogoutOpen(true)}
             alertsCount={alerts.length || 12}
           />
 
@@ -180,7 +182,7 @@ function App() {
             {/* Donezo Top Search & Profile Bar */}
             <TopBar
               user={user}
-              onOpenAuth={() => {}}
+              onOpenAuth={() => setIsAuthOpen(true)}
               alertsCount={alerts.length}
               activeItem={activeItem}
               profileImage={profileImage}
@@ -200,7 +202,7 @@ function App() {
               )}
 
               {activeNav === 'lectio' && (
-                <LectioDashboard />
+                <LectioDashboard activeNav={activeNav} setActiveNav={setActiveNav} />
               )}
 
               {activeNav === 'tasks' && (
@@ -250,6 +252,23 @@ function App() {
             </main>
 
           </div>
+
+          {/* Authentication Modal */}
+          <AuthModal
+            isOpen={isAuthOpen}
+            onClose={() => setIsAuthOpen(false)}
+            onAuthSuccess={() => {
+              loadInitialData();
+              setIsAuthOpen(false);
+            }}
+          />
+
+          {/* Logout Confirmation Modal */}
+          <LogoutModal
+            isOpen={isLogoutOpen}
+            onClose={() => setIsLogoutOpen(false)}
+            onConfirm={handleConfirmSignOut}
+          />
 
         </div>
       } />

@@ -11,11 +11,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
-interface SidebarProps {
-  className?: string;
-}
-
-export function LectioSidebar({ className = '' }: SidebarProps) {
+export function LectioSidebar({ className = '' }) {
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', count: null },
     { icon: Database, label: 'Telemetry', count: 12 },

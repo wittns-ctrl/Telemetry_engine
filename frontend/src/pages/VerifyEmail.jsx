@@ -1,30 +1,51 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Mail, ArrowLeft, RefreshCw } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Mail, ArrowLeft, RefreshCw, CheckCircle2 } from "lucide-react";
 import { AuthPageLayout, ErrorBanner, SuccessBanner } from "../components/AuthLayout";
+import { verifyEmail, resendVerification } from "../services/api";
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token");
+  const emailParam = searchParams.get("email");
+
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(Boolean(token));
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
   
-  // In a real app, this would come from the user context or URL params
-  const userEmail = "user@example.com";
+  const userEmail = emailParam || "your registered email address";
+
+  useEffect(() => {
+    if (token) {
+      setVerifying(true);
+      verifyEmail(token)
+        .then((res) => {
+          setSuccessMsg(res.message || "Email verified successfully! You can now sign in.");
+          setErrorMsg(null);
+        })
+        .catch((err) => {
+          setErrorMsg(err.message || "Verification link is invalid or has expired.");
+        })
+        .finally(() => {
+          setVerifying(false);
+        });
+    }
+  }, [token]);
 
   const handleResend = async () => {
+    if (!emailParam) {
+      setErrorMsg("Please provide your email address to resend verification.");
+      return;
+    }
     setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
     
     try {
-      // TODO: Replace with actual API call
-      // await resendVerificationEmail();
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      setSuccessMsg("Verification email has been resent. Please check your inbox.");
+      const res = await resendVerification(emailParam);
+      setSuccessMsg(res.message || "Verification email has been resent. Please check your inbox.");
     } catch (err) {
       setErrorMsg(err.message || "Something went wrong. Please try again.");
     } finally {

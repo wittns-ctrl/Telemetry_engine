@@ -1,11 +1,7 @@
 import React from 'react';
 import { Search, Plus, Play, Bell, User, ChevronDown } from 'lucide-react';
 
-interface HeaderProps {
-  className?: string;
-}
-
-export function LectioHeader({ className = '' }: HeaderProps) {
+export function LectioHeader({ className = '' }) {
   return (
     <header className={`bg-white border-b border-slate-100 px-6 py-4 ${className}`}>
       <div className="flex items-center justify-between">

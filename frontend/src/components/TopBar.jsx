@@ -60,14 +60,14 @@ export function TopBar({ user, onOpenAuth, alertsCount = 0, activeItem }) {
         >
           <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-slate-100">
             <img 
-              src={user?.profileImage || "https://ui-avatars.com/api/?name=Roland+Donald&background=f1f5f9&color=0f172a&size=150"} 
+              src={user?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || user?.email?.split('@')[0] || 'Roland Donald')}&background=f1f5f9&color=0f172a&size=150`} 
               alt="Profile" 
               className="w-full h-full object-cover"
             />
           </div>
           <div className="text-left">
             <div className="text-sm font-bold text-slate-900 leading-tight">
-              {user?.firstName || user?.email?.split("@")[0].split(".")[0] || "Roland"}
+              {user?.full_name || user?.firstName || user?.email?.split("@")[0] || "Roland"}
             </div>
           </div>
         </div>
