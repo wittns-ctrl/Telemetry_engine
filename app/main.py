@@ -19,6 +19,7 @@ from app.api.v1 import devices as devices_router
 from app.api.v1 import metrics as metrics_router
 from app.api.v1 import alerts as alerts_router
 from app.api.v1 import diagnostics as diagnostics_router
+from app.api.v1 import ingest as ingest_router
 
 
 @asynccontextmanager
@@ -218,6 +219,9 @@ app.include_router(alerts_router.router, prefix="/api/v1")
 
 # --- DIAGNOSTICS ROUTES ---
 app.include_router(diagnostics_router.router, prefix="/api/v1")
+
+# --- AGENT TELEMETRY INGEST ---
+app.include_router(ingest_router.router, prefix="/api/v1")
 
 
 # --- PROTECTED METRICS ROUTE ---

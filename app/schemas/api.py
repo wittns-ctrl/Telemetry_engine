@@ -37,6 +37,29 @@ class DeviceListResponse(BaseModel):
     total_count: int
 
 
+class DeviceRegisterRequest(BaseModel):
+    """Request body sent by the host agent to register a machine."""
+
+    device_name: str = Field(..., min_length=1, max_length=128, description="Human-readable device name")
+    system_uuid: str = Field(..., min_length=8, max_length=128, description="Stable per-machine identifier")
+    os_info: Optional[str] = Field(None, max_length=256, description="Operating system description")
+
+
+class DeviceRegisterResponse(BaseModel):
+    """Registration result. device_key is only ever returned here; store it on the agent."""
+
+    device: DeviceResponse
+    device_key: str = Field(..., description="Secret key the agent sends as X-Device-Key")
+
+
+class TelemetryIngestResponse(BaseModel):
+    """Response for an accepted telemetry snapshot."""
+
+    status: str = "accepted"
+    snapshot_id: str
+    alerts_triggered: int = 0
+
+
 # --- Telemetry Schemas ---
 
 class CPUMetricsResponse(BaseModel):

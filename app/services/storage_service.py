@@ -49,7 +49,8 @@ class StorageService:
     async def register_or_get_device(
         user_id: str,
         system_uuid: str,
-        device_name: str
+        device_name: str,
+        os_info: Optional[str] = None,
     ) -> Device:
         """
         Register a new device or retrieve an existing one.
@@ -84,7 +85,8 @@ class StorageService:
                 return existing_device
             
             # Create new device registration
-            os_info = StorageService._get_system_info()
+            if not os_info:
+                os_info = StorageService._get_system_info()
             
             new_device = Device(
                 user_id=user_oid,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { DonezoDashboard } from './components/DonezoDashboard';
@@ -9,6 +9,7 @@ import { LiveStreamView } from './components/LiveStreamView';
 import { AnalyticsView } from './components/AnalyticsView';
 import { TeamView } from './components/TeamView';
 import { SettingsView } from './components/SettingsView';
+import { DevicesView } from './components/DevicesView';
 import { AuthPage } from './components/AuthPage';
 import { AuthModal } from './components/AuthModal';
 import { LogoutModal } from './components/LogoutModal';
@@ -18,12 +19,20 @@ import VerifyEmail from './pages/VerifyEmail';
 import { LayoutGrid, CheckSquare, Calendar, BarChart3, Server, Settings, HelpCircle } from 'lucide-react';
 
 import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
-import { fetchStats, fetchThresholds, fetchCurrentUser, logoutUser, ingestMetric } from './services/api';
+import {
+  fetchStats,
+  fetchThresholds,
+  fetchCurrentUser,
+  logoutUser,
+  ingestMetric,
+  getAccessToken,
+  AUTH_LOGOUT_EVENT,
+} from './services/api';
 
 function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(localStorage.getItem("telemetry_jwt_token")));
+  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAccessToken()));
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
@@ -55,6 +64,7 @@ function App() {
 
   // Load initial metadata
   const loadInitialData = useCallback(async () => {
+    if (!getAccessToken()) return;
     try {
       const [statsData, thresholdsData] = await Promise.all([
         fetchStats().catch(() => null),
@@ -64,7 +74,14 @@ function App() {
       if (thresholdsData) setThresholds(thresholdsData);
 
       const currentUser = await fetchCurrentUser().catch(() => null);
-      if (currentUser) setUser(currentUser);
+      if (currentUser) {
+        setUser(currentUser);
+        setIsAuthenticated(true);
+      } else if (!getAccessToken()) {
+        // Token was rejected and could not be refreshed.
+        setUser(null);
+        setIsAuthenticated(false);
+      }
     } catch (err) {
       console.error('Error loading initial telemetry metadata:', err);
     }
@@ -73,6 +90,23 @@ function App() {
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  // api.js fires this when a refresh fails and the session is cleared.
+  useEffect(() => {
+    const onLoggedOut = () => {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsSimulating(false);
+    };
+    window.addEventListener(AUTH_LOGOUT_EVENT, onLoggedOut);
+    return () => window.removeEventListener(AUTH_LOGOUT_EVENT, onLoggedOut);
+  }, []);
+
+  const handleAuthSuccess = useCallback(() => {
+    setIsAuthenticated(true);
+    loadInitialData();
+    navigate("/");
+  }, [loadInitialData, navigate]);
 
   // Automated Stream Simulator Generation Logic
   const generateSimulatedPayload = useCallback(() => {
@@ -135,6 +169,7 @@ function App() {
     setUser(null);
     setIsAuthenticated(false);
     setIsLogoutOpen(false);
+    setIsSimulating(false);
     navigate("/signin");
   };
 
@@ -145,6 +180,7 @@ function App() {
   // Define menu items for lookup
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
+    { id: "devices", label: "My Devices", icon: Server },
     { id: "lectio", label: "Lectio Dashboard", icon: LayoutGrid },
     { id: "tasks", label: "Tasks", icon: CheckSquare },
     { id: "live", label: "Calendar", icon: Calendar },
@@ -162,11 +198,11 @@ function App() {
   // Show full-page auth routes
   return (
     <Routes>
-      <Route path="/signin" element={<AuthPage onAuthSuccess={() => { loadInitialData(); navigate("/"); }} />} />
+      <Route path="/signin" element={isAuthenticated ? <Navigate to="/" replace /> : <AuthPage onAuthSuccess={handleAuthSuccess} />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/" element={
+      <Route path="/" element={!isAuthenticated ? <Navigate to="/signin" replace /> : (
         <div className="flex min-h-screen bg-[#f3f5f7] text-slate-900 font-sans">
           {/* Floating Donezo White Card Sidebar */}
           <Sidebar
@@ -199,6 +235,10 @@ function App() {
                   onSimulateClick={toggleSimulation}
                   onViewAlerts={() => setActiveNav('live')}
                 />
+              )}
+
+              {activeNav === 'devices' && (
+                <DevicesView />
               )}
 
               {activeNav === 'lectio' && (
@@ -258,6 +298,7 @@ function App() {
             isOpen={isAuthOpen}
             onClose={() => setIsAuthOpen(false)}
             onAuthSuccess={() => {
+              setIsAuthenticated(true);
               loadInitialData();
               setIsAuthOpen(false);
             }}
@@ -271,8 +312,8 @@ function App() {
           />
 
         </div>
-      } />
-      <Route path="*" element={<AuthPage onAuthSuccess={() => { loadInitialData(); navigate("/"); }} />} />
+      )} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

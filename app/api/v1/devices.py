@@ -9,6 +9,7 @@ Version: 6.0.0
 """
 
 import logging
+import secrets
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from beanie import PydanticObjectId
@@ -17,11 +18,72 @@ from app.api.deps import get_current_user
 from app.models.user import User, UserRole
 from app.models.telemetry import Device
 from app.services.storage_service import StorageService
-from app.schemas.api import DeviceResponse, DeviceListResponse
+from app.schemas.api import (
+    DeviceResponse,
+    DeviceListResponse,
+    DeviceRegisterRequest,
+    DeviceRegisterResponse,
+)
+from app.core.security import hash_token
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _to_response(device: Device) -> DeviceResponse:
+    return DeviceResponse(
+        id=str(device.id),
+        device_name=device.device_name,
+        system_uuid=device.system_uuid,
+        os_info=device.os_info,
+        last_seen=device.last_seen,
+        is_active=device.is_active,
+        created_at=device.created_at,
+    )
+
+
+@router.post(
+    "/devices/register",
+    response_model=DeviceRegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a Device",
+    description=(
+        "Called by the host agent after the user signs in. Creates the device (or "
+        "re-registers an existing one owned by the same user) and issues a new ingest key. "
+        "Re-registering rotates the key, so any previous key stops working."
+    ),
+)
+async def register_device(
+    body: DeviceRegisterRequest,
+    current_user: User = Depends(get_current_user),
+):
+    user_id = str(current_user.id)
+
+    existing = await Device.find_one(Device.system_uuid == body.system_uuid)
+    if existing and str(existing.user_id) != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This machine is already registered to another account",
+        )
+
+    device = await StorageService.register_or_get_device(
+        user_id=user_id,
+        system_uuid=body.system_uuid,
+        device_name=body.device_name,
+        os_info=body.os_info,
+    )
+
+    device_key = secrets.token_urlsafe(32)
+    device.device_name = body.device_name
+    if body.os_info:
+        device.os_info = body.os_info
+    device.is_active = True
+    device.ingest_key_hash = hash_token(device_key)
+    await device.save()
+
+    logger.info(f"Device {device.id} registered for user {user_id}")
+    return DeviceRegisterResponse(device=_to_response(device), device_key=device_key)
 
 
 @router.get(

@@ -9,16 +9,19 @@ import {
   Settings, 
   HelpCircle, 
   LogOut,
-  ArrowRight
+  ArrowRight,
+  Cpu
 } from 'lucide-react';
 
+// Item ids must match the views rendered in App.jsx.
 export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tasks', label: 'Tasks', icon: CheckSquare, badge: 12 },
-    { id: 'calendar', label: 'Calendar', icon: Calendar },
+    { id: 'devices', label: 'My Devices', icon: Cpu },
+    { id: 'tasks', label: 'Tasks', icon: CheckSquare },
+    { id: 'live', label: 'Live Stream', icon: Calendar },
     { id: 'analytics', label: 'Analytics', icon: BarChart2 },
-    { id: 'sensors', label: 'Sensors', icon: Server },
+    { id: 'team', label: 'Sensors', icon: Server },
   ];
 
   const generalItems = [

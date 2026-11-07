@@ -62,6 +62,36 @@ async def get_client_info(request: Request) -> tuple[Optional[str], Optional[str
     return ip_address, user_agent
 
 
+REFRESH_COOKIE_NAME = "refresh_token"
+
+
+def set_refresh_cookie(response: Response, token: str, expires_at: datetime) -> None:
+    """Attach the refresh token as an HttpOnly cookie on the outgoing response."""
+    secure = settings.APP_ENV == "production"
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=secure,
+        # Cross-site deployments (frontend and API on different sites) need SameSite=None,
+        # which browsers only accept together with Secure.
+        samesite="none" if secure else "lax",
+        expires=expires_at,
+        path="/api/v1/auth",
+    )
+
+
+def clear_refresh_cookie(response: Response) -> None:
+    secure = settings.APP_ENV == "production"
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME,
+        path="/api/v1/auth",
+        secure=secure,
+        httponly=True,
+        samesite="none" if secure else "lax",
+    )
+
+
 def normalize_email(email: str) -> str:
     """Normalize email address."""
     return email.lower().strip()
@@ -133,14 +163,15 @@ async def register(
 
 @router.post("/login", response_model=Token)
 async def login(
+    request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    request: Request = None
 ):
     """Authenticate user with email and password."""
     normalized_email = normalize_email(form_data.username)
     
     user = await User.find_one(User.normalized_email == normalized_email)
-    ip_address, user_agent = await get_client_info(request) if request else (None, None)
+    ip_address, user_agent = await get_client_info(request)
     
     if not user or not verify_password(form_data.password, user.hashed_password or ""):
         await log_audit_event(
@@ -201,17 +232,8 @@ async def login(
         user_agent=user_agent
     )
     
-    # Set refresh token in HttpOnly cookie
-    response = Response()
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=settings.APP_ENV == "production",
-        samesite="lax",
-        expires=expires_at,
-        path="/"
-    )
+    # Set refresh token in HttpOnly cookie (on the injected response so it is actually sent)
+    set_refresh_cookie(response, refresh_token, expires_at)
     
     return Token(
         access_token=access_token,
@@ -221,9 +243,9 @@ async def login(
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh_token(request: Request):
+async def refresh_token(request: Request, response: Response):
     """Refresh access token using refresh token."""
-    refresh_token = request.cookies.get("refresh_token")
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
     if not refresh_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -233,13 +255,14 @@ async def refresh_token(request: Request):
     refresh_token_hash = hash_token(refresh_token)
     stored_token = await RefreshToken.find_one(RefreshToken.token_hash == refresh_token_hash)
     
-    if not stored_token or not stored_token.is_valid():
+    if not stored_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token"
         )
     
-    # Check for token reuse (potential compromise)
+    # Check for token reuse (potential compromise). Must run before the validity
+    # check, because is_valid() is False for revoked tokens.
     if stored_token.is_revoked:
         # Revoke all tokens in this family
         await RefreshToken.find_many(
@@ -257,6 +280,12 @@ async def refresh_token(request: Request):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token reuse detected. Please login again."
+        )
+    
+    if not stored_token.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
         )
     
     user = await User.get(PydanticObjectId(stored_token.user_id))
@@ -285,16 +314,7 @@ async def refresh_token(request: Request):
     access_token = create_access_token(data={"sub": str(user.id)})
     
     # Set new refresh token in cookie
-    response = Response()
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh_token,
-        httponly=True,
-        secure=settings.APP_ENV == "production",
-        samesite="lax",
-        expires=new_expires_at,
-        path="/"
-    )
+    set_refresh_cookie(response, new_refresh_token, new_expires_at)
     
     return Token(
         access_token=access_token,
@@ -305,12 +325,13 @@ async def refresh_token(request: Request):
 
 @router.post("/logout")
 async def logout(
+    request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
-    request: Request = None
 ):
     """Logout user and revoke refresh token."""
-    refresh_token = request.cookies.get("refresh_token") if request else None
-    ip_address, user_agent = await get_client_info(request) if request else (None, None)
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    ip_address, user_agent = await get_client_info(request)
     
     if refresh_token:
         refresh_token_hash = hash_token(refresh_token)
@@ -328,8 +349,7 @@ async def logout(
     )
     
     # Clear refresh token cookie
-    response = Response()
-    response.delete_cookie(key="refresh_token", path="/")
+    clear_refresh_cookie(response)
     
     return {"message": "Successfully logged out"}
 

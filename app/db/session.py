@@ -12,7 +12,9 @@ from app.models.alert import AnomalyAlertDocument
 
 
 async def init_db():
-    client = AsyncMongoClient(settings.MONGODB_URI)
+    # tz_aware=True so datetimes read back from Mongo compare correctly with
+    # datetime.now(timezone.utc) (expiry checks on tokens, alert timing, etc.).
+    client = AsyncMongoClient(settings.MONGODB_URI, tz_aware=True)
 
     await init_beanie(
         database=client[settings.MONGO_DB],

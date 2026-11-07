@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field, PositiveFloat
 from datetime import datetime, timezone
 from beanie import Document, Indexed
 from beanie.odm.fields import PydanticObjectId
+from pymongo import IndexModel, ASCENDING
 
 
 # Base schema with shared telemetry fields
@@ -129,12 +130,15 @@ class Device(Document):
     is_active: bool = Field(default=True, description="Device active status")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Device registration timestamp")
     last_seen: Optional[datetime] = Field(None, description="Last telemetry collection timestamp")
+    # SHA-256 of the agent's device key. The plaintext key is shown once at registration.
+    ingest_key_hash: Optional[str] = Field(None, description="Hash of the device ingest key")
     
     class Settings:
         name = "devices"
         indexes = [
             "user_id",
             "system_uuid",
+            IndexModel([("ingest_key_hash", ASCENDING)], unique=True, sparse=True),
         ]
 
 
