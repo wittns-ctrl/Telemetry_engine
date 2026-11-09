@@ -138,7 +138,14 @@ class Device(Document):
         indexes = [
             "user_id",
             "system_uuid",
-            IndexModel([("ingest_key_hash", ASCENDING)], unique=True, sparse=True),
+            # Partial, not sparse: a sparse index still indexes explicit nulls, so
+            # two devices without a key yet would collide on the unique constraint.
+            IndexModel(
+                [("ingest_key_hash", ASCENDING)],
+                name="ingest_key_hash_1",
+                unique=True,
+                partialFilterExpression={"ingest_key_hash": {"$type": "string"}},
+            ),
         ]
 
 

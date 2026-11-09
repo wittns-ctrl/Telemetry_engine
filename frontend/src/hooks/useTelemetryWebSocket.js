@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { WS_BASE } from "../services/api";
+import { WS_BASE, getAccessToken, refreshAccessToken } from "../services/api";
 import { playAlertSound } from "../utils/sound";
 
 export function useTelemetryWebSocket({
@@ -27,17 +27,35 @@ export function useTelemetryWebSocket({
       return;
     }
 
+    // The socket needs a signed-in user; wait and check again until there is one.
+    const token = getAccessToken();
+    if (!token) {
+      setStatus("disconnected");
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connect();
+      }, 3000);
+      return;
+    }
+
     setStatus("connecting");
 
     try {
-      const ws = new WebSocket(WS_BASE);
+      const ws = new WebSocket(`${WS_BASE}?token=${encodeURIComponent(token)}`);
       wsRef.current = ws;
+      let opened = false;
 
       ws.onopen = () => {
+        opened = true;
         setStatus("connected");
       };
 
       ws.onmessage = (event) => {
+        // Signed out or switched accounts since connecting: drop this socket's
+        // events and reconnect as whoever is signed in now.
+        if (getAccessToken() !== token) {
+          ws.close();
+          return;
+        }
         try {
           const data = JSON.parse(event.data);
 
@@ -96,9 +114,13 @@ export function useTelemetryWebSocket({
         setStatus("error");
       };
 
-      ws.onclose = () => {
+      ws.onclose = async () => {
         if (!isUnmountingRef.current) {
           setStatus("disconnected");
+          // A socket that never opened was most likely rejected for an expired
+          // token; refresh before retrying so the next attempt uses a fresh one.
+          if (!opened) await refreshAccessToken();
+          if (isUnmountingRef.current) return;
           // Reconnect with 3 second delay
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();

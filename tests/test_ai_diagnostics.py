@@ -219,7 +219,7 @@ class TestFallbackMechanism:
     async def test_fallback_on_api_error(self, test_alert, test_device):
         """Test fallback on API error."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings, \
-             patch('openai.AsyncOpenAI') as mock_client_class:
+             patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
             
             mock_settings.OPENAI_API_KEY = "test_api_key"
             mock_settings.OPENAI_MODEL = "gpt-4o-mini"
@@ -247,7 +247,7 @@ class TestFallbackMechanism:
     async def test_fallback_on_rate_limit(self, test_alert, test_device):
         """Test fallback on rate limit error."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings, \
-             patch('openai.AsyncOpenAI') as mock_client_class:
+             patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
             
             mock_settings.OPENAI_API_KEY = "test_api_key"
             mock_settings.OPENAI_MODEL = "gpt-4o-mini"
@@ -275,7 +275,7 @@ class TestFallbackMechanism:
     async def test_fallback_no_unhandled_errors(self, test_alert, test_device):
         """Test that fallback doesn't raise unhandled errors."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings, \
-             patch('openai.AsyncOpenAI') as mock_client_class:
+             patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
             
             mock_settings.OPENAI_API_KEY = "test_api_key"
             mock_settings.OPENAI_MODEL = "gpt-4o-mini"
@@ -309,6 +309,7 @@ class TestRuleBasedDiagnosticMatrix:
         """Test CPU overheating rule-based diagnosis."""
         test_alert.rule_name = "CPU_OVERHEATING_CRITICAL"
         test_alert.severity = AlertSeverity.CRITICAL
+        await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
             mock_settings.OPENAI_API_KEY = ""
@@ -333,6 +334,7 @@ class TestRuleBasedDiagnosticMatrix:
         """Test GPU overheating rule-based diagnosis."""
         test_alert.rule_name = "GPU_OVERHEATING_CRITICAL"
         test_alert.severity = AlertSeverity.CRITICAL
+        await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
             mock_settings.OPENAI_API_KEY = ""
@@ -356,6 +358,7 @@ class TestRuleBasedDiagnosticMatrix:
         """Test PSU voltage rule-based diagnosis."""
         test_alert.rule_name = "PSU_VOLTAGE_CRITICAL"
         test_alert.severity = AlertSeverity.CRITICAL
+        await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
             mock_settings.OPENAI_API_KEY = ""
@@ -379,6 +382,7 @@ class TestRuleBasedDiagnosticMatrix:
         """Test NVMe health rule-based diagnosis."""
         test_alert.rule_name = "NVME_HEALTH_CRITICAL"
         test_alert.severity = AlertSeverity.CRITICAL
+        await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
             mock_settings.OPENAI_API_KEY = ""
@@ -402,6 +406,7 @@ class TestRuleBasedDiagnosticMatrix:
         """Test VRM temperature rule-based diagnosis."""
         test_alert.rule_name = "VRM_TEMPERATURE_CRITICAL"
         test_alert.severity = AlertSeverity.CRITICAL
+        await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
             mock_settings.OPENAI_API_KEY = ""
@@ -425,6 +430,7 @@ class TestRuleBasedDiagnosticMatrix:
         """Test WHEA errors rule-based diagnosis."""
         test_alert.rule_name = "WHEA_ERRORS_CRITICAL"
         test_alert.severity = AlertSeverity.CRITICAL
+        await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
             mock_settings.OPENAI_API_KEY = ""
@@ -448,6 +454,7 @@ class TestRuleBasedDiagnosticMatrix:
         """Test rule-based diagnosis for unknown rule."""
         test_alert.rule_name = "UNKNOWN_RULE"
         test_alert.severity = AlertSeverity.WARNING
+        await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
             mock_settings.OPENAI_API_KEY = ""
@@ -524,7 +531,7 @@ class TestOpenAIConnectionCheck:
     async def test_connection_check_success(self):
         """Test successful connection check."""
         with patch('app.services.ai_diagnostic_service.ai_diagnostic_service') as mock_service, \
-             patch('openai.AsyncOpenAI') as mock_client_class:
+             patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
             
             mock_client = AsyncMock()
             mock_response = MagicMock()
@@ -558,7 +565,7 @@ class TestOpenAIConnectionCheck:
     async def test_connection_check_timeout(self):
         """Test connection check on timeout."""
         with patch('app.services.ai_diagnostic_service.ai_diagnostic_service') as mock_service, \
-             patch('openai.AsyncOpenAI') as mock_client_class:
+             patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
             
             mock_client = AsyncMock()
             mock_client.chat.completions.create = AsyncMock(
@@ -578,7 +585,7 @@ class TestOpenAIConnectionCheck:
     async def test_connection_check_rate_limit(self):
         """Test connection check on rate limit."""
         with patch('app.services.ai_diagnostic_service.ai_diagnostic_service') as mock_service, \
-             patch('openai.AsyncOpenAI') as mock_client_class:
+             patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
             
             mock_client = AsyncMock()
             mock_client.chat.completions.create = AsyncMock(
@@ -598,7 +605,7 @@ class TestOpenAIConnectionCheck:
     async def test_connection_check_api_error(self):
         """Test connection check on API error."""
         with patch('app.services.ai_diagnostic_service.ai_diagnostic_service') as mock_service, \
-             patch('openai.AsyncOpenAI') as mock_client_class:
+             patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
             
             mock_client = AsyncMock()
             mock_client.chat.completions.create = AsyncMock(

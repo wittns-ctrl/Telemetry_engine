@@ -131,6 +131,70 @@ async def list_alerts(
         )
 
 
+# Declared before /alerts/{alert_id} so "statistics" isn't captured as an alert ID.
+@router.get(
+    "/alerts/statistics",
+    response_model=AlertStatisticsResponse,
+    summary="Get Alert Statistics",
+    description="Retrieve aggregated statistics for alerts over a time period"
+)
+async def get_alert_statistics(
+    device_id: Optional[str] = Query(None, description="Filter by device ID"),
+    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieve aggregated statistics for alerts over a time period.
+    
+    Args:
+        device_id: Optional filter by device ID
+        days: Number of days to analyze (default: 30)
+        current_user: The authenticated user
+        
+    Returns:
+        AlertStatisticsResponse with aggregated statistics
+    """
+    try:
+        user_id = str(current_user.id)
+        
+        # Validate device ID if provided
+        if device_id:
+            try:
+                PydanticObjectId(device_id)
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid device ID format"
+                )
+        
+        # Get statistics
+        stats = await AlertService.get_alert_statistics(
+            user_id=user_id,
+            device_id=device_id,
+            days=days
+        )
+        
+        return AlertStatisticsResponse(
+            total_alerts=stats["total_alerts"],
+            active_alerts=stats["active_alerts"],
+            resolved_alerts=stats["resolved_alerts"],
+            critical_count=stats["critical_count"],
+            warning_count=stats["warning_count"],
+            info_count=stats["info_count"],
+            rule_counts=stats["rule_counts"],
+            period_days=stats["period_days"]
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving alert statistics for user {current_user.id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve alert statistics"
+        )
+
+
 @router.get(
     "/alerts/{alert_id}",
     response_model=AlertResponse,
@@ -324,69 +388,6 @@ async def delete_alert(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete alert"
-        )
-
-
-@router.get(
-    "/alerts/statistics",
-    response_model=AlertStatisticsResponse,
-    summary="Get Alert Statistics",
-    description="Retrieve aggregated statistics for alerts over a time period"
-)
-async def get_alert_statistics(
-    device_id: Optional[str] = Query(None, description="Filter by device ID"),
-    days: int = Query(30, ge=1, le=365, description="Number of days to analyze"),
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Retrieve aggregated statistics for alerts over a time period.
-    
-    Args:
-        device_id: Optional filter by device ID
-        days: Number of days to analyze (default: 30)
-        current_user: The authenticated user
-        
-    Returns:
-        AlertStatisticsResponse with aggregated statistics
-    """
-    try:
-        user_id = str(current_user.id)
-        
-        # Validate device ID if provided
-        if device_id:
-            try:
-                PydanticObjectId(device_id)
-            except Exception:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid device ID format"
-                )
-        
-        # Get statistics
-        stats = await AlertService.get_alert_statistics(
-            user_id=user_id,
-            device_id=device_id,
-            days=days
-        )
-        
-        return AlertStatisticsResponse(
-            total_alerts=stats["total_alerts"],
-            active_alerts=stats["active_alerts"],
-            resolved_alerts=stats["resolved_alerts"],
-            critical_count=stats["critical_count"],
-            warning_count=stats["warning_count"],
-            info_count=stats["info_count"],
-            rule_counts=stats["rule_counts"],
-            period_days=stats["period_days"]
-        )
-    
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error retrieving alert statistics for user {current_user.id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve alert statistics"
         )
 
 

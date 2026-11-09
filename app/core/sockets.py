@@ -1,26 +1,39 @@
 from fastapi import WebSocket
 
+
 class ConnectionManager:
+    """Legacy /ws/alerts sockets, keyed by the user that opened them.
+
+    Messages only go to the owning user's sockets so one account never sees
+    another account's metrics or alerts.
+    """
+
     def __init__(self):
-        self.active_connections: list[WebSocket] = []
+        self._connections: dict[str, list[WebSocket]] = {}
 
+    @property
+    def active_connections(self) -> list[WebSocket]:
+        return [ws for sockets in self._connections.values() for ws in sockets]
 
-    async def connect(self,websocket : WebSocket):
+    async def connect(self, websocket: WebSocket, user_id: str):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        self._connections.setdefault(user_id, []).append(websocket)
 
+    def disconnect(self, websocket: WebSocket, user_id: str):
+        sockets = self._connections.get(user_id)
+        if not sockets:
+            return
+        if websocket in sockets:
+            sockets.remove(websocket)
+        if not sockets:
+            del self._connections[user_id]
 
-    def disconnect(self, websocket: WebSocket):
-             if websocket in self.active_connections:
-                  self.active_connections.remove(websocket)
-
-    async def broadcast(self, message : dict):
-         for connection in list(self.active_connections):
-           try:
+    async def send_to_user(self, user_id: str, message: dict):
+        for connection in list(self._connections.get(user_id, [])):
+            try:
                 await connection.send_json(message)
-           except Exception:
-                self.disconnect(connection)
+            except Exception:
+                self.disconnect(connection, user_id)
 
 
-
-manager = ConnectionManager()                            
+manager = ConnectionManager()
