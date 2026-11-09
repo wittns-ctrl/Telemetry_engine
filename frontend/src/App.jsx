@@ -190,9 +190,6 @@ function App() {
     { id: "help", label: "Help", icon: HelpCircle },
   ];
 
-  // Profile Image State
-  const [profileImage, setProfileImage] = useState("https://ui-avatars.com/api/?name=Roland+Donald&background=f1f5f9&color=0f172a&size=150");
-
   const activeItem = menuItems.find(item => item.id === activeNav) || menuItems[0];
 
   // Show full-page auth routes
@@ -221,7 +218,6 @@ function App() {
               onOpenAuth={() => setIsAuthOpen(true)}
               alertsCount={alerts.length}
               activeItem={activeItem}
-              profileImage={profileImage}
             />
 
             {/* Dynamic Route View Body */}
@@ -276,16 +272,9 @@ function App() {
 
               {activeNav === 'settings' && (
                 <SettingsView
-                  thresholds={thresholds}
-                  onUpdateThresholds={(newLimits) => {
-                    setThresholds((prev) => ({
-                      ...prev,
-                      ...newLimits,
-                    }));
-                  }}
-                  onOpenAuth={() => setIsAuthOpen(true)}
-                  profileImage={profileImage}
-                  setProfileImage={setProfileImage}
+                  user={user}
+                  onUserUpdated={setUser}
+                  onSignedOut={handleConfirmSignOut}
                 />
               )}
 

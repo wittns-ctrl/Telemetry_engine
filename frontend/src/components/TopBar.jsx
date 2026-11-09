@@ -1,5 +1,6 @@
 import React from "react";
-import { Search, Mail, Bell, User } from "lucide-react";
+import { Search, Mail, Bell } from "lucide-react";
+import { Avatar } from "./Avatar";
 
 export function TopBar({ user, onOpenAuth, alertsCount = 0, activeItem }) {
   const Icon = activeItem?.icon;
@@ -58,16 +59,10 @@ export function TopBar({ user, onOpenAuth, alertsCount = 0, activeItem }) {
           onClick={onOpenAuth}
           className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-full pl-1.5 pr-4 py-1 shadow-2xs cursor-pointer hover:bg-slate-50 transition-colors"
         >
-          <div className="w-8 h-8 rounded-full overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-slate-100">
-            <img 
-              src={user?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.full_name || user?.email?.split('@')[0] || 'Roland Donald')}&background=f1f5f9&color=0f172a&size=150`} 
-              alt="Profile" 
-              className="w-full h-full object-cover"
-            />
-          </div>
+          <Avatar name={user?.full_name || user?.email} className="border border-slate-200 shadow-sm" />
           <div className="text-left">
             <div className="text-sm font-bold text-slate-900 leading-tight">
-              {user?.full_name || user?.firstName || user?.email?.split("@")[0] || "Roland"}
+              {user?.full_name || user?.email?.split("@")[0] || "Account"}
             </div>
           </div>
         </div>

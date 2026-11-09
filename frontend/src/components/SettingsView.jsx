@@ -1,186 +1,308 @@
-import React, { useState } from "react";
-import { User, Lock, Check, ChevronDown, Calendar, Edit2, KeyRound } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { User, Lock, Check, KeyRound, AlertTriangle, Mail } from "lucide-react";
+import {
+  updateProfile,
+  changePassword,
+  deactivateAccount,
+  resendVerification,
+} from "../services/api";
+import { Avatar } from "./Avatar";
 
-export function SettingsView({ thresholds, onUpdateThresholds, onOpenAuth, profileImage, setProfileImage }) {
-  const [activeTab, setActiveTab] = useState('personal'); // 'personal' or 'security'
+const inputClass =
+  "w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all";
+const primaryButton =
+  "flex-1 py-4 bg-[#0d3b2e] text-white rounded-xl font-bold hover:bg-emerald-900 transition-colors cursor-pointer shadow-md shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed";
+const secondaryButton =
+  "flex-1 py-4 border-2 border-[#0d3b2e] text-[#0d3b2e] rounded-xl font-bold hover:bg-emerald-50 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed";
 
-  // Mock User Data
-  const [user, setUser] = useState({
-    firstName: "Roland",
-    lastName: "Donald",
-    email: "rolandDonald@mail.com",
-    address: "3605 Parker Rd.",
-    phone: "(405) 555-0128",
-    dob: "1 Feb, 1995",
-    location: "Atlanta, USA",
-    postalCode: "30301",
-    gender: "Male"
-  });
+const EMPTY_PASSWORDS = { currentPassword: "", newPassword: "", confirmPassword: "" };
 
-  const [securityData, setSecurityData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: ""
-  });
+function formatDate(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setUser(prev => ({ ...prev, [name]: value }));
-  };
+function StatusMessage({ status }) {
+  if (!status) return null;
+  const ok = status.type === "success";
+  return (
+    <div
+      role={ok ? "status" : "alert"}
+      className={`rounded-xl px-4 py-3 text-sm font-medium ${
+        ok ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700"
+      }`}
+    >
+      {status.message}
+    </div>
+  );
+}
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setProfileImage(imageUrl);
+export function SettingsView({ user, onUserUpdated, onSignedOut }) {
+  const [activeTab, setActiveTab] = useState("personal"); // 'personal' or 'security'
+
+  // --- Personal information ---
+  const savedName = user?.full_name || "";
+  const [fullName, setFullName] = useState(savedName);
+  const [profileStatus, setProfileStatus] = useState(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState(null);
+  const [sendingVerification, setSendingVerification] = useState(false);
+
+  // Pick up the name once the user loads, or after it changes elsewhere.
+  useEffect(() => {
+    setFullName(savedName);
+  }, [savedName]);
+
+  const nameChanged = fullName.trim() !== savedName;
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    const trimmed = fullName.trim();
+    if (!trimmed) {
+      setProfileStatus({ type: "error", message: "Full name can't be empty." });
+      return;
+    }
+    setSavingProfile(true);
+    setProfileStatus(null);
+    try {
+      const updated = await updateProfile({ fullName: trimmed });
+      onUserUpdated?.(updated);
+      setProfileStatus({ type: "success", message: "Your name has been saved." });
+    } catch (err) {
+      setProfileStatus({ type: "error", message: err.message });
+    } finally {
+      setSavingProfile(false);
     }
   };
 
-  const handleSecurityChange = (e) => {
-    const { name, value } = e.target;
-    setSecurityData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSave = (e) => {
-    e.preventDefault();
-    // Simulate save
-  };
-
   const handleDiscard = () => {
-    // Simulate discard
+    setFullName(savedName);
+    setProfileStatus(null);
   };
+
+  const handleResendVerification = async () => {
+    setSendingVerification(true);
+    setVerificationStatus(null);
+    try {
+      await resendVerification(user.email);
+      setVerificationStatus({
+        type: "success",
+        message: `If ${user.email} still needs verifying, a new link is on its way.`,
+      });
+    } catch (err) {
+      setVerificationStatus({ type: "error", message: err.message });
+    } finally {
+      setSendingVerification(false);
+    }
+  };
+
+  // --- Login & password ---
+  const [passwords, setPasswords] = useState(EMPTY_PASSWORDS);
+  const [passwordStatus, setPasswordStatus] = useState(null);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const signOutTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(signOutTimer.current), []);
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswords((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (!passwords.currentPassword || !passwords.newPassword) {
+      setPasswordStatus({ type: "error", message: "Enter your current and new password." });
+      return;
+    }
+    if (passwords.newPassword !== passwords.confirmPassword) {
+      setPasswordStatus({ type: "error", message: "The new passwords don't match." });
+      return;
+    }
+    setChangingPassword(true);
+    setPasswordStatus(null);
+    try {
+      await changePassword(passwords);
+      setPasswords(EMPTY_PASSWORDS);
+      // The server signs out every session after a password change.
+      setPasswordStatus({
+        type: "success",
+        message: "Password changed. Signing you out so you can sign in with the new password…",
+      });
+      signOutTimer.current = setTimeout(() => onSignedOut?.(), 2500);
+    } catch (err) {
+      setPasswordStatus({ type: "error", message: err.message });
+      setChangingPassword(false);
+    }
+  };
+
+  // --- Deactivate account ---
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
+  const [deactivating, setDeactivating] = useState(false);
+  const [deactivateStatus, setDeactivateStatus] = useState(null);
+
+  const handleDeactivate = async () => {
+    setDeactivating(true);
+    setDeactivateStatus(null);
+    try {
+      await deactivateAccount();
+      onSignedOut?.();
+    } catch (err) {
+      setDeactivateStatus({ type: "error", message: err.message });
+      setDeactivating(false);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="max-w-6xl mx-auto p-4 text-sm text-slate-500">Loading your account…</div>
+    );
+  }
+
+  const displayName = user.full_name || user.email;
 
   return (
-    <div className="max-w-6xl mx-auto h-full p-4 flex gap-6">
+    <div className="max-w-6xl mx-auto h-full p-4 flex flex-col lg:flex-row gap-6">
       {/* LEFT COLUMN: Profile Sidebar */}
-      <div className="w-[300px] shrink-0 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center p-8 h-fit">
-        <div className="relative mb-4">
-          <div className="w-32 h-32 rounded-full overflow-hidden bg-slate-200 border-4 border-white shadow-sm">
-            <img 
-              src={profileImage} 
-              alt="Profile avatar" 
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <label className="absolute bottom-1 right-1 bg-[#0d3b2e] text-white p-2 rounded-full shadow-md hover:bg-emerald-800 transition-colors cursor-pointer border-2 border-white flex items-center justify-center">
-            <Edit2 className="w-4 h-4" />
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              onChange={handleImageUpload} 
-            />
-          </label>
-        </div>
-        
-        <h2 className="text-xl font-bold text-slate-900 mb-8">{user.firstName} {user.lastName}</h2>
+      <div className="w-full lg:w-[300px] shrink-0 bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col items-center p-8 h-fit">
+        <Avatar name={displayName} size="lg" className="mb-4 border-4 border-white shadow-sm" />
+
+        <h2 className="text-xl font-bold text-slate-900 text-center break-words max-w-full">
+          {displayName}
+        </h2>
+        <p className="text-xs text-slate-500 mb-8 break-all text-center">{user.email}</p>
 
         <div className="w-full space-y-2">
-          <button 
-            onClick={() => setActiveTab('personal')}
+          <button
+            onClick={() => setActiveTab("personal")}
             className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl font-semibold transition-colors cursor-pointer text-sm ${
-              activeTab === 'personal' ? 'bg-emerald-50 text-emerald-900' : 'text-slate-500 hover:bg-slate-50'
+              activeTab === "personal" ? "bg-emerald-50 text-emerald-900" : "text-slate-500 hover:bg-slate-50"
             }`}
           >
-            <User className={`w-5 h-5 ${activeTab === 'personal' ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <User className={`w-5 h-5 ${activeTab === "personal" ? "text-emerald-600" : "text-slate-400"}`} />
             Personal Information
           </button>
-          <button 
-            onClick={() => setActiveTab('security')}
+          <button
+            onClick={() => setActiveTab("security")}
             className={`w-full flex items-center gap-3 px-5 py-3.5 rounded-xl font-semibold transition-colors cursor-pointer text-sm ${
-              activeTab === 'security' ? 'bg-emerald-50 text-emerald-900' : 'text-slate-500 hover:bg-slate-50'
+              activeTab === "security" ? "bg-emerald-50 text-emerald-900" : "text-slate-500 hover:bg-slate-50"
             }`}
           >
-            <Lock className={`w-5 h-5 ${activeTab === 'security' ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <Lock className={`w-5 h-5 ${activeTab === "security" ? "text-emerald-600" : "text-slate-400"}`} />
             Login & Password
           </button>
         </div>
       </div>
 
       {/* RIGHT COLUMN: Content Area */}
-      <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 p-10">
-        
-        {activeTab === 'personal' && (
+      <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-100 p-6 md:p-10">
+        {activeTab === "personal" && (
           <>
             <h1 className="text-2xl font-bold text-slate-900 mb-8">Personal Information</h1>
-            <form className="space-y-6" onSubmit={handleSave}>
-              {/* Gender Radios */}
-              <div className="flex items-center gap-6 mb-8 text-sm">
-                <label className="flex items-center gap-2 cursor-pointer text-slate-700 font-medium">
-                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${user.gender === 'Male' ? 'border-[#0d3b2e]' : 'border-slate-300'}`}>
-                    {user.gender === 'Male' && <div className="w-2.5 h-2.5 rounded-full bg-[#0d3b2e]"></div>}
-                  </div>
-                  <input type="radio" name="gender" value="Male" checked={user.gender === 'Male'} onChange={handleChange} className="hidden" />
-                  Male
+            <form className="space-y-6" onSubmit={handleSaveProfile}>
+              <div>
+                <label htmlFor="settings-full-name" className="block text-slate-500 text-sm font-medium mb-2">
+                  Full Name
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer text-slate-700 font-medium">
-                  <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${user.gender === 'Female' ? 'border-[#0d3b2e]' : 'border-slate-300'}`}>
-                    {user.gender === 'Female' && <div className="w-2.5 h-2.5 rounded-full bg-[#0d3b2e]"></div>}
-                  </div>
-                  <input type="radio" name="gender" value="Female" checked={user.gender === 'Female'} onChange={handleChange} className="hidden" />
-                  Female
-                </label>
+                <input
+                  id="settings-full-name"
+                  type="text"
+                  name="fullName"
+                  autoComplete="name"
+                  maxLength={120}
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  className={inputClass}
+                />
               </div>
 
-              {/* Form Grid */}
-              <div className="grid grid-cols-2 gap-x-8 gap-y-6">
-                <div>
-                  <label className="block text-slate-500 text-sm font-medium mb-2">First Name</label>
-                  <input type="text" name="firstName" value={user.firstName} onChange={handleChange} className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" />
-                </div>
-                <div>
-                  <label className="block text-slate-500 text-sm font-medium mb-2">Last Name</label>
-                  <input type="text" name="lastName" value={user.lastName} onChange={handleChange} className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" />
-                </div>
-                <div className="col-span-2 relative">
-                  <label className="block text-slate-500 text-sm font-medium mb-2">Email</label>
-                  <input type="email" name="email" value={user.email} onChange={handleChange} className="w-full bg-slate-50/70 border-none rounded-xl pl-4 pr-24 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" />
-                  <div className="absolute right-4 top-[38px] flex items-center gap-1 text-emerald-500 font-medium text-sm">
-                    <Check className="w-4 h-4 bg-emerald-500 text-white rounded-full p-0.5" />
-                    Verified
+              <div>
+                <label htmlFor="settings-email" className="block text-slate-500 text-sm font-medium mb-2">
+                  Email
+                </label>
+                <div className="relative">
+                  <input
+                    id="settings-email"
+                    type="email"
+                    value={user.email}
+                    readOnly
+                    className={`${inputClass} pr-32 text-slate-500 cursor-default`}
+                  />
+                  <div
+                    className={`absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 font-medium text-sm ${
+                      user.email_verified ? "text-emerald-600" : "text-amber-600"
+                    }`}
+                  >
+                    {user.email_verified ? (
+                      <>
+                        <Check className="w-4 h-4 bg-emerald-500 text-white rounded-full p-0.5" />
+                        Verified
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-4 h-4" />
+                        Not verified
+                      </>
+                    )}
                   </div>
                 </div>
-                <div className="col-span-2">
-                  <label className="block text-slate-500 text-sm font-medium mb-2">Address</label>
-                  <input type="text" name="address" value={user.address} onChange={handleChange} className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" />
-                </div>
-                <div>
-                  <label className="block text-slate-500 text-sm font-medium mb-2">Phone Number</label>
-                  <input type="text" name="phone" value={user.phone} onChange={handleChange} className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" />
-                </div>
-                <div className="relative">
-                  <label className="block text-slate-500 text-sm font-medium mb-2">Date of Birth</label>
-                  <input type="text" name="dob" value={user.dob} onChange={handleChange} className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all pr-10" />
-                  <Calendar className="w-5 h-5 text-slate-400 absolute right-4 top-[38px] pointer-events-none" />
-                </div>
-                <div className="relative">
-                  <label className="block text-slate-500 text-sm font-medium mb-2">Location</label>
-                  <input type="text" name="location" value={user.location} onChange={handleChange} className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all pr-10" />
-                  <ChevronDown className="w-5 h-5 text-slate-400 absolute right-4 top-[38px] pointer-events-none" />
-                </div>
-                <div>
-                  <label className="block text-slate-500 text-sm font-medium mb-2">Postal Code</label>
-                  <input type="text" name="postalCode" value={user.postalCode} onChange={handleChange} className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" />
+                <p className="text-xs text-slate-400 mt-2">Your sign-in email can't be changed here.</p>
+                {!user.email_verified && (
+                  <button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={sendingVerification}
+                    className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-[#0d3b2e] hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    <Mail className="w-4 h-4" />
+                    {sendingVerification ? "Sending…" : "Resend verification email"}
+                  </button>
+                )}
+                <div className="mt-3">
+                  <StatusMessage status={verificationStatus} />
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-4 pt-6">
-                <button type="button" onClick={handleDiscard} className="flex-1 py-4 border-2 border-[#0d3b2e] text-[#0d3b2e] rounded-xl font-bold hover:bg-emerald-50 transition-colors cursor-pointer">
+              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-4 rounded-2xl bg-slate-50/70 p-5 text-sm">
+                <div>
+                  <dt className="text-slate-500 font-medium">Member since</dt>
+                  <dd className="text-slate-800 font-semibold mt-1">{formatDate(user.created_at)}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500 font-medium">Last sign-in</dt>
+                  <dd className="text-slate-800 font-semibold mt-1">{formatDate(user.last_login_at)}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-500 font-medium">Role</dt>
+                  <dd className="text-slate-800 font-semibold mt-1 capitalize">{user.role}</dd>
+                </div>
+              </dl>
+
+              <StatusMessage status={profileStatus} />
+
+              <div className="flex gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={handleDiscard}
+                  disabled={!nameChanged || savingProfile}
+                  className={secondaryButton}
+                >
                   Discard Changes
                 </button>
-                <button type="submit" className="flex-1 py-4 bg-[#0d3b2e] text-white rounded-xl font-bold hover:bg-emerald-900 transition-colors cursor-pointer shadow-md shadow-emerald-900/20">
-                  Save Changes
+                <button type="submit" disabled={!nameChanged || savingProfile} className={primaryButton}>
+                  {savingProfile ? "Saving…" : "Save Changes"}
                 </button>
               </div>
             </form>
           </>
         )}
 
-        {activeTab === 'security' && (
+        {activeTab === "security" && (
           <>
             <h1 className="text-2xl font-bold text-slate-900 mb-8">Login & Password</h1>
-            
+
             <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 mb-8 flex items-start gap-4">
               <div className="w-10 h-10 rounded-full bg-emerald-200/50 flex items-center justify-center text-emerald-700 shrink-0 mt-1">
                 <KeyRound className="w-5 h-5" />
@@ -188,67 +310,121 @@ export function SettingsView({ thresholds, onUpdateThresholds, onOpenAuth, profi
               <div>
                 <h3 className="text-sm font-bold text-emerald-900 mb-1">Secure your account</h3>
                 <p className="text-xs text-emerald-800/80 leading-relaxed">
-                  Update your password regularly to keep your account secure. We recommend using a strong password that you aren't using for any other websites.
+                  Use at least 8 characters with an uppercase letter, a lowercase letter and a digit.
+                  Changing your password signs you out on every device.
                 </p>
               </div>
             </div>
 
-            <form className="space-y-6" onSubmit={handleSave}>
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-slate-500 text-sm font-medium mb-2">Current Password</label>
-                  <input 
-                    type="password" 
-                    name="currentPassword" 
-                    value={securityData.currentPassword} 
-                    onChange={handleSecurityChange} 
-                    placeholder="Enter your current password"
-                    className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" 
-                  />
-                </div>
-                
-                <div className="h-px bg-slate-100 my-2"></div>
-
-                <div>
-                  <label className="block text-slate-500 text-sm font-medium mb-2">New Password</label>
-                  <input 
-                    type="password" 
-                    name="newPassword" 
-                    value={securityData.newPassword} 
-                    onChange={handleSecurityChange} 
-                    placeholder="Enter new password"
-                    className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" 
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-slate-500 text-sm font-medium mb-2">Confirm New Password</label>
-                  <input 
-                    type="password" 
-                    name="confirmPassword" 
-                    value={securityData.confirmPassword} 
-                    onChange={handleSecurityChange} 
-                    placeholder="Confirm new password"
-                    className="w-full bg-slate-50/70 border-none rounded-xl px-4 py-3.5 text-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all" 
-                  />
-                </div>
+            <form className="space-y-6" onSubmit={handleChangePassword}>
+              <div>
+                <label htmlFor="settings-current-password" className="block text-slate-500 text-sm font-medium mb-2">
+                  Current Password
+                </label>
+                <input
+                  id="settings-current-password"
+                  type="password"
+                  name="currentPassword"
+                  autoComplete="current-password"
+                  value={passwords.currentPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="Enter your current password"
+                  className={inputClass}
+                />
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-4 pt-6">
-                <button type="button" onClick={() => setSecurityData({ currentPassword: "", newPassword: "", confirmPassword: "" })} className="flex-1 py-4 border-2 border-[#0d3b2e] text-[#0d3b2e] rounded-xl font-bold hover:bg-emerald-50 transition-colors cursor-pointer">
+              <div className="h-px bg-slate-100 my-2"></div>
+
+              <div>
+                <label htmlFor="settings-new-password" className="block text-slate-500 text-sm font-medium mb-2">
+                  New Password
+                </label>
+                <input
+                  id="settings-new-password"
+                  type="password"
+                  name="newPassword"
+                  autoComplete="new-password"
+                  value={passwords.newPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="Enter new password"
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="settings-confirm-password" className="block text-slate-500 text-sm font-medium mb-2">
+                  Confirm New Password
+                </label>
+                <input
+                  id="settings-confirm-password"
+                  type="password"
+                  name="confirmPassword"
+                  autoComplete="new-password"
+                  value={passwords.confirmPassword}
+                  onChange={handlePasswordChange}
+                  placeholder="Confirm new password"
+                  className={inputClass}
+                />
+              </div>
+
+              <StatusMessage status={passwordStatus} />
+
+              <div className="flex gap-4 pt-2">
+                <button
+                  type="button"
+                  disabled={changingPassword}
+                  onClick={() => {
+                    setPasswords(EMPTY_PASSWORDS);
+                    setPasswordStatus(null);
+                  }}
+                  className={secondaryButton}
+                >
                   Cancel
                 </button>
-                <button type="submit" className="flex-1 py-4 bg-[#0d3b2e] text-white rounded-xl font-bold hover:bg-emerald-900 transition-colors cursor-pointer shadow-md shadow-emerald-900/20">
-                  Update Password
+                <button type="submit" disabled={changingPassword} className={primaryButton}>
+                  {changingPassword ? "Updating…" : "Update Password"}
                 </button>
               </div>
             </form>
+
+            <div className="mt-12 border border-rose-100 rounded-2xl p-6">
+              <h2 className="text-base font-bold text-rose-700 mb-1">Deactivate account</h2>
+              <p className="text-sm text-slate-500 mb-4">
+                You'll be signed out everywhere and won't be able to sign in again.
+              </p>
+              <StatusMessage status={deactivateStatus} />
+              {confirmingDeactivate ? (
+                <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingDeactivate(false)}
+                    disabled={deactivating}
+                    className="flex-1 py-3 border-2 border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                  >
+                    Keep my account
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeactivate}
+                    disabled={deactivating}
+                    className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 cursor-pointer disabled:opacity-50"
+                  >
+                    {deactivating ? "Deactivating…" : "Yes, deactivate my account"}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDeactivate(true)}
+                  className="mt-2 py-3 px-5 border-2 border-rose-200 text-rose-700 rounded-xl font-bold hover:bg-rose-50 cursor-pointer"
+                >
+                  Deactivate account
+                </button>
+              )}
+            </div>
           </>
         )}
-
       </div>
     </div>
   );
 }
-

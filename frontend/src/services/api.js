@@ -160,6 +160,33 @@ export async function logoutUser() {
   }
 }
 
+export async function updateProfile({ fullName }) {
+  return apiJson(
+    "/api/v1/auth/profile",
+    { method: "PATCH", body: JSON.stringify({ full_name: fullName }) },
+    "Failed to update profile",
+  );
+}
+
+export async function changePassword({ currentPassword, newPassword, confirmPassword }) {
+  return apiJson(
+    "/api/v1/auth/change-password",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      }),
+    },
+    "Failed to change password",
+  );
+}
+
+export async function deactivateAccount() {
+  return apiJson("/api/v1/auth/account", { method: "DELETE" }, "Failed to deactivate account");
+}
+
 export async function forgotPassword(email) {
   return apiJson(
     "/api/v1/auth/forgot-password",
