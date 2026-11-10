@@ -68,7 +68,7 @@ export default function ResetPassword() {
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               placeholder="Enter your new password"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+              className="w-full glass rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
             />
             <button 
               type="button" 
@@ -78,7 +78,7 @@ export default function ResetPassword() {
               {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1.5">Password must be at least <span className="text-[#003D30] font-semibold">8 characters</span></p>
+          <p className="text-[11px] text-slate-400 mt-1.5">Password must be at least <span className="text-[#1c1c1f] font-semibold">8 characters</span></p>
         </div>
         
         <div>
@@ -91,7 +91,7 @@ export default function ResetPassword() {
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
               placeholder="Confirm your new password"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+              className="w-full glass rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
             />
             <button 
               type="button" 
@@ -106,7 +106,7 @@ export default function ResetPassword() {
         <button 
           type="submit" 
           disabled={loading}
-          className="w-full py-2.5 rounded-lg bg-[#003D30] text-white font-bold text-sm hover:bg-[#004d3f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#003D30]/20 active:scale-[0.98]"
+          className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#1c1c1f]/20 active:scale-[0.98]"
         >
           {loading ? "Resetting..." : "Reset Password"}
         </button>
@@ -116,7 +116,7 @@ export default function ResetPassword() {
         <button 
           type="button" 
           onClick={() => navigate("/signin")}
-          className="flex items-center justify-center gap-1.5 text-[#003D30] font-semibold hover:underline mx-auto"
+          className="flex items-center justify-center gap-1.5 text-[#1c1c1f] font-semibold hover:underline mx-auto"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back to sign in

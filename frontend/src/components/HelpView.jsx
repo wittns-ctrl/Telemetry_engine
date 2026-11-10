@@ -47,10 +47,10 @@ export function HelpView({ onNavigate }) {
         {TOPICS.map((topic) => (
           <div
             key={topic.id}
-            className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs flex flex-col"
+            className="glass rounded-3xl p-6 shadow-2xs flex flex-col"
           >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-[#0b4d36]">
+              <div className="w-9 h-9 rounded-2xl bg-ink-50 border border-ink-100 flex items-center justify-center text-[#1c1c1f]">
                 <topic.icon className="w-4 h-4" />
               </div>
               <h2 className="text-sm font-bold text-slate-900">{topic.title}</h2>
@@ -59,7 +59,7 @@ export function HelpView({ onNavigate }) {
             <button
               type="button"
               onClick={() => onNavigate?.(topic.id)}
-              className="mt-4 self-start text-xs font-bold text-[#0b4d36] bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 px-3 py-1.5 rounded-full transition-colors"
+              className="mt-4 self-start text-xs font-bold text-[#1c1c1f] bg-ink-50 hover:bg-ink-100 border border-ink-100 px-3 py-1.5 rounded-full transition-colors"
             >
               {topic.action}
             </button>
@@ -67,7 +67,7 @@ export function HelpView({ onNavigate }) {
         ))}
       </div>
 
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs">
+      <div className="glass rounded-3xl p-6 shadow-2xs">
         <h2 className="text-sm font-bold text-slate-900 mb-2">Starting the agent</h2>
         <p className="text-xs text-slate-600 leading-relaxed">
           From the project folder on the computer you want to monitor, run:
@@ -82,7 +82,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
         </p>
       </div>
 
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs">
+      <div className="glass rounded-3xl p-6 shadow-2xs">
         <div className="flex items-center gap-2 mb-2">
           <AlertTriangle className="w-4 h-4 text-amber-600" />
           <h2 className="text-sm font-bold text-slate-900">When do alerts fire?</h2>

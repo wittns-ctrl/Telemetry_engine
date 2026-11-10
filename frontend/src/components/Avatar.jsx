@@ -18,7 +18,7 @@ export function Avatar({ name, size = "sm", className = "" }) {
   return (
     <div
       aria-hidden="true"
-      className={`${SIZES[size]} rounded-full bg-emerald-50 text-[#0d3b2e] font-bold flex items-center justify-center select-none shrink-0 ${className}`}
+      className={`${SIZES[size]} rounded-full bg-ink-50 text-[#1c1c1f] font-bold flex items-center justify-center select-none shrink-0 ${className}`}
     >
       {initialsFor(name)}
     </div>

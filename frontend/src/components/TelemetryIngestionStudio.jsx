@@ -119,11 +119,11 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
   const currentPayload = buildPayload();
 
   return (
-    <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs my-6 font-sans">
+    <div className="glass rounded-3xl p-6 shadow-2xs my-6 font-sans">
       {/* Header */}
       <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-2xl bg-emerald-50 text-[#0b4d36] border border-emerald-100">
+          <div className="p-2 rounded-2xl bg-ink-50 text-[#1c1c1f] border border-ink-100">
             <Zap className="w-5 h-5" />
           </div>
           <div>
@@ -149,7 +149,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
             onClick={() => applyPreset("temp_normal")}
             className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[11px] font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5"
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="w-2 h-2 rounded-full bg-ink-500"></span>
             <span>Normal Temp</span>
           </button>
 
@@ -167,7 +167,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
             onClick={() => applyPreset("cpu_normal")}
             className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[11px] font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5"
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="w-2 h-2 rounded-full bg-ink-500"></span>
             <span>Normal CPU</span>
           </button>
 
@@ -185,7 +185,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
             onClick={() => applyPreset("net_normal")}
             className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[11px] font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5"
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className="w-2 h-2 rounded-full bg-ink-500"></span>
             <span>Normal Net</span>
           </button>
 
@@ -241,11 +241,11 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
                 onClick={() => setMetricType("network")}
                 className={`py-2 px-3 rounded-2xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                   metricType === "network"
-                    ? "bg-emerald-100 border-emerald-300 text-emerald-900 shadow-xs"
+                    ? "bg-ink-100 border-ink-300 text-ink-900 shadow-xs"
                     : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                <Radio className="w-3.5 h-3.5 text-emerald-600" />
+                <Radio className="w-3.5 h-3.5 text-ink-600" />
                 <span>Network</span>
               </button>
             </div>
@@ -262,7 +262,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
                 value={sensorId}
                 onChange={(e) => setSensorId(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none focus:bg-white focus:border-[#0b4d36] transition-all font-mono"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none focus:bg-white focus:border-[#1c1c1f] transition-all font-mono"
               />
             </div>
 
@@ -281,7 +281,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 required
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none focus:bg-white focus:border-[#0b4d36] transition-all font-mono"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 outline-none focus:bg-white focus:border-[#1c1c1f] transition-all font-mono"
               />
             </div>
           </div>
@@ -322,7 +322,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
                   min="1"
                   value={coreCount}
                   onChange={(e) => setCoreCount(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none focus:bg-white focus:border-[#0b4d36]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none focus:bg-white focus:border-[#1c1c1f]"
                 />
               </div>
               <div>
@@ -334,7 +334,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
                   min="0"
                   value={processCount}
                   onChange={(e) => setProcessCount(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none focus:bg-white focus:border-[#0b4d36]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none focus:bg-white focus:border-[#1c1c1f]"
                 />
               </div>
             </div>
@@ -351,7 +351,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
                   min="0"
                   value={bytesSent}
                   onChange={(e) => setBytesSent(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none focus:bg-white focus:border-[#0b4d36]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none focus:bg-white focus:border-[#1c1c1f]"
                 />
               </div>
               <div>
@@ -363,7 +363,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
                   min="0"
                   value={bytesRecv}
                   onChange={(e) => setBytesRecv(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none focus:bg-white focus:border-[#0b4d36]"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono outline-none focus:bg-white focus:border-[#1c1c1f]"
                 />
               </div>
             </div>
@@ -373,7 +373,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 px-4 rounded-full bg-[#0b4d36] hover:bg-[#073924] text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+            className="w-full py-2.5 px-4 rounded-full bg-[#1c1c1f] hover:bg-[#0e0e10] text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50"
           >
             {loading ? (
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
@@ -392,14 +392,14 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex-1 font-mono text-xs shadow-inner">
             <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-slate-400">
               <span className="flex items-center gap-1.5 text-[11px] font-sans font-bold">
-                <Code className="w-3.5 h-3.5 text-emerald-400" />
+                <Code className="w-3.5 h-3.5 text-ink-400" />
                 <span>Payload Inspector</span>
               </span>
               <span className="text-[10px] text-slate-500">
                 POST /api/v1/metrics
               </span>
             </div>
-            <pre className="text-emerald-400 overflow-x-auto text-[11px] leading-relaxed">
+            <pre className="text-ink-400 overflow-x-auto text-[11px] leading-relaxed">
               {JSON.stringify(currentPayload, null, 2)}
             </pre>
           </div>
@@ -410,11 +410,11 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
               className={`p-4 rounded-2xl border text-xs font-sans transition-all ${
                 lastResponse.alert_triggered
                   ? "bg-rose-50 border-rose-200 text-rose-900"
-                  : "bg-emerald-50 border-emerald-200 text-emerald-900"
+                  : "bg-ink-50 border-ink-200 text-ink-900"
               }`}
             >
               <div className="flex items-center gap-2 font-bold mb-1">
-                <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                <CheckCircle2 className="w-4 h-4 text-ink-700" />
                 <span>Metric Ingested Successfully</span>
               </div>
               <p className="text-[11px] font-mono text-slate-600">

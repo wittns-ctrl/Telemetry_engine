@@ -14,7 +14,7 @@ const GAUGE_ARC_LENGTH = Math.PI * 40;
 const TYPE_ROWS = [
   { key: "temperature", label: "Temperature", color: "bg-amber-500" },
   { key: "cpu", label: "CPU", color: "bg-cyan-500" },
-  { key: "network", label: "Network", color: "bg-emerald-500" },
+  { key: "network", label: "Network", color: "bg-ink-800" },
 ];
 
 function formatTime(value) {
@@ -55,7 +55,7 @@ export function DonezoDashboard({
   const recentAlerts = alerts.slice(0, 5);
 
   return (
-    <div className="space-y-6 font-sans">
+    <div className="space-y-6 font-sans dash-in">
       {/* Title & Top Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -71,7 +71,7 @@ export function DonezoDashboard({
           <button
             type="button"
             onClick={onIngestClick}
-            className="bg-[#0b4d36] hover:bg-[#073924] text-white font-bold text-xs px-5 py-2.5 rounded-full flex items-center gap-2 shadow-xs transition-colors"
+            className="bg-[#1c1c1f] hover:bg-[#0e0e10] text-white font-bold text-xs px-5 py-2.5 rounded-full flex items-center gap-2 shadow-xs transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>Ingest Metric</span>
@@ -89,9 +89,9 @@ export function DonezoDashboard({
 
       {/* TOP ROW: 4 KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#0b4d36] text-white rounded-3xl p-5 shadow-sm relative overflow-hidden flex flex-col justify-between h-36">
+        <div className="glass-dark text-white rounded-3xl p-5 relative overflow-hidden flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-100">
+            <span className="text-xs font-semibold text-white/75">
               Total Metrics Ingested
             </span>
             <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-white">
@@ -102,14 +102,14 @@ export function DonezoDashboard({
             <div className="text-3xl font-black tracking-tight">
               {totalMetrics}
             </div>
-            <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-medium bg-emerald-800/60 px-2.5 py-0.5 rounded-full border border-emerald-700/50">
-              <TrendingUp className="w-3 h-3 text-emerald-300" />
+            <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-medium bg-white/10 px-2.5 py-0.5 rounded-full border border-white/15">
+              <TrendingUp className="w-3 h-3 text-white/70" />
               <span>Stored readings</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between h-36">
+        <div className="glass rounded-3xl p-5 shadow-2xs flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-700">
               Temperature Readings
@@ -130,7 +130,7 @@ export function DonezoDashboard({
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between h-36">
+        <div className="glass rounded-3xl p-5 shadow-2xs flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-700">
               CPU Load Readings
@@ -151,12 +151,12 @@ export function DonezoDashboard({
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between h-36">
+        <div className="glass rounded-3xl p-5 shadow-2xs flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-700">
               Network Readings
             </span>
-            <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700 border border-emerald-100">
+            <div className="w-8 h-8 rounded-full bg-ink-50 flex items-center justify-center text-ink-700 border border-ink-100">
               <Radio className="w-4 h-4" />
             </div>
           </div>
@@ -165,7 +165,7 @@ export function DonezoDashboard({
               {byType.network}
             </div>
             {netLimit != null && (
-              <div className="mt-2 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 inline-block">
+              <div className="mt-2 text-[10px] font-bold text-ink-800 bg-ink-50 px-2.5 py-0.5 rounded-full border border-ink-200 inline-block">
                 Limit: {netLimit} MB/s
               </div>
             )}
@@ -175,7 +175,7 @@ export function DonezoDashboard({
 
       {/* MIDDLE ROW: readings by type, latest alert, monitored sensors */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs">
+        <div className="lg:col-span-5 glass rounded-3xl p-5 shadow-2xs">
           <h3 className="text-sm font-bold text-slate-900 mb-4">
             Readings by Type
           </h3>
@@ -210,7 +210,7 @@ export function DonezoDashboard({
           )}
         </div>
 
-        <div className="lg:col-span-3 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between">
+        <div className="lg:col-span-3 glass rounded-3xl p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-900 mb-3">
               Latest Alert
@@ -230,14 +230,14 @@ export function DonezoDashboard({
           <button
             type="button"
             onClick={onViewAlerts}
-            className="w-full bg-[#0b4d36] hover:bg-[#073924] text-white font-bold text-xs py-3 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-xs transition-colors mt-6"
+            className="w-full bg-[#1c1c1f] hover:bg-[#0e0e10] text-white font-bold text-xs py-3 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-xs transition-colors mt-6"
           >
             <AlertTriangle className="w-4 h-4 text-amber-300" />
             <span>View Alerts Stream</span>
           </button>
         </div>
 
-        <div className="lg:col-span-4 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs">
+        <div className="lg:col-span-4 glass rounded-3xl p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-bold text-slate-900">Recently Active Sensors</h3>
             <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
@@ -253,7 +253,7 @@ export function DonezoDashboard({
             <div className="space-y-3">
               {sensors.slice(0, 6).map((name) => (
                 <div key={name} className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-ink-500 shrink-0"></div>
                   <div className="text-xs font-bold text-slate-800 font-mono truncate">{name}</div>
                 </div>
               ))}
@@ -267,7 +267,7 @@ export function DonezoDashboard({
 
       {/* BOTTOM ROW: recent alerts & live safety gauge */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs">
+        <div className="lg:col-span-7 glass rounded-3xl p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-bold text-slate-900">Recent Alerts</h3>
             <button
@@ -316,7 +316,7 @@ export function DonezoDashboard({
           )}
         </div>
 
-        <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between">
+        <div className="lg:col-span-5 glass rounded-3xl p-5 shadow-2xs flex flex-col justify-between">
           <h3 className="text-sm font-bold text-slate-900 mb-2">
             Live Safety Gauge
           </h3>
@@ -336,7 +336,7 @@ export function DonezoDashboard({
                 <path
                   d="M 10 50 A 40 40 0 0 1 90 50"
                   fill="none"
-                  stroke="#073327"
+                  stroke="#0e0e10"
                   strokeWidth="14"
                   strokeLinecap="round"
                   strokeDasharray={`${(safePercent / 100) * GAUGE_ARC_LENGTH} ${GAUGE_ARC_LENGTH}`}

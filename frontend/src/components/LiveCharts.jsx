@@ -76,12 +76,12 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
   const netMaxThreshold = thresholds?.network?.max || 1000;
 
   return (
-    <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs my-6 font-sans">
+    <div className="glass rounded-3xl p-6 shadow-2xs my-6 font-sans">
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></div>
+            <div className="w-2.5 h-2.5 rounded-full bg-ink-500 animate-ping"></div>
             <h2 className="text-base font-bold text-slate-900 tracking-tight">
               Real-Time Telemetry Streams
             </h2>
@@ -118,7 +118,7 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
               onClick={() => setActiveTab("all")}
               className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === "all"
-                  ? "bg-[#0b4d36] text-white shadow-2xs"
+                  ? "bg-[#1c1c1f] text-white shadow-2xs"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -151,7 +151,7 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
               onClick={() => setActiveTab("network")}
               className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 activeTab === "network"
-                  ? "bg-emerald-600 text-white shadow-2xs"
+                  ? "bg-ink-600 text-white shadow-2xs"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -311,7 +311,7 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
           <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Radio className="w-4 h-4 text-emerald-600" />
+                <Radio className="w-4 h-4 text-ink-600" />
                 <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                   Network Throughput (MB/s)
                 </span>
@@ -359,9 +359,9 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
                     <Line
                       type="monotone"
                       dataKey="value"
-                      stroke="#10b981"
+                      stroke="#45454c"
                       strokeWidth={2.5}
-                      dot={{ r: 3, fill: "#10b981" }}
+                      dot={{ r: 3, fill: "#45454c" }}
                       activeDot={{ r: 6, fill: "#ef4444" }}
                       isAnimationActive={false}
                     />

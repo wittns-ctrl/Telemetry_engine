@@ -57,8 +57,8 @@ export default function VerifyEmail() {
     <AuthPageLayout>
       <div className="flex flex-col items-center mb-5">
         {/* Email verification illustration */}
-        <div className="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mb-4">
-          <Mail className="w-10 h-10 text-[#003D30]" />
+        <div className="w-20 h-20 rounded-full bg-ink-100 flex items-center justify-center mb-4">
+          <Mail className="w-10 h-10 text-[#1c1c1f]" />
         </div>
         
         <h1 className="text-[24px] font-bold text-slate-900 mb-1.5 text-center">Verify your email</h1>
@@ -76,7 +76,7 @@ export default function VerifyEmail() {
           type="button"
           onClick={handleResend}
           disabled={loading}
-          className="w-full py-2.5 rounded-lg bg-[#003D30] text-white font-bold text-sm hover:bg-[#004d3f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#003D30]/20 active:scale-[0.98] flex items-center justify-center gap-2"
+          className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#1c1c1f]/20 active:scale-[0.98] flex items-center justify-center gap-2"
         >
           {loading ? (
             <>
@@ -95,7 +95,7 @@ export default function VerifyEmail() {
           <button 
             type="button" 
             onClick={() => navigate("/signin")}
-            className="flex items-center justify-center gap-1.5 text-[#003D30] font-semibold hover:underline mx-auto"
+            className="flex items-center justify-center gap-1.5 text-[#1c1c1f] font-semibold hover:underline mx-auto"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Back to sign in

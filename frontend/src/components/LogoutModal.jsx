@@ -10,8 +10,8 @@ export function LogoutModal({ isOpen, onClose, onConfirm }) {
         <div className="px-8 pt-10 pb-8 text-center">
           
           {/* Icon */}
-          <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-6">
-            <LogIn className="w-7 h-7 text-[#0d3b2e]" style={{ transform: 'scaleX(-1)' }} />
+          <div className="w-16 h-16 rounded-full bg-ink-50 flex items-center justify-center mx-auto mb-6">
+            <LogIn className="w-7 h-7 text-[#1c1c1f]" style={{ transform: 'scaleX(-1)' }} />
           </div>
 
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Sign Out?</h2>
@@ -28,7 +28,7 @@ export function LogoutModal({ isOpen, onClose, onConfirm }) {
             </button>
             <button
               onClick={onConfirm}
-              className="flex-1 py-3.5 px-4 rounded-2xl font-semibold text-white bg-[#0d3b2e] hover:bg-emerald-900 transition-colors text-sm"
+              className="flex-1 py-3.5 px-4 rounded-2xl font-semibold text-white bg-[#1c1c1f] hover:bg-ink-900 transition-colors text-sm"
             >
               Sign Out
             </button>

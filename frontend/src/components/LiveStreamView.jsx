@@ -39,11 +39,11 @@ export function LiveStreamView({
         simStats={simStats}
       />
 
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs">
+      <div className="glass rounded-3xl p-6 shadow-2xs">
         <LiveCharts liveMetrics={liveMetrics} thresholds={thresholds} />
       </div>
 
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs">
+      <div className="glass rounded-3xl p-6 shadow-2xs">
         <AlertsStream
           alerts={alerts}
           onClear={clearAlerts}

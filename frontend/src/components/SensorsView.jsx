@@ -16,7 +16,7 @@ export function SensorsView({ stats }) {
       </div>
 
       {/* Active Sensor Nodes Full Width */}
-      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs">
+      <div className="glass rounded-3xl p-6 shadow-2xs">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
           <div>
             <h2 className="text-sm font-bold text-slate-900">
@@ -26,7 +26,7 @@ export function SensorsView({ stats }) {
               {sensors.length} sensor{sensors.length === 1 ? "" : "s"} reporting
             </p>
           </div>
-          <Server className="w-5 h-5 text-[#0b4d36]" />
+          <Server className="w-5 h-5 text-[#1c1c1f]" />
         </div>
 
         {sensors.length === 0 && (
@@ -42,8 +42,8 @@ export function SensorsView({ stats }) {
               className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/60 transition-colors"
             >
               <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-100/80 text-[#0b4d36] font-bold text-xs flex items-center justify-center border border-emerald-200">
-                  <Radio className="w-5 h-5 text-[#0b4d36]" />
+                <div className="w-10 h-10 rounded-2xl bg-ink-100/80 text-[#1c1c1f] font-bold text-xs flex items-center justify-center border border-ink-200">
+                  <Radio className="w-5 h-5 text-[#1c1c1f]" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-slate-900 font-mono">

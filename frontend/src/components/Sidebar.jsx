@@ -30,13 +30,13 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
   ];
 
   return (
-    <aside className="w-64 bg-[#F8FAFC] min-h-screen flex flex-col px-4 py-6 border-r border-slate-100 hidden md:flex shrink-0">
+    <aside className="w-64 glass sticky top-3 self-start h-[calc(100vh-1.5rem)] m-3 mr-0 rounded-3xl flex-col px-4 py-6 hidden md:flex shrink-0 overflow-y-auto">
       {/* Brand */}
       <div className="flex items-center gap-2 px-2 mb-10">
-        <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+        <div className="w-8 h-8 rounded-full bg-ink-900 flex items-center justify-center text-white">
           <Activity size={18} strokeWidth={2.5} />
         </div>
-        <span className="font-bold text-xl text-slate-800 tracking-tight">Donezo</span>
+        <span className="font-bold text-lg text-slate-800 tracking-tight whitespace-nowrap">Telemetry Engine</span>
       </div>
 
       {/* Menu Section */}
@@ -51,16 +51,16 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
                 onClick={() => setActiveNav?.(item.id)}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-colors ${
                   isActive 
-                    ? 'bg-emerald-50 text-emerald-700 font-medium' 
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                    ? 'bg-ink-900 text-white font-medium shadow-sm' 
+                    : 'text-slate-500 hover:bg-ink-900/5 hover:text-slate-800'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
+                  <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-white' : 'text-slate-400'} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
-                  <span className="bg-[#064E3B] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  <span className="bg-[#1c1c1f] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                     {item.badge}
                   </span>
                 )}
@@ -80,18 +80,18 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
                 onClick={() => setActiveNav?.(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
                   isActive
-                    ? 'bg-emerald-50 text-emerald-700 font-medium'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                    ? 'bg-ink-900 text-white font-medium shadow-sm'
+                    : 'text-slate-500 hover:bg-ink-900/5 hover:text-slate-800'
                 }`}
               >
-                <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
+                <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-white' : 'text-slate-400'} />
                 <span>{item.label}</span>
               </button>
             );
           })}
           <button
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-slate-500 hover:bg-slate-100 hover:text-slate-700 mt-2"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-slate-500 hover:bg-ink-900/5 hover:text-slate-800 mt-2"
           >
             <LogOut size={18} strokeWidth={2} className="text-slate-400" />
             <span>Logout</span>
@@ -100,23 +100,23 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
       </div>
 
       {/* Bottom Status Card */}
-      <div className="mt-auto bg-[#064E3B] rounded-2xl p-5 text-white shadow-sm relative overflow-hidden">
+      <div className="mt-auto glass-dark rounded-2xl p-5 text-white shadow-sm relative overflow-hidden">
         {/* Decorative background shapes */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500 opacity-20 blur-2xl rounded-full -mr-10 -mt-10"></div>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 blur-2xl rounded-full -mr-10 -mt-10"></div>
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-4">
              <div className="flex -space-x-2">
-                <div className="w-8 h-8 rounded bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center">
-                  <Activity size={14} className="text-emerald-400" />
+                <div className="w-8 h-8 rounded bg-white/10 border border-white/15 flex items-center justify-center">
+                  <Activity size={14} className="text-white/80" />
                 </div>
-                <div className="w-8 h-8 rounded bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center backdrop-blur-sm">
-                   <Server size={14} className="text-emerald-400" />
+                <div className="w-8 h-8 rounded bg-white/10 border border-white/15 flex items-center justify-center backdrop-blur-sm">
+                   <Server size={14} className="text-white/80" />
                 </div>
              </div>
           </div>
           <h4 className="font-semibold text-sm mb-1">System Status</h4>
-          <p className="text-emerald-50 text-xs mb-4">All systems operational</p>
-          <button className="flex items-center gap-2 text-xs font-medium text-emerald-200 hover:text-white transition-colors">
+          <p className="text-white/70 text-xs mb-4">All systems operational</p>
+          <button className="flex items-center gap-2 text-xs font-medium text-white/75 hover:text-white transition-colors">
             View status <ArrowRight size={14} />
           </button>
         </div>

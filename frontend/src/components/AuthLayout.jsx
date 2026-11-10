@@ -12,18 +12,18 @@ import {
 // ── Left Brand Panel with Telemetry Illustration ─────────────────────────────
 export function BrandPanel() {
   return (
-    <div className="hidden lg:flex flex-col bg-[#003D30] relative overflow-hidden w-1/2 rounded-l-3xl">
+    <div className="hidden lg:flex flex-col bg-[#1c1c1f] relative overflow-hidden w-1/2 rounded-l-3xl">
       {/* Background decorative elements */}
       <div className="absolute w-80 h-80 rounded-full bg-white/5 -top-16 -right-16" />
       <div className="absolute w-56 h-56 rounded-full bg-white/5 bottom-8 -left-12" />
-      <div className="absolute w-32 h-32 rounded-full bg-emerald-400/10 top-1/2 right-6" />
+      <div className="absolute w-32 h-32 rounded-full bg-ink-400/10 top-1/2 right-6" />
 
       {/* Logo positioned at top-left */}
       <div className="flex items-center gap-2 mt-5 ml-6 relative z-10">
         <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
           <div className="w-3.5 h-3.5 border-2 border-white rounded-full" />
         </div>
-        <span className="font-bold text-white text-base tracking-tight">Donezo</span>
+        <span className="font-bold text-white text-base tracking-tight">Telemetry Engine</span>
       </div>
 
       {/* Main heading and description */}
@@ -66,12 +66,12 @@ export function BrandPanel() {
 // ── Mobile Brand Header (shown on mobile/tablet) ───────────────────────────────
 export function MobileBrandHeader() {
   return (
-    <div className="lg:hidden flex flex-col items-center justify-center bg-[#003D30] p-4 rounded-t-3xl">
+    <div className="lg:hidden flex flex-col items-center justify-center bg-[#1c1c1f] p-4 rounded-t-3xl">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
           <div className="w-3 h-3 border-2 border-white rounded-full" />
         </div>
-        <span className="font-bold text-white text-sm tracking-tight">Donezo</span>
+        <span className="font-bold text-white text-sm tracking-tight">Telemetry Engine</span>
       </div>
       <h2 className="text-white font-bold text-lg text-center leading-tight mb-1.5">
         Real-time telemetry.<br />Smarter decisions.
@@ -102,8 +102,8 @@ function TelemetryIllustration() {
       {/* Left sensor device */}
       <div className="absolute left-0 top-1/2 -translate-y-1/2" style={{ zIndex: 1 }}>
         <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center">
-          <div className="w-6 h-6 bg-emerald-400/30 rounded-lg flex items-center justify-center">
-            <Cpu className="w-4 h-4 text-emerald-300" />
+          <div className="w-6 h-6 bg-ink-400/30 rounded-lg flex items-center justify-center">
+            <Cpu className="w-4 h-4 text-ink-300" />
           </div>
         </div>
       </div>
@@ -118,8 +118,8 @@ function TelemetryIllustration() {
             <div className="w-2 h-0.5 bg-white/50 rounded ml-1" />
           </div>
           <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center">
-            <div className="w-6 h-6 bg-emerald-400/30 rounded-lg flex items-center justify-center">
-              <Server className="w-4 h-4 text-emerald-300" />
+            <div className="w-6 h-6 bg-ink-400/30 rounded-lg flex items-center justify-center">
+              <Server className="w-4 h-4 text-ink-300" />
             </div>
           </div>
         </div>
@@ -128,14 +128,14 @@ function TelemetryIllustration() {
       {/* Database cylinder (lower left) */}
       <div className="absolute left-[5%] bottom-[15%]" style={{ zIndex: 1 }}>
         <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center">
-          <Database className="w-5 h-5 text-emerald-300" />
+          <Database className="w-5 h-5 text-ink-300" />
         </div>
       </div>
 
       {/* Cloud icon (lower right) */}
       <div className="absolute right-[5%] bottom-[20%]" style={{ zIndex: 1 }}>
         <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center">
-          <Cloud className="w-5 h-5 text-emerald-300" />
+          <Cloud className="w-5 h-5 text-ink-300" />
         </div>
       </div>
 
@@ -146,7 +146,7 @@ function TelemetryIllustration() {
           <div className="flex gap-1.5">
             <div className="w-2 h-2 rounded-full bg-red-400/50" />
             <div className="w-2 h-2 rounded-full bg-yellow-400/50" />
-            <div className="w-2 h-2 rounded-full bg-green-400/50" />
+            <div className="w-2 h-2 rounded-full bg-ink-400/50" />
           </div>
           <div className="flex gap-1.5">
             <div className="w-5 h-5 rounded bg-white/10 flex items-center justify-center">
@@ -161,7 +161,7 @@ function TelemetryIllustration() {
           <div className="space-y-2">
             <div className="bg-white/5 rounded-lg p-2">
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <div className="w-1.5 h-1.5 rounded-full bg-ink-400" />
                 <div className="text-white/60 text-[10px]">Status</div>
               </div>
               <div className="text-white font-semibold text-xs">Active</div>
@@ -188,7 +188,7 @@ function TelemetryIllustration() {
                 <path
                   d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   fill="none"
-                  stroke="#34d399"
+                  stroke="#45454c"
                   strokeWidth="2"
                   strokeDasharray="98.2, 100"
                 />
@@ -210,7 +210,7 @@ function TelemetryIllustration() {
                 className="flex-1 rounded-t-sm transition-all"
                 style={{
                   height: `${h}%`,
-                  backgroundColor: i === 11 ? "rgba(52,211,153,0.9)" : "rgba(255,255,255,0.15)",
+                  backgroundColor: i === 11 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.15)",
                 }}
               />
             ))}
@@ -228,7 +228,7 @@ function TelemetryIllustration() {
                   className="flex-1 rounded-t-sm"
                   style={{
                     height: `${h}%`,
-                    backgroundColor: i === 7 ? "rgba(52,211,153,0.8)" : "rgba(255,255,255,0.15)",
+                    backgroundColor: i === 7 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.15)",
                   }}
                 />
               ))}
@@ -239,7 +239,7 @@ function TelemetryIllustration() {
             <div className="space-y-1">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-1.5">
-                  <div className="w-1 h-1 rounded-full bg-emerald-400" />
+                  <div className="w-1 h-1 rounded-full bg-ink-400" />
                   <div className="h-1 bg-white/20 rounded flex-1" style={{ width: `${60 + i * 10}%` }} />
                 </div>
               ))}
@@ -256,8 +256,8 @@ function TelemetryIllustration() {
 function FeatureItem({ icon, title, description }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="w-8 h-8 rounded-lg bg-emerald-400/20 flex items-center justify-center mb-1.5">
-        <div className="text-emerald-300">{icon}</div>
+      <div className="w-8 h-8 rounded-lg bg-ink-400/20 flex items-center justify-center mb-1.5">
+        <div className="text-ink-300">{icon}</div>
       </div>
       <div className="text-white font-semibold text-[10px] mb-0.5">{title}</div>
       <div className="text-white/50 text-[9px] leading-tight">{description}</div>
@@ -293,6 +293,6 @@ export function ErrorBanner({ msg }) {
 // ── Success Banner Component ─────────────────────────────────────────────────
 export function SuccessBanner({ msg }) {
   return msg ? (
-    <div className="mb-4 text-xs text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">{msg}</div>
+    <div className="mb-4 text-xs text-ink-600 bg-ink-50 border border-ink-200 rounded-xl px-4 py-3">{msg}</div>
   ) : null;
 }

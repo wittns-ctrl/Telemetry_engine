@@ -24,7 +24,7 @@ export function AlertsStream({ alerts = [], onClear, onDismiss }) {
   });
 
   return (
-    <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs my-6 font-sans">
+    <div className="glass rounded-3xl p-6 shadow-2xs my-6 font-sans">
       {/* Stream Header */}
       <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
@@ -91,7 +91,7 @@ export function AlertsStream({ alerts = [], onClear, onDismiss }) {
                 placeholder="Search alerts by sensor, metric or message..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-[#0b4d36] transition-all font-mono"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 outline-none focus:bg-white focus:border-[#1c1c1f] transition-all font-mono"
               />
             </div>
           )}

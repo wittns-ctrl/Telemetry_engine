@@ -33,7 +33,7 @@ function PasswordInput({ placeholder, value, onChange, name, label }) {
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-3 text-sm text-slate-800 outline-none focus:border-[#0d3b2e] focus:bg-white transition-all"
+          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-3 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:bg-white transition-all"
         />
         <button type="button" onClick={() => setShow(s => !s)} className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600">
           {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -168,7 +168,7 @@ export function AuthPage({ onAuthSuccess }) {
               value={email} 
               onChange={e => setEmail(e.target.value)} 
               placeholder="you@company.com"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+              className="w-full glass rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
             />
           </div>
         </div>
@@ -182,7 +182,7 @@ export function AuthPage({ onAuthSuccess }) {
               value={password} 
               onChange={e => setPassword(e.target.value)} 
               placeholder="Enter your password"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+              className="w-full glass rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
             />
             <button 
               type="button" 
@@ -195,17 +195,17 @@ export function AuthPage({ onAuthSuccess }) {
         </div>
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600" onClick={() => setRememberMe(!rememberMe)}>
-            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${rememberMe ? "bg-[#003D30] border-[#003D30]" : "border-slate-300 bg-white"}`}>
+            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${rememberMe ? "bg-[#1c1c1f] border-[#1c1c1f]" : "border-slate-300 bg-white"}`}>
               {rememberMe && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
             </div>
             <span className="select-none">Remember me</span>
           </label>
-          <button type="button" onClick={handleForgotPassword} className="text-xs text-[#003D30] font-semibold hover:underline">Forgot password?</button>
+          <button type="button" onClick={handleForgotPassword} className="text-xs text-[#1c1c1f] font-semibold hover:underline">Forgot password?</button>
         </div>
         <button 
           type="submit" 
           disabled={loading}
-          className="w-full py-2.5 rounded-lg bg-[#003D30] text-white font-bold text-sm hover:bg-[#004d3f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#003D30]/20 active:scale-[0.98]"
+          className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#1c1c1f]/20 active:scale-[0.98]"
         >
           {loading ? "Signing in..." : "Sign In"}
         </button>
@@ -234,7 +234,7 @@ export function AuthPage({ onAuthSuccess }) {
         <button 
           type="button" 
           onClick={() => navigateScreen("signup")} 
-          className="text-[#003D30] font-semibold hover:underline"
+          className="text-[#1c1c1f] font-semibold hover:underline"
         >
           Sign up
         </button>
@@ -261,7 +261,7 @@ export function AuthPage({ onAuthSuccess }) {
               value={fullName} 
               onChange={e => setFullName(e.target.value)} 
               placeholder="Enter your full name"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+              className="w-full glass rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
             />
           </div>
         </div>
@@ -275,7 +275,7 @@ export function AuthPage({ onAuthSuccess }) {
               value={email} 
               onChange={e => setEmail(e.target.value)} 
               placeholder="you@company.com"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+              className="w-full glass rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
             />
           </div>
         </div>
@@ -289,7 +289,7 @@ export function AuthPage({ onAuthSuccess }) {
               value={password} 
               onChange={e => setPassword(e.target.value)} 
               placeholder="Create a password"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+              className="w-full glass rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
             />
             <button 
               type="button" 
@@ -299,7 +299,7 @@ export function AuthPage({ onAuthSuccess }) {
               {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
           </div>
-          <p className="text-[11px] text-slate-400 mt-1.5">Password must be at least <span className="text-[#003D30] font-semibold">8 characters</span></p>
+          <p className="text-[11px] text-slate-400 mt-1.5">Password must be at least <span className="text-[#1c1c1f] font-semibold">8 characters</span></p>
         </div>
         <div>
           <label className="block text-xs font-medium text-slate-700 mb-1.5">Confirm password</label>
@@ -311,7 +311,7 @@ export function AuthPage({ onAuthSuccess }) {
               value={confirmPassword} 
               onChange={e => setConfirmPassword(e.target.value)} 
               placeholder="Confirm your password"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+              className="w-full glass rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
             />
             <button 
               type="button" 
@@ -325,7 +325,7 @@ export function AuthPage({ onAuthSuccess }) {
         <button 
           type="submit" 
           disabled={loading}
-          className="w-full py-2.5 rounded-lg bg-[#003D30] text-white font-bold text-sm hover:bg-[#004d3f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#003D30]/20 active:scale-[0.98]"
+          className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#1c1c1f]/20 active:scale-[0.98]"
         >
           {loading ? "Creating account..." : "Create Account"}
         </button>
@@ -354,7 +354,7 @@ export function AuthPage({ onAuthSuccess }) {
         <button 
           type="button" 
           onClick={() => navigateScreen("signin")} 
-          className="text-[#003D30] font-semibold hover:underline"
+          className="text-[#1c1c1f] font-semibold hover:underline"
         >
           Sign in
         </button>
@@ -380,11 +380,11 @@ export function AuthPage({ onAuthSuccess }) {
               value={email} 
               onChange={e => setEmail(e.target.value)} 
               placeholder="Email address"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+              className="w-full glass rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
             />
           </div>
         </div>
-        <button type="submit" className="w-full py-2.5 rounded-lg bg-[#003D30] text-white font-bold text-sm hover:bg-[#004d3f] transition-colors shadow-md shadow-[#003D30]/20">
+        <button type="submit" className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors shadow-md shadow-[#1c1c1f]/20">
           Send Reset Link
         </button>
       </form>
@@ -412,12 +412,12 @@ export function AuthPage({ onAuthSuccess }) {
             { ok: checks.uppercase, label: "Includes an uppercase letter" },
           ].map(({ ok, label }) => (
             <div key={label} className="flex items-center gap-2 text-xs">
-              <CheckCircle2 className={`w-4 h-4 transition-colors ${ok ? "text-[#0d3b2e]" : "text-slate-300"}`} />
-              <span className={`transition-colors ${ok ? "text-[#0d3b2e]" : "text-slate-400"}`}>{label}</span>
+              <CheckCircle2 className={`w-4 h-4 transition-colors ${ok ? "text-[#1c1c1f]" : "text-slate-300"}`} />
+              <span className={`transition-colors ${ok ? "text-[#1c1c1f]" : "text-slate-400"}`}>{label}</span>
             </div>
           ))}
         </div>
-        <button type="submit" className="w-full py-2.5 rounded-lg bg-[#003D30] text-white font-bold text-sm hover:bg-[#004d3f] transition-colors shadow-md shadow-[#003D30]/20">
+        <button type="submit" className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors shadow-md shadow-[#1c1c1f]/20">
           Reset Password
         </button>
       </form>
@@ -436,9 +436,9 @@ export function AuthPage({ onAuthSuccess }) {
       </div>
       <ErrorBanner msg={errorMsg} />
       <div className="flex flex-col items-center text-center py-8">
-        <div className="w-24 h-24 rounded-full bg-emerald-50 flex items-center justify-center mb-8 relative shadow-xl shadow-emerald-100">
-          <Mail className="w-10 h-10 text-[#0d3b2e]" />
-          <div className="absolute -top-1 -right-1 w-7 h-7 bg-[#0d3b2e] rounded-full flex items-center justify-center shadow-md">
+        <div className="w-24 h-24 rounded-full bg-ink-50 flex items-center justify-center mb-8 relative shadow-xl shadow-ink-100">
+          <Mail className="w-10 h-10 text-[#1c1c1f]" />
+          <div className="absolute -top-1 -right-1 w-7 h-7 bg-[#1c1c1f] rounded-full flex items-center justify-center shadow-md">
             <Check className="w-4 h-4 text-white" strokeWidth={3} />
           </div>
         </div>
@@ -446,7 +446,7 @@ export function AuthPage({ onAuthSuccess }) {
         <p className="text-sm font-bold text-slate-800 mb-4">{email || "you@company.com"}</p>
         <p className="text-sm text-slate-500">
           Didn't receive the email?{" "}
-          <button type="button" className="text-[#0d3b2e] font-semibold hover:underline">Resend verification email</button>
+          <button type="button" className="text-[#1c1c1f] font-semibold hover:underline">Resend verification email</button>
         </p>
       </div>
       <button type="button" onClick={() => navigateScreen("signin")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mx-auto mt-4">

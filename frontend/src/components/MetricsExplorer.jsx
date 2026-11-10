@@ -43,7 +43,7 @@ export function MetricsExplorer({ onRefreshStats }) {
   };
 
   return (
-    <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs my-6 font-sans">
+    <div className="glass rounded-3xl p-6 shadow-2xs my-6 font-sans">
       {/* Explorer Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
@@ -66,7 +66,7 @@ export function MetricsExplorer({ onRefreshStats }) {
           className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs font-bold text-slate-700 transition-colors"
         >
           <RefreshCw
-            className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#0b4d36]" : ""}`}
+            className={`w-3.5 h-3.5 ${loading ? "animate-spin text-[#1c1c1f]" : ""}`}
           />
           <span>Refresh Records</span>
         </button>
@@ -108,7 +108,7 @@ export function MetricsExplorer({ onRefreshStats }) {
             placeholder="Filter by sensor_id..."
             value={sensorId}
             onChange={(e) => setSensorId(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-800 outline-none focus:bg-white focus:border-[#0b4d36] font-mono"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-800 outline-none focus:bg-white focus:border-[#1c1c1f] font-mono"
           />
         </div>
 
@@ -118,7 +118,7 @@ export function MetricsExplorer({ onRefreshStats }) {
           <select
             value={limit}
             onChange={(e) => setLimit(Number(e.target.value))}
-            className="bg-transparent text-[#0b4d36] font-extrabold outline-none cursor-pointer"
+            className="bg-transparent text-[#1c1c1f] font-extrabold outline-none cursor-pointer"
           >
             <option value="20" className="bg-white">
               20 items
@@ -166,7 +166,7 @@ export function MetricsExplorer({ onRefreshStats }) {
                           ? "bg-amber-100 text-amber-900 border border-amber-200"
                           : m.metric_type === "cpu"
                             ? "bg-cyan-100 text-cyan-900 border border-cyan-200"
-                            : "bg-emerald-100 text-emerald-900 border border-emerald-200"
+                            : "bg-ink-100 text-ink-900 border border-ink-200"
                       }`}
                     >
                       {m.metric_type}
@@ -193,7 +193,7 @@ export function MetricsExplorer({ onRefreshStats }) {
                   <td className="px-4 py-2.5 text-right">
                     <button
                       onClick={() => setSelectedMetricModal(m)}
-                      className="p-1 rounded text-slate-400 hover:text-[#0b4d36] hover:bg-slate-100 transition-colors"
+                      className="p-1 rounded text-slate-400 hover:text-[#1c1c1f] hover:bg-slate-100 transition-colors"
                       title="View JSON Payload"
                     >
                       <Eye className="w-4 h-4" />
@@ -220,7 +220,7 @@ export function MetricsExplorer({ onRefreshStats }) {
       {/* JSON Modal Drawer */}
       {selectedMetricModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div className="glass rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-sm font-bold text-slate-900 font-mono">
                 Payload JSON :: {selectedMetricModal.id}
@@ -232,7 +232,7 @@ export function MetricsExplorer({ onRefreshStats }) {
                 Close ✕
               </button>
             </div>
-            <pre className="bg-slate-900 p-4 rounded-2xl text-xs font-mono text-emerald-400 overflow-x-auto max-h-80 shadow-inner">
+            <pre className="bg-slate-900 p-4 rounded-2xl text-xs font-mono text-ink-400 overflow-x-auto max-h-80 shadow-inner">
               {JSON.stringify(selectedMetricModal, null, 2)}
             </pre>
           </div>

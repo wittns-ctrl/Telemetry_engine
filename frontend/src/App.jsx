@@ -16,6 +16,7 @@ import { LogoutModal } from './components/LogoutModal';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
+import Landing from './pages/Landing';
 import { LayoutGrid, Database, Radio, BarChart3, Cpu, Server, Settings, HelpCircle } from 'lucide-react';
 
 import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
@@ -198,8 +199,8 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/" element={!isAuthenticated ? <Navigate to="/signin" replace /> : (
-        <div className="flex min-h-screen bg-[#f3f5f7] text-slate-900 font-sans">
+      <Route path="/" element={!isAuthenticated ? <Landing /> : (
+        <div className="app-shell flex min-h-screen text-slate-900 font-sans">
           {/* Floating Donezo White Card Sidebar */}
           <Sidebar
             activeNav={activeNav}
@@ -208,7 +209,7 @@ function App() {
           />
 
           {/* Main Right Body */}
-          <div className="flex-1 flex flex-col min-w-0 bg-[#f3f5f7] py-2 px-4 md:px-6">
+          <div className="flex-1 flex flex-col min-w-0 py-2 px-4 md:px-6">
 
             {/* Donezo Top Search & Profile Bar */}
             <TopBar

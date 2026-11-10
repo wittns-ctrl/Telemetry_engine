@@ -15,10 +15,10 @@ import { loginUser, signupUser, forgotPassword, startGoogleSignIn } from "../ser
 function Logo() {
   return (
     <div className="flex items-center gap-2 mb-6">
-      <div className="w-8 h-8 rounded-full bg-[#0d3b2e] flex items-center justify-center">
+      <div className="w-8 h-8 rounded-full bg-[#1c1c1f] flex items-center justify-center">
         <div className="w-3.5 h-3.5 border-2 border-white rounded-full" />
       </div>
-      <span className="font-bold text-slate-900 text-base tracking-tight">Donezo</span>
+      <span className="font-bold text-slate-900 text-base tracking-tight">Telemetry Engine</span>
     </div>
   );
 }
@@ -34,7 +34,7 @@ function PasswordInput({ placeholder, value, onChange, name }) {
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-3 text-sm text-slate-800 outline-none focus:border-[#0d3b2e] focus:bg-white transition-all"
+        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-3 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:bg-white transition-all"
       />
       <button type="button" onClick={() => setShow(s => !s)} className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600">
         {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -149,7 +149,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           <div className="relative">
             <Mail className="w-4 h-4 text-slate-300 absolute left-3.5 top-3.5" />
             <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 outline-none focus:border-[#0d3b2e] focus:bg-white transition-all" />
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:bg-white transition-all" />
           </div>
         </div>
         <div>
@@ -158,15 +158,15 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         </div>
         <div className="flex items-center justify-between text-sm">
           <label className="flex items-center gap-2 cursor-pointer" onClick={() => setRememberMe(r => !r)}>
-            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${rememberMe ? "bg-[#0d3b2e] border-[#0d3b2e]" : "border-slate-300 bg-white"}`}>
+            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${rememberMe ? "bg-[#1c1c1f] border-[#1c1c1f]" : "border-slate-300 bg-white"}`}>
               {rememberMe && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
             </div>
             <span className="text-slate-600 select-none">Remember me</span>
           </label>
-          <button type="button" onClick={() => navigate("forgot")} className="text-[#0d3b2e] font-semibold hover:underline">Forgot password?</button>
+          <button type="button" onClick={() => navigate("forgot")} className="text-[#1c1c1f] font-semibold hover:underline">Forgot password?</button>
         </div>
         <button type="submit" disabled={loading}
-          className="w-full py-3 rounded-xl bg-[#0d3b2e] text-white font-bold text-sm hover:bg-emerald-900 transition-colors disabled:opacity-60">
+          className="w-full py-3 rounded-xl bg-[#1c1c1f] text-white font-bold text-sm hover:bg-ink-900 transition-colors disabled:opacity-60">
           {loading ? "Signing in..." : "Sign In"}
         </button>
       </form>
@@ -178,7 +178,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         Continue with Google
       </button>
       <p className="text-center text-sm text-slate-500 mt-5">
-        Don't have an account? <button type="button" onClick={() => navigate("signup")} className="text-[#0d3b2e] font-bold hover:underline">Sign up</button>
+        Don't have an account? <button type="button" onClick={() => navigate("signup")} className="text-[#1c1c1f] font-bold hover:underline">Sign up</button>
       </p>
     </Wrapper>
   );
@@ -196,7 +196,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           <div className="relative">
             <User className="w-4 h-4 text-slate-300 absolute left-3.5 top-3.5" />
             <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="John Doe"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 outline-none focus:border-[#0d3b2e] focus:bg-white transition-all" />
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:bg-white transition-all" />
           </div>
         </div>
         <div>
@@ -204,7 +204,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           <div className="relative">
             <Mail className="w-4 h-4 text-slate-300 absolute left-3.5 top-3.5" />
             <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 outline-none focus:border-[#0d3b2e] focus:bg-white transition-all" />
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:bg-white transition-all" />
           </div>
         </div>
         <div>
@@ -216,18 +216,18 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           <PasswordInput placeholder="Confirm your password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} name="confirmPassword" />
         </div>
         <label className="flex items-start gap-2 cursor-pointer text-sm text-slate-600" onClick={() => setAgreeTerms(a => !a)}>
-          <div className={`w-4 h-4 rounded border flex items-center justify-center mt-0.5 shrink-0 transition-colors ${agreeTerms ? "bg-[#0d3b2e] border-[#0d3b2e]" : "border-slate-300 bg-white"}`}>
+          <div className={`w-4 h-4 rounded border flex items-center justify-center mt-0.5 shrink-0 transition-colors ${agreeTerms ? "bg-[#1c1c1f] border-[#1c1c1f]" : "border-slate-300 bg-white"}`}>
             {agreeTerms && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
           </div>
-          <span className="select-none">I agree to the <span className="text-[#0d3b2e] font-semibold">Terms of Service</span> and <span className="text-[#0d3b2e] font-semibold">Privacy Policy</span></span>
+          <span className="select-none">I agree to the <span className="text-[#1c1c1f] font-semibold">Terms of Service</span> and <span className="text-[#1c1c1f] font-semibold">Privacy Policy</span></span>
         </label>
         <button type="submit" disabled={loading}
-          className="w-full py-3 rounded-xl bg-[#0d3b2e] text-white font-bold text-sm hover:bg-emerald-900 transition-colors disabled:opacity-60">
+          className="w-full py-3 rounded-xl bg-[#1c1c1f] text-white font-bold text-sm hover:bg-ink-900 transition-colors disabled:opacity-60">
           {loading ? "Creating account..." : "Create Account"}
         </button>
       </form>
       <p className="text-center text-sm text-slate-500 mt-5">
-        Already have an account? <button type="button" onClick={() => navigate("signin")} className="text-[#0d3b2e] font-bold hover:underline">Sign in</button>
+        Already have an account? <button type="button" onClick={() => navigate("signin")} className="text-[#1c1c1f] font-bold hover:underline">Sign in</button>
       </p>
     </Wrapper>
   );
@@ -245,10 +245,10 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           <div className="relative">
             <Mail className="w-4 h-4 text-slate-300 absolute left-3.5 top-3.5" />
             <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 outline-none focus:border-[#0d3b2e] focus:bg-white transition-all" />
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:bg-white transition-all" />
           </div>
         </div>
-        <button type="submit" className="w-full py-3 rounded-xl bg-[#0d3b2e] text-white font-bold text-sm hover:bg-emerald-900 transition-colors">
+        <button type="submit" className="w-full py-3 rounded-xl bg-[#1c1c1f] text-white font-bold text-sm hover:bg-ink-900 transition-colors">
           Send Reset Link
         </button>
       </form>
@@ -281,12 +281,12 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
             { ok: checks.uppercase, label: "Includes an uppercase letter" },
           ].map(({ ok, label }) => (
             <div key={label} className="flex items-center gap-2 text-xs">
-              <CheckCircle2 className={`w-4 h-4 ${ok ? "text-[#0d3b2e]" : "text-slate-300"}`} />
-              <span className={ok ? "text-[#0d3b2e]" : "text-slate-400"}>{label}</span>
+              <CheckCircle2 className={`w-4 h-4 ${ok ? "text-[#1c1c1f]" : "text-slate-300"}`} />
+              <span className={ok ? "text-[#1c1c1f]" : "text-slate-400"}>{label}</span>
             </div>
           ))}
         </div>
-        <button type="submit" className="w-full py-3 rounded-xl bg-[#0d3b2e] text-white font-bold text-sm hover:bg-emerald-900 transition-colors">
+        <button type="submit" className="w-full py-3 rounded-xl bg-[#1c1c1f] text-white font-bold text-sm hover:bg-ink-900 transition-colors">
           Reset Password
         </button>
       </form>
@@ -301,9 +301,9 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     <Wrapper>
       <Logo />
       <div className="flex flex-col items-center text-center py-4">
-        <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mb-6 relative">
-          <Mail className="w-9 h-9 text-[#0d3b2e]" />
-          <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#0d3b2e] rounded-full flex items-center justify-center">
+        <div className="w-20 h-20 rounded-full bg-ink-50 flex items-center justify-center mb-6 relative">
+          <Mail className="w-9 h-9 text-[#1c1c1f]" />
+          <div className="absolute -top-1 -right-1 w-6 h-6 bg-[#1c1c1f] rounded-full flex items-center justify-center">
             <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
           </div>
         </div>
@@ -313,7 +313,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
         <p className="text-sm text-slate-400 mb-6">Please check your inbox and click the link to verify your email address.</p>
         <p className="text-sm text-slate-500">
           Didn't receive the email?{" "}
-          <button type="button" className="text-[#0d3b2e] font-semibold hover:underline">Resend verification email</button>
+          <button type="button" className="text-[#1c1c1f] font-semibold hover:underline">Resend verification email</button>
         </p>
       </div>
       <button type="button" onClick={() => navigate("signin")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mt-4">

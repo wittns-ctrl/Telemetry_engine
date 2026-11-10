@@ -56,7 +56,7 @@ export default function ForgotPassword() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="you@company.com"
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#003D30] focus:ring-1 focus:ring-[#003D30]/20 transition-all"
+              className="w-full glass rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
             />
           </div>
         </div>
@@ -64,7 +64,7 @@ export default function ForgotPassword() {
         <button 
           type="submit" 
           disabled={loading}
-          className="w-full py-2.5 rounded-lg bg-[#003D30] text-white font-bold text-sm hover:bg-[#004d3f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#003D30]/20 active:scale-[0.98]"
+          className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#1c1c1f]/20 active:scale-[0.98]"
         >
           {loading ? "Sending..." : "Send Reset Link"}
         </button>
@@ -94,7 +94,7 @@ export default function ForgotPassword() {
         <button 
           type="button" 
           onClick={() => navigate("/signin")}
-          className="flex items-center justify-center gap-1.5 text-[#003D30] font-semibold hover:underline mx-auto"
+          className="flex items-center justify-center gap-1.5 text-[#1c1c1f] font-semibold hover:underline mx-auto"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back to sign in

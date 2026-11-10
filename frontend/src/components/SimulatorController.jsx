@@ -11,7 +11,7 @@ export function SimulatorController({
   simStats,
 }) {
   return (
-    <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs my-6 font-sans">
+    <div className="glass rounded-3xl p-6 shadow-2xs my-6 font-sans">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
@@ -35,7 +35,7 @@ export function SimulatorController({
           className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full font-bold text-xs shadow-xs transition-all ${
             isSimulating
               ? "bg-rose-600 hover:bg-rose-500 text-white animate-pulse"
-              : "bg-[#0b4d36] hover:bg-[#073924] text-white"
+              : "bg-[#1c1c1f] hover:bg-[#0e0e10] text-white"
           }`}
         >
           {isSimulating ? (
@@ -60,7 +60,7 @@ export function SimulatorController({
             <span className="font-bold text-slate-700">
               Stream Interval
             </span>
-            <span className="font-mono text-[#0b4d36] font-extrabold">
+            <span className="font-mono text-[#1c1c1f] font-extrabold">
               {simInterval} ms
             </span>
           </div>
@@ -71,7 +71,7 @@ export function SimulatorController({
             step="100"
             value={simInterval}
             onChange={(e) => setSimInterval(Number(e.target.value))}
-            className="w-full accent-[#0b4d36] bg-slate-200 cursor-pointer"
+            className="w-full accent-[#1c1c1f] bg-slate-200 cursor-pointer"
           />
           <div className="flex justify-between text-[10px] text-slate-400 font-mono mt-1">
             <span>Fast (300ms)</span>

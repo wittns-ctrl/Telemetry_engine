@@ -34,7 +34,7 @@ const SEVERITY_STYLES = {
 
 function StatTile({ icon: Icon, label, value, sub }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-4">
+    <div className="glass rounded-2xl p-4">
       <div className="flex items-center gap-2 text-slate-500 text-xs font-medium uppercase tracking-wide">
         <Icon size={14} /> {label}
       </div>
@@ -191,14 +191,14 @@ export function DevicesView() {
     return (
       <div className="p-6">
         <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 p-4">{error}</div>
-        <button onClick={loadDevices} className="mt-4 text-sm font-medium text-emerald-700">Try again</button>
+        <button onClick={loadDevices} className="mt-4 text-sm font-medium text-ink-700">Try again</button>
       </div>
     );
   }
 
   if (!devices.length) {
     return (
-      <div className="max-w-2xl bg-white rounded-2xl border border-slate-100 p-6">
+      <div className="max-w-2xl glass rounded-2xl p-6">
         <div className="flex items-center gap-2 text-slate-900 font-semibold text-lg">
           <MonitorSmartphone size={20} /> Connect your first machine
         </div>
@@ -213,7 +213,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
         </pre>
         <button
           onClick={loadDevices}
-          className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-emerald-700"
+          className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-ink-700"
         >
           <RefreshCw size={14} /> I've started the agent — refresh
         </button>
@@ -236,7 +236,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
             onClick={() => setSelectedId(d.id)}
             className={`px-3 py-2 rounded-xl text-sm border transition-colors ${
               d.id === selectedId
-                ? "bg-emerald-50 border-emerald-200 text-emerald-800 font-medium"
+                ? "bg-ink-50 border-ink-200 text-ink-800 font-medium"
                 : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
             }`}
           >
@@ -253,7 +253,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
           <span className="font-medium text-slate-800">{selected.device_name}</span>
           {selected.os_info && <span>{selected.os_info}</span>}
           <span>Last seen {timeAgo(snapshot?.timestamp || selected.last_seen)}</span>
-          <span className={`inline-flex items-center gap-1 ${socketState === "live" ? "text-emerald-600" : "text-slate-400"}`}>
+          <span className={`inline-flex items-center gap-1 ${socketState === "live" ? "text-ink-600" : "text-slate-400"}`}>
             {socketState === "live" ? <Wifi size={14} /> : <WifiOff size={14} />}
             {socketState === "live" ? "Live" : socketState === "connecting" ? "Connecting…" : "Offline"}
           </span>
@@ -261,7 +261,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
       )}
 
       {!snapshot ? (
-        <div className="bg-white rounded-2xl border border-slate-100 p-6 text-slate-500 text-sm">
+        <div className="glass rounded-2xl p-6 text-slate-500 text-sm">
           No telemetry yet. Start the agent on this machine and readings will appear here.
         </div>
       ) : (
@@ -273,7 +273,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
             <StatTile icon={Zap} label="PSU 12V" value={fmt(power.psu_12v_voltage, 2, " V")} sub={`VRM ${fmt(power.vrm_temperature_c, 0, "°C")}`} />
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-100 p-4">
+          <div className="glass rounded-2xl p-4">
             <div className="text-sm font-medium text-slate-700 mb-2">Utilization (last {MAX_POINTS} readings)</div>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
@@ -282,7 +282,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
                   <XAxis dataKey="t" tick={{ fontSize: 11, fill: "#94a3b8" }} minTickGap={40} />
                   <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#94a3b8" }} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="cpu" name="CPU %" stroke="#059669" dot={false} isAnimationActive={false} connectNulls />
+                  <Line type="monotone" dataKey="cpu" name="CPU %" stroke="#45454c" dot={false} isAnimationActive={false} connectNulls />
                   <Line type="monotone" dataKey="ram" name="RAM %" stroke="#6366f1" dot={false} isAnimationActive={false} connectNulls />
                   <Line type="monotone" dataKey="gpu" name="GPU %" stroke="#f59e0b" dot={false} isAnimationActive={false} connectNulls />
                 </LineChart>
@@ -291,7 +291,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
           </div>
 
           {storage.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-100 p-4">
+            <div className="glass rounded-2xl p-4">
               <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3"><HardDrive size={14} /> Storage</div>
               <div className="space-y-2">
                 {storage.map((drive, i) => {
@@ -306,7 +306,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
                       </div>
                       {usedPct !== null && (
                         <div className="mt-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                          <div className="h-full bg-emerald-500" style={{ width: `${usedPct}%` }} />
+                          <div className="h-full bg-ink-500" style={{ width: `${usedPct}%` }} />
                         </div>
                       )}
                     </div>
@@ -318,7 +318,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
         </>
       )}
 
-      <div className="bg-white rounded-2xl border border-slate-100 p-4">
+      <div className="glass rounded-2xl p-4">
         <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3"><AlertTriangle size={14} /> Active alerts</div>
         {alerts.length === 0 ? (
           <div className="text-sm text-slate-500">No active alerts for this device.</div>
