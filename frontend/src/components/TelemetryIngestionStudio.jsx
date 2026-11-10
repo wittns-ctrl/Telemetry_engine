@@ -149,7 +149,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
             onClick={() => applyPreset("temp_normal")}
             className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[11px] font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5"
           >
-            <span className="w-2 h-2 rounded-full bg-ink-500"></span>
+            <span className="w-2 h-2 rounded-full bg-accent-400 ring-1 ring-ink-900/25"></span>
             <span>Normal Temp</span>
           </button>
 
@@ -167,7 +167,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
             onClick={() => applyPreset("cpu_normal")}
             className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[11px] font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5"
           >
-            <span className="w-2 h-2 rounded-full bg-ink-500"></span>
+            <span className="w-2 h-2 rounded-full bg-accent-400 ring-1 ring-ink-900/25"></span>
             <span>Normal CPU</span>
           </button>
 
@@ -185,7 +185,7 @@ export function TelemetryIngestionStudio({ onMetricIngested }) {
             onClick={() => applyPreset("net_normal")}
             className="px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[11px] font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5"
           >
-            <span className="w-2 h-2 rounded-full bg-ink-500"></span>
+            <span className="w-2 h-2 rounded-full bg-accent-400 ring-1 ring-ink-900/25"></span>
             <span>Normal Net</span>
           </button>
 

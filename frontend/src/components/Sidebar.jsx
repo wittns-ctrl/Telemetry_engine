@@ -107,15 +107,15 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
           <div className="flex items-center gap-2 mb-4">
              <div className="flex -space-x-2">
                 <div className="w-8 h-8 rounded bg-white/10 border border-white/15 flex items-center justify-center">
-                  <Activity size={14} className="text-white/80" />
+                  <Activity size={14} className="text-accent-400" />
                 </div>
                 <div className="w-8 h-8 rounded bg-white/10 border border-white/15 flex items-center justify-center backdrop-blur-sm">
-                   <Server size={14} className="text-white/80" />
+                   <Server size={14} className="text-accent-400" />
                 </div>
              </div>
           </div>
           <h4 className="font-semibold text-sm mb-1">System Status</h4>
-          <p className="text-white/70 text-xs mb-4">All systems operational</p>
+          <p className="text-white/70 text-xs mb-4 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-accent-400"></span>All systems operational</p>
           <button className="flex items-center gap-2 text-xs font-medium text-white/75 hover:text-white transition-colors">
             View status <ArrowRight size={14} />
           </button>

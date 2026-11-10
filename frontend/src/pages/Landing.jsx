@@ -47,8 +47,8 @@ function PhoneLive() {
           </div>
           <div className="ph-chart">
             <svg viewBox="0 0 200 110" preserveAspectRatio="none">
-              <path className="ph-area" d="M0 80 L20 70 L40 76 L60 52 L80 60 L100 38 L120 48 L140 26 L160 40 L180 22 L200 30 V110 H0 Z" />
-              <path className="ph-line" pathLength="1" d="M0 80 L20 70 L40 76 L60 52 L80 60 L100 38 L120 48 L140 26 L160 40 L180 22 L200 30" />
+              <path className="ph-area" d="M0 90 C8 84 17 72 25 72 S42 80 50 80 S67 56 75 56 S92 64 100 64 S117 40 125 40 S142 48 150 48 S167 22 175 22 L200 22 V110 H0 Z" />
+              <path className="ph-line" pathLength="1" d="M0 90 C8 84 17 72 25 72 S42 80 50 80 S67 56 75 56 S92 64 100 64 S117 40 125 40 S142 48 150 48 S167 22 175 22" />
             </svg>
             <span className="ph-dot" />
             <div className="ph-chip"><i>CPU load</i><b>42%</b></div>
@@ -285,7 +285,7 @@ const STEPS = [
 const PILLS = [
   { k: '°C', label: 'Temperature', tone: 'amber' },
   { k: '%', label: 'CPU load', tone: 'cyan' },
-  { k: 'MB/s', label: 'Network', tone: 'light' },
+  { k: 'MB/s', label: 'Network', tone: 'lime' },
 ];
 
 const FAQ = [
@@ -339,7 +339,7 @@ function StackVisual({ kind }) {
 }
 
 function Badge({ children }) {
-  return <p className="lp-badge"><Activity size={15} strokeWidth={2.4} />{children}</p>;
+  return <p className="lp-badge"><span className="lp-badge-ic"><Activity size={13} strokeWidth={2.6} /></span>{children}</p>;
 }
 
 function FaqItem({ n, q, a, open, onToggle }) {
@@ -394,7 +394,7 @@ export default function Landing() {
       <section className="lp-hero" id="home" data-section>
         <div className="lp-hero-copy">
           <Badge>Real-time device monitoring, simplified</Badge>
-          <h1>Your Trusted Gateway To Live Device Telemetry</h1>
+          <h1>Your Trusted Gateway To <span className="lp-mark">Live Device Telemetry</span></h1>
           <p className="lp-lead">Track temperature, CPU and network readings from every machine you run, get alerted the moment a limit breaks, and keep it all in one simple, clear place.</p>
           <div className="lp-actions">
             <Link className="lp-btn lp-btn-dark" to="/signin">Start Now</Link>
@@ -543,7 +543,7 @@ export default function Landing() {
       {/* CLOSING */}
       <section className="lp-close">
         <div data-reveal>
-          <h2>Clear, reliable monitoring for every machine you run</h2>
+          <h2>Clear, reliable monitoring for <span className="lp-mark" data-reveal>every machine</span> you run</h2>
           <Link className="lp-btn lp-btn-dark" to="/signin">Get started <ArrowRight size={16} /></Link>
         </div>
       </section>

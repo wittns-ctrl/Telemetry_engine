@@ -161,7 +161,7 @@ function TelemetryIllustration() {
           <div className="space-y-2">
             <div className="bg-white/5 rounded-lg p-2">
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-ink-400" />
+                <div className="w-1.5 h-1.5 rounded-full bg-accent-400" />
                 <div className="text-white/60 text-[10px]">Status</div>
               </div>
               <div className="text-white font-semibold text-xs">Active</div>
@@ -210,7 +210,7 @@ function TelemetryIllustration() {
                 className="flex-1 rounded-t-sm transition-all"
                 style={{
                   height: `${h}%`,
-                  backgroundColor: i === 11 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.15)",
+                  backgroundColor: i === 11 ? "#d4f55a" : "rgba(255,255,255,0.15)",
                 }}
               />
             ))}
@@ -228,7 +228,7 @@ function TelemetryIllustration() {
                   className="flex-1 rounded-t-sm"
                   style={{
                     height: `${h}%`,
-                    backgroundColor: i === 7 ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.15)",
+                    backgroundColor: i === 7 ? "#d4f55a" : "rgba(255,255,255,0.15)",
                   }}
                 />
               ))}
@@ -239,7 +239,7 @@ function TelemetryIllustration() {
             <div className="space-y-1">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-1.5">
-                  <div className="w-1 h-1 rounded-full bg-ink-400" />
+                  <div className="w-1 h-1 rounded-full bg-accent-400" />
                   <div className="h-1 bg-white/20 rounded flex-1" style={{ width: `${60 + i * 10}%` }} />
                 </div>
               ))}

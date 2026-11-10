@@ -103,7 +103,7 @@ export function DonezoDashboard({
               {totalMetrics}
             </div>
             <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-medium bg-white/10 px-2.5 py-0.5 rounded-full border border-white/15">
-              <TrendingUp className="w-3 h-3 text-white/70" />
+              <TrendingUp className="w-3 h-3 text-accent-400" />
               <span>Stored readings</span>
             </div>
           </div>
@@ -253,7 +253,7 @@ export function DonezoDashboard({
             <div className="space-y-3">
               {sensors.slice(0, 6).map((name) => (
                 <div key={name} className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full bg-ink-500 shrink-0"></div>
+                  <div className="w-2.5 h-2.5 rounded-full bg-accent-400 ring-1 ring-ink-900/25 shrink-0"></div>
                   <div className="text-xs font-bold text-slate-800 font-mono truncate">{name}</div>
                 </div>
               ))}
