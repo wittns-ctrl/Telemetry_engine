@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Mail,
@@ -10,7 +10,13 @@ import {
   ArrowLeft,
   Check,
 } from "lucide-react";
-import { loginUser, signupUser } from "../services/api";
+import {
+  loginUser,
+  signupUser,
+  startGoogleSignIn,
+  completeGoogleSignIn,
+  GOOGLE_ERROR_MESSAGES,
+} from "../services/api";
 import { AuthPageLayout, ErrorBanner } from "./AuthLayout";
 
 // ── Password input ─────────────────────────────────────────────────────────────
@@ -105,9 +111,31 @@ export function AuthPage({ onAuthSuccess }) {
     } finally { setLoading(false); }
   };
 
-  const handleGoogleSignup = () => {
-    // Placeholder for Google signup
-    setErrorMsg("Google signup is not yet implemented.");
+  // Returning from Google: /signin?google=success or /signin?error=<code>.
+  const googleReturnHandled = useRef(false);
+  useEffect(() => {
+    if (googleReturnHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const googleResult = params.get("google");
+    const errorCode = params.get("error");
+    if (!googleResult && !errorCode) return;
+    googleReturnHandled.current = true;
+    navigate("/signin", { replace: true });
+
+    if (errorCode) {
+      setErrorMsg(GOOGLE_ERROR_MESSAGES[errorCode] || GOOGLE_ERROR_MESSAGES.google_failed);
+      return;
+    }
+    setLoading(true);
+    completeGoogleSignIn()
+      .then(() => onAuthSuccess())
+      .catch((err) => setErrorMsg(err.message))
+      .finally(() => setLoading(false));
+  }, [navigate, onAuthSuccess]);
+
+  const handleGoogleSignIn = () => {
+    clearError();
+    startGoogleSignIn();
   };
 
   const handleForgotPassword = () => {
@@ -189,7 +217,9 @@ export function AuthPage({ onAuthSuccess }) {
       </div>
       <button 
         type="button" 
-        className="w-full py-2.5 rounded-lg border border-slate-200 flex items-center justify-center gap-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors bg-white"
+        onClick={handleGoogleSignIn}
+        disabled={loading}
+        className="w-full py-2.5 rounded-lg border border-slate-200 flex items-center justify-center gap-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors bg-white disabled:opacity-60"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -307,7 +337,8 @@ export function AuthPage({ onAuthSuccess }) {
       </div>
       <button 
         type="button" 
-        onClick={handleGoogleSignup}
+        onClick={handleGoogleSignIn}
+        disabled={loading}
         className="w-full py-2.5 rounded-lg border border-slate-200 flex items-center justify-center gap-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors bg-white"
       >
         <svg className="w-4 h-4" viewBox="0 0 24 24">

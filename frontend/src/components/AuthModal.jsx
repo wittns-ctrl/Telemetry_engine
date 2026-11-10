@@ -10,7 +10,7 @@ import {
   X,
   Check,
 } from "lucide-react";
-import { loginUser, signupUser, forgotPassword } from "../services/api";
+import { loginUser, signupUser, forgotPassword, startGoogleSignIn } from "../services/api";
 
 function Logo() {
   return (
@@ -173,7 +173,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
       <div className="flex items-center gap-3 my-4">
         <div className="flex-1 h-px bg-slate-100" /><span className="text-xs text-slate-400">or</span><div className="flex-1 h-px bg-slate-100" />
       </div>
-      <button type="button" className="w-full py-3 rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
+      <button type="button" onClick={startGoogleSignIn} className="w-full py-3 rounded-xl border border-slate-200 flex items-center justify-center gap-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
         <img src="https://www.google.com/favicon.ico" alt="" className="w-4 h-4" />
         Continue with Google
       </button>

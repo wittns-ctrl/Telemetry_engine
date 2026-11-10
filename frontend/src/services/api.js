@@ -126,6 +126,30 @@ export async function loginUser(email, password) {
   return data;
 }
 
+// Google sign-in is a full-page redirect: API -> Google -> API -> /signin?google=success.
+export function startGoogleSignIn() {
+  window.location.assign(`${API_BASE}/api/v1/auth/google/login`);
+}
+
+export const GOOGLE_ERROR_MESSAGES = {
+  google_not_configured: "Google sign-in is not set up on this server yet.",
+  google_cancelled: "Google sign-in was cancelled.",
+  google_state_mismatch: "Google sign-in expired or was interrupted. Please try again.",
+  google_email_unverified: "Your Google account's email address is not verified.",
+  google_failed: "Could not sign in with Google. Please try again.",
+  account_inactive: "This account has been deactivated.",
+};
+
+/**
+ * Finish a Google sign-in after the redirect back: the API has set the refresh
+ * cookie, so trade it for an access token.
+ */
+export async function completeGoogleSignIn() {
+  const token = await refreshAccessToken();
+  if (!token) throw new Error(GOOGLE_ERROR_MESSAGES.google_failed);
+  return token;
+}
+
 export async function signupUser({ fullName, email, password, confirmPassword }) {
   return apiJson(
     "/api/v1/auth/register",
