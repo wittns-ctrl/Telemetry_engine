@@ -9,17 +9,50 @@ import {
   Cpu,
 } from "lucide-react";
 
+const GAUGE_ARC_LENGTH = Math.PI * 40;
+
+const TYPE_ROWS = [
+  { key: "temperature", label: "Temperature", color: "bg-amber-500" },
+  { key: "cpu", label: "CPU", color: "bg-cyan-500" },
+  { key: "network", label: "Network", color: "bg-emerald-500" },
+];
+
+function formatTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
 export function DonezoDashboard({
   stats,
-  _alerts,
+  thresholds,
+  alerts = [],
+  liveMetrics = [],
+  isSimulating = false,
   onIngestClick,
   onSimulateClick,
   onViewAlerts,
 }) {
-  const totalMetrics = stats?.total_metrics || 24;
-  const tempCount = stats?.by_type?.temperature || 10;
-  const cpuCount = stats?.by_type?.cpu || 12;
-  const netCount = stats?.by_type?.network || 2;
+  const totalMetrics = stats?.total_metrics ?? 0;
+  const byType = {
+    temperature: stats?.by_type?.temperature ?? 0,
+    cpu: stats?.by_type?.cpu ?? 0,
+    network: stats?.by_type?.network ?? 0,
+  };
+  const sensors = stats?.recent_sensors ?? [];
+
+  const tempLimit = thresholds?.temperature?.max;
+  const cpuLimit = thresholds?.cpu?.max;
+  const netLimit = thresholds?.network?.max;
+
+  // Share of the readings received live in this session that stayed within limits.
+  const liveTotal = liveMetrics.length;
+  const liveSafe = liveMetrics.filter((m) => !m.alert_triggered).length;
+  const safePercent = liveTotal ? Math.round((liveSafe / liveTotal) * 100) : null;
+
+  const recentAlerts = alerts.slice(0, 5);
 
   return (
     <div className="space-y-6 font-sans">
@@ -49,14 +82,13 @@ export function DonezoDashboard({
             onClick={onSimulateClick}
             className="border border-slate-300 bg-white hover:bg-slate-50 text-slate-800 font-bold text-xs px-5 py-2.5 rounded-full shadow-2xs transition-colors"
           >
-            <span>Simulate Stream</span>
+            <span>{isSimulating ? "Stop Simulation" : "Simulate Stream"}</span>
           </button>
         </div>
       </div>
 
       {/* TOP ROW: 4 KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Ingests (Active Dark Green) */}
         <div className="bg-[#0b4d36] text-white rounded-3xl p-5 shadow-sm relative overflow-hidden flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-emerald-100">
@@ -72,16 +104,15 @@ export function DonezoDashboard({
             </div>
             <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-medium bg-emerald-800/60 px-2.5 py-0.5 rounded-full border border-emerald-700/50">
               <TrendingUp className="w-3 h-3 text-emerald-300" />
-              <span>Live MongoDB Persisted</span>
+              <span>Stored readings</span>
             </div>
           </div>
         </div>
 
-        {/* Card 2: Temp Streams */}
         <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-700">
-              Temperature Streams
+              Temperature Readings
             </span>
             <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-700 border border-amber-100">
               <Thermometer className="w-4 h-4" />
@@ -89,19 +120,20 @@ export function DonezoDashboard({
           </div>
           <div>
             <div className="text-3xl font-black text-slate-900 tracking-tight">
-              {tempCount}
+              {byType.temperature}
             </div>
-            <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
-              <span>Limit: 100°C</span>
-            </div>
+            {tempLimit != null && (
+              <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                <span>Limit: {tempLimit}°C</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Card 3: CPU Streams */}
         <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-700">
-              CPU Load Streams
+              CPU Load Readings
             </span>
             <div className="w-8 h-8 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-700 border border-cyan-100">
               <Cpu className="w-4 h-4" />
@@ -109,19 +141,20 @@ export function DonezoDashboard({
           </div>
           <div>
             <div className="text-3xl font-black text-slate-900 tracking-tight">
-              {cpuCount}
+              {byType.cpu}
             </div>
-            <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-200">
-              <span>Limit: 90%</span>
-            </div>
+            {cpuLimit != null && (
+              <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold text-cyan-800 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-200">
+                <span>Limit: {cpuLimit}%</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Card 4: Network Streams */}
         <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between h-36">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-700">
-              Network Throughput
+              Network Readings
             </span>
             <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700 border border-emerald-100">
               <Radio className="w-4 h-4" />
@@ -129,76 +162,68 @@ export function DonezoDashboard({
           </div>
           <div>
             <div className="text-3xl font-black text-slate-900 tracking-tight">
-              {netCount}
+              {byType.network}
             </div>
-            <div className="mt-2 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 inline-block">
-              Limit: 1000 MB/s
-            </div>
+            {netLimit != null && (
+              <div className="mt-2 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 inline-block">
+                Limit: {netLimit} MB/s
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* MIDDLE ROW: Telemetry Ingestion Activity, Alert Reminders, Monitored Sensors */}
+      {/* MIDDLE ROW: readings by type, latest alert, monitored sensors */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Project Analytics Pill Bar Chart */}
-        <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-900">
-              Telemetry Ingestion Frequency
-            </h3>
-          </div>
+        <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs">
+          <h3 className="text-sm font-bold text-slate-900 mb-4">
+            Readings by Type
+          </h3>
 
-          <div className="flex items-end justify-between gap-3 h-40 pt-4 px-2">
-            {[
-              { day: "S", height: "60%", pattern: "striped" },
-              { day: "M", height: "80%", fill: "#0d4f3b" },
-              { day: "T", height: "70%", fill: "#34d399", badge: "84%" },
-              { day: "W", height: "95%", fill: "#073327" },
-              { day: "T", height: "85%", pattern: "striped" },
-              { day: "F", height: "65%", pattern: "striped" },
-              { day: "S", height: "75%", pattern: "striped" },
-            ].map((bar, idx) => (
-              <div
-                key={idx}
-                className="flex flex-col items-center flex-1 h-full justify-end relative"
-              >
-                {bar.badge && (
-                  <span className="absolute -top-5 text-[9px] font-extrabold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md border border-emerald-200">
-                    {bar.badge}
-                  </span>
-                )}
-                <div
-                  className={`w-full rounded-full transition-all ${
-                    bar.pattern === "striped"
-                      ? "bg-slate-100 border border-slate-300/80 border-dashed"
-                      : ""
-                  }`}
-                  style={{
-                    height: bar.height,
-                    backgroundColor: bar.fill || undefined,
-                  }}
-                ></div>
-                <span className="text-[10px] font-bold text-slate-400 mt-2">
-                  {bar.day}
-                </span>
-              </div>
-            ))}
-          </div>
+          {totalMetrics === 0 ? (
+            <p className="text-xs text-slate-400 py-8 text-center">
+              No readings stored yet. Ingest a metric or connect a device to get started.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              {TYPE_ROWS.map((row) => {
+                const count = byType[row.key];
+                const percent = (count / totalMetrics) * 100;
+                return (
+                  <div key={row.key}>
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-bold text-slate-700">{row.label}</span>
+                      <span className="font-mono text-slate-500">
+                        {count} · {percent.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${row.color}`}
+                        style={{ width: `${percent}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
-        {/* Active Alert Stream Reminder Card */}
         <div className="lg:col-span-3 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-900 mb-3">
-              Active Alert Stream
+              Latest Alert
             </h3>
-            <div className="text-sm font-black text-slate-900 leading-snug">
-              {_alerts?.length > 0
-                ? `🚨 ${_alerts[0].severity}: ${_alerts[0].sensor_id}`
-                : "System Operational — All Sensors Safe"}
+            <div className="text-sm font-black text-slate-900 leading-snug break-words">
+              {alerts.length > 0
+                ? `${alerts[0].severity || "ALERT"}: ${alerts[0].sensor_id || "unknown sensor"}`
+                : "No alerts this session"}
             </div>
-            <p className="text-xs font-mono text-slate-500 mt-1">
-              Evaluation Engine: WebSocket Live
+            <p className="text-xs text-slate-500 mt-1">
+              {alerts.length > 0
+                ? `${alerts.length} alert${alerts.length === 1 ? "" : "s"} received since you opened the app`
+                : "Alerts appear here as soon as a reading breaches its limit."}
             </p>
           </div>
 
@@ -212,94 +237,94 @@ export function DonezoDashboard({
           </button>
         </div>
 
-        {/* Monitored Sensors List */}
         <div className="lg:col-span-4 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-bold text-slate-900">Monitored Sensors</h3>
-            <button
-              type="button"
-              onClick={onIngestClick}
-              className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-full transition-colors"
-            >
-              + New
-            </button>
+            <h3 className="text-sm font-bold text-slate-900">Recently Active Sensors</h3>
+            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+              {sensors.length}
+            </span>
           </div>
 
-          <div className="space-y-3">
-            {[
-              { title: "sensor_room_101", due: "Type: Temp | Limit: 100°C", color: "bg-amber-500" },
-              { title: "sensor_k8s_node_02", due: "Type: CPU | Limit: 90%", color: "bg-cyan-500" },
-              { title: "sensor_edge_router_01", due: "Type: Net | Limit: 1000MB/s", color: "bg-emerald-500" },
-              { title: "sensor_datacenter_rack_a", due: "Type: Temp | Limit: 100°C", color: "bg-rose-500" },
-              { title: "sensor_gateway_primary", due: "Type: Net | Limit: 1000MB/s", color: "bg-emerald-600" },
-            ].map((p, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className={`w-2.5 h-2.5 rounded-full ${p.color} shrink-0`}></div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-slate-800 font-mono truncate">{p.title}</div>
-                  <div className="text-[10px] text-slate-400 font-mono">{p.due}</div>
+          {sensors.length === 0 ? (
+            <p className="text-xs text-slate-400 py-6 text-center">
+              No sensors have reported yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {sensors.slice(0, 6).map((name) => (
+                <div key={name} className="flex items-center gap-3">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></div>
+                  <div className="text-xs font-bold text-slate-800 font-mono truncate">{name}</div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+              {sensors.length > 6 && (
+                <div className="text-[10px] text-slate-400">+{sensors.length - 6} more</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* BOTTOM ROW: Active Stream Nodes & Threshold Gauge */}
+      {/* BOTTOM ROW: recent alerts & live safety gauge */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Connected Sensor Nodes */}
         <div className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-900">
-              Connected Telemetry Channels
-            </h3>
+            <h3 className="text-sm font-bold text-slate-900">Recent Alerts</h3>
             <button
               type="button"
-              onClick={onIngestClick}
+              onClick={onViewAlerts}
               className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-full transition-colors"
             >
-              + Add Sensor
+              View all
             </button>
           </div>
 
-          <div className="space-y-3">
-            {[
-              { name: "sensor_server_101", task: "Stream Protocol: WebSocket / REST", status: "ONLINE", statusColor: "bg-emerald-100 text-emerald-800 border border-emerald-200" },
-              { name: "sensor_edge_node_4", task: "Stream Protocol: WebSocket / REST", status: "ONLINE", statusColor: "bg-emerald-100 text-emerald-800 border border-emerald-200" },
-              { name: "sensor_db_cluster_a", task: "Stream Protocol: WebSocket / REST", status: "ONLINE", statusColor: "bg-emerald-100 text-emerald-800 border border-emerald-200" },
-              { name: "sensor_core_gateway", task: "Stream Protocol: WebSocket / REST", status: "ONLINE", statusColor: "bg-emerald-100 text-emerald-800 border border-emerald-200" },
-            ].map((m, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 last:border-0 last:pb-0"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-xs font-bold flex items-center justify-center shrink-0 text-[#0b4d36]">
-                    <Radio className="w-4 h-4 text-[#0b4d36]" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-slate-900 font-mono truncate">{m.name}</div>
-                    <div className="text-[10px] text-slate-400 font-mono truncate">{m.task}</div>
-                  </div>
-                </div>
-                <span
-                  className={`text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0 ${m.statusColor}`}
+          {recentAlerts.length === 0 ? (
+            <p className="text-xs text-slate-400 py-6 text-center">
+              No alerts received this session.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {recentAlerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 last:border-0 last:pb-0"
                 >
-                  {m.status}
-                </span>
-              </div>
-            ))}
-          </div>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-4 h-4 text-rose-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-900 font-mono truncate">
+                        {alert.sensor_id || "unknown sensor"}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate">
+                        {[alert.metric_type, alert.value != null ? `value ${alert.value}` : null, formatTime(alert.receivedAt)]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+                    </div>
+                  </div>
+                  {alert.severity && (
+                    <span className="text-[9px] font-extrabold px-2.5 py-0.5 rounded-full shrink-0 bg-rose-100 text-rose-800 border border-rose-200 uppercase">
+                      {alert.severity}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Semi-Donut Gauge Card */}
         <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-5 shadow-2xs flex flex-col justify-between">
           <h3 className="text-sm font-bold text-slate-900 mb-2">
-            Threshold Safety Gauge
+            Live Safety Gauge
           </h3>
 
           <div className="flex flex-col items-center justify-center my-2 relative">
-            <svg className="w-36 h-20" viewBox="0 0 100 50">
+            <svg className="w-36 h-20" viewBox="0 0 100 57" role="img" aria-label={
+              safePercent == null ? "No live readings yet" : `${safePercent}% of live readings within limits`
+            }>
               <path
                 d="M 10 50 A 40 40 0 0 1 90 50"
                 fill="none"
@@ -307,32 +332,31 @@ export function DonezoDashboard({
                 strokeWidth="14"
                 strokeLinecap="round"
               />
-              <path
-                d="M 10 50 A 40 40 0 0 1 82 28"
-                fill="none"
-                stroke="#073327"
-                strokeWidth="14"
-                strokeLinecap="round"
-              />
+              {safePercent > 0 && (
+                <path
+                  d="M 10 50 A 40 40 0 0 1 90 50"
+                  fill="none"
+                  stroke="#073327"
+                  strokeWidth="14"
+                  strokeLinecap="round"
+                  strokeDasharray={`${(safePercent / 100) * GAUGE_ARC_LENGTH} ${GAUGE_ARC_LENGTH}`}
+                />
+              )}
             </svg>
             <div className="text-center mt-[-10px]">
-              <div className="text-2xl font-black text-slate-900">98%</div>
+              <div className="text-2xl font-black text-slate-900">
+                {safePercent == null ? "—" : `${safePercent}%`}
+              </div>
               <div className="text-[10px] font-bold text-slate-400">
-                Stream Safe
+                {safePercent == null ? "No live readings yet" : "Within limits"}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 pt-3 border-t border-slate-100">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#073327]"></span> Normal
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span> Warning
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-rose-500"></span> Breach
-            </span>
+          <div className="text-[10px] font-bold text-slate-500 pt-3 border-t border-slate-100 text-center">
+            {liveTotal
+              ? `${liveSafe} of the last ${liveTotal} live readings stayed within limits`
+              : "Fills in as readings arrive while this page is open"}
           </div>
         </div>
       </div>

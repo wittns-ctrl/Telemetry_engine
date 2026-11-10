@@ -3,11 +3,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { DonezoDashboard } from './components/DonezoDashboard';
-import { LectioDashboard } from './components/LectioDashboard';
 import { MetricsStudioView } from './components/MetricsStudioView';
 import { LiveStreamView } from './components/LiveStreamView';
 import { AnalyticsView } from './components/AnalyticsView';
-import { TeamView } from './components/TeamView';
+import { SensorsView } from './components/SensorsView';
+import { HelpView } from './components/HelpView';
 import { SettingsView } from './components/SettingsView';
 import { DevicesView } from './components/DevicesView';
 import { AuthPage } from './components/AuthPage';
@@ -16,7 +16,7 @@ import { LogoutModal } from './components/LogoutModal';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
-import { LayoutGrid, CheckSquare, Calendar, BarChart3, Server, Settings, HelpCircle } from 'lucide-react';
+import { LayoutGrid, Database, Radio, BarChart3, Cpu, Server, Settings, HelpCircle } from 'lucide-react';
 
 import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
 import {
@@ -180,12 +180,11 @@ function App() {
   // Define menu items for lookup
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
-    { id: "devices", label: "My Devices", icon: Server },
-    { id: "lectio", label: "Lectio Dashboard", icon: LayoutGrid },
-    { id: "tasks", label: "Tasks", icon: CheckSquare },
-    { id: "live", label: "Calendar", icon: Calendar },
+    { id: "devices", label: "My Devices", icon: Cpu },
+    { id: "metrics", label: "Metrics Studio", icon: Database },
+    { id: "live", label: "Live Stream", icon: Radio },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "team", label: "Sensors", icon: Server },
+    { id: "sensors", label: "Sensors", icon: Server },
     { id: "settings", label: "Settings", icon: Settings },
     { id: "help", label: "Help", icon: HelpCircle },
   ];
@@ -206,7 +205,6 @@ function App() {
             activeNav={activeNav}
             setActiveNav={setActiveNav}
             onLogout={() => setIsLogoutOpen(true)}
-            alertsCount={alerts.length || 12}
           />
 
           {/* Main Right Body */}
@@ -226,8 +224,11 @@ function App() {
               {activeNav === 'dashboard' && (
                 <DonezoDashboard
                   stats={stats}
+                  thresholds={thresholds}
                   alerts={alerts}
-                  onIngestClick={() => setActiveNav('tasks')}
+                  liveMetrics={liveMetrics}
+                  isSimulating={isSimulating}
+                  onIngestClick={() => setActiveNav('metrics')}
                   onSimulateClick={toggleSimulation}
                   onViewAlerts={() => setActiveNav('live')}
                 />
@@ -237,11 +238,7 @@ function App() {
                 <DevicesView />
               )}
 
-              {activeNav === 'lectio' && (
-                <LectioDashboard activeNav={activeNav} setActiveNav={setActiveNav} />
-              )}
-
-              {activeNav === 'tasks' && (
+              {activeNav === 'metrics' && (
                 <MetricsStudioView onRefreshStats={loadInitialData} />
               )}
 
@@ -266,8 +263,12 @@ function App() {
                 <AnalyticsView stats={stats} />
               )}
 
-              {activeNav === 'team' && (
-                <TeamView stats={stats} />
+              {activeNav === 'sensors' && (
+                <SensorsView stats={stats} />
+              )}
+
+              {activeNav === 'help' && (
+                <HelpView onNavigate={setActiveNav} />
               )}
 
               {activeNav === 'settings' && (

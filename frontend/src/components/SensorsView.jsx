@@ -1,29 +1,59 @@
 import React from "react";
-import { TelemetryIngestionStudio } from "./TelemetryIngestionStudio";
-import { MetricsExplorer } from "./MetricsExplorer";
+import { Server, Radio } from "lucide-react";
 
-export function SensorsView({ onRefreshStats }) {
+export function SensorsView({ stats }) {
+  const sensors = stats?.recent_sensors ?? [];
+
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6 font-sans">
       <div>
-        <div className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-          WORKSPACE / SENSORS & INGESTION
-        </div>
-        <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-1">
-          Polymorphic Sensor Nodes & Ingestion Studio
+        <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+          Telemetry Sensors
         </h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Directly submit telemetry data or query historical MongoDB sensor
-          records.
+        <p className="text-xs text-slate-500 font-medium mt-1">
+          Sensors that reported a reading among your 100 most recent metrics.
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-2xs">
-        <TelemetryIngestionStudio onMetricIngested={onRefreshStats} />
-      </div>
+      {/* Active Sensor Nodes Full Width */}
+      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-2xs">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
+          <div>
+            <h2 className="text-sm font-bold text-slate-900">
+              Recently Active Sensors
+            </h2>
+            <p className="text-xs text-slate-400">
+              {sensors.length} sensor{sensors.length === 1 ? "" : "s"} reporting
+            </p>
+          </div>
+          <Server className="w-5 h-5 text-[#0b4d36]" />
+        </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-2xs">
-        <MetricsExplorer onRefreshStats={onRefreshStats} />
+        {sensors.length === 0 && (
+          <p className="text-xs text-slate-400 py-8 text-center">
+            No sensors have reported yet. Ingest a metric from Metrics Studio to see it here.
+          </p>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {sensors.map((s) => (
+            <div
+              key={s}
+              className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 border border-slate-200/80 hover:bg-slate-100/60 transition-colors"
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100/80 text-[#0b4d36] font-bold text-xs flex items-center justify-center border border-emerald-200">
+                  <Radio className="w-5 h-5 text-[#0b4d36]" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-900 font-mono">
+                    {s}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

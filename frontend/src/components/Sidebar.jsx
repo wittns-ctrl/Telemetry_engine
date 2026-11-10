@@ -2,8 +2,8 @@ import React from 'react';
 import { 
   Activity, 
   LayoutDashboard, 
-  CheckSquare, 
-  Calendar, 
+  Database, 
+  Radio, 
   BarChart2, 
   Server, 
   Settings, 
@@ -18,10 +18,10 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'devices', label: 'My Devices', icon: Cpu },
-    { id: 'tasks', label: 'Tasks', icon: CheckSquare },
-    { id: 'live', label: 'Live Stream', icon: Calendar },
+    { id: 'metrics', label: 'Metrics Studio', icon: Database },
+    { id: 'live', label: 'Live Stream', icon: Radio },
     { id: 'analytics', label: 'Analytics', icon: BarChart2 },
-    { id: 'team', label: 'Sensors', icon: Server },
+    { id: 'sensors', label: 'Sensors', icon: Server },
   ];
 
   const generalItems = [
@@ -72,16 +72,23 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
         {/* General Section */}
         <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 mt-8 px-2">General</div>
         <nav className="space-y-1">
-          {generalItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveNav?.(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-slate-500 hover:bg-slate-100 hover:text-slate-700`}
-            >
-              <item.icon size={18} strokeWidth={2} className="text-slate-400" />
-              <span>{item.label}</span>
-            </button>
-          ))}
+          {generalItems.map((item) => {
+            const isActive = activeNav === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveNav?.(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+                  isActive
+                    ? 'bg-emerald-50 text-emerald-700 font-medium'
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                }`}
+              >
+                <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
           <button
             onClick={onLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-slate-500 hover:bg-slate-100 hover:text-slate-700 mt-2"
