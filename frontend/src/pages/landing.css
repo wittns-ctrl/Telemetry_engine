@@ -364,11 +364,11 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 }
 .lp-stack-paper { background: var(--tile); }
 .lp-stack-ink { background: linear-gradient(160deg, #1d1d21, #0e0e10); color: #fff; }
-.lp-stack-ink p { color: rgba(255, 255, 255, 0.66); }
+.lp-stack-card.lp-stack-ink p { color: rgba(255, 255, 255, 0.66); }
 .lp-stack-ink .lp-chip { background: rgba(255, 255, 255, 0.1); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
 .lp-stack-ink::after { background: #000; opacity: calc(var(--dim, 0) * 0.12); }
 .lp-stack-lime { background: linear-gradient(160deg, #eefbc4, #dcf47e); }
-.lp-stack-lime p { color: rgba(20, 20, 22, 0.7); }
+.lp-stack-card.lp-stack-lime p { color: rgba(20, 20, 22, 0.7); }
 .lp-stack-ink:hover .lp-chip { color: var(--ink); }
 .lp-stack-ink .lp-alert-row { color: var(--fg); }
 
@@ -381,11 +381,12 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-stack-card p { margin-top: 16px; color: var(--fg-soft); font-size: 15.5px; line-height: 1.55; max-width: 38ch; }
 .lp-stack-visual { min-width: 0; }
 .lp-code {
-  margin: 0; padding: 22px 24px; border-radius: 20px; overflow-x: auto;
+  position: relative; margin: 0; padding: 16px 24px 22px; border-radius: 20px;
   background: linear-gradient(160deg, #2b2b30, #121214); color: #e7e7ea;
   font: 13px/1.7 ui-monospace, Menlo, Consolas, monospace;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 24px 40px -24px rgba(14, 14, 16, 0.6);
 }
+.lp-code pre { margin: 0; font: inherit; overflow-x: auto; min-height: calc(6 * 1.7em); }
 .lp-alerts { display: grid; gap: 10px; }
 .lp-alert-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #fff; box-shadow: 0 0 0 1px rgba(28, 28, 31, 0.06), 0 10px 20px -16px rgba(28, 28, 31, 0.4); }
 .lp-alert-row > span { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: #fff1f2; color: #e11d48; flex-shrink: 0; }
@@ -397,6 +398,76 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-lock-ring { flex-basis: 100%; display: grid; place-items: center; margin-bottom: 8px; }
 .lp-lock-ring svg { width: 96px; height: 96px; padding: 28px; border-radius: 999px; color: #fff; background: linear-gradient(160deg, #3a3a40, #121214); box-shadow: 0 0 0 10px rgba(28, 28, 31, 0.06), 0 0 0 22px rgba(28, 28, 31, 0.035); }
 .lp-lock span { font-size: 13px; padding: 7px 14px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px rgba(28, 28, 31, 0.08); }
+
+/* ---------- features: what plays inside each card once it lands ---------- */
+/* Cards get .is-landed when they settle on the pile (and lose it when lifted off,
+   so it replays), and .is-top while nothing covers them, which runs the idle loops.
+   Delays live on the landed state only, so lifting a card resets it at once. */
+@keyframes lp-blink { 50% { opacity: 0; } }
+@keyframes lp-ping { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.9); opacity: 0; } }
+@keyframes lp-ripple { 0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; } 100% { transform: translate(-50%, -50%) scale(2.1); opacity: 0; } }
+@keyframes lp-float { 50% { transform: translateY(-5px); } }
+
+/* the chip spins into place */
+.lp-stack-card .lp-chip { transform: scale(0.6) rotate(-30deg); transition: transform 0.2s var(--ease), background 0.3s var(--ease); }
+.lp-stack-card.is-landed .lp-chip { transform: none; transition: transform 0.7s var(--spring) 0.05s, background 0.3s var(--ease); }
+
+/* code: the request types itself out, then the API answers */
+.lp-code-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.lp-code-bar i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
+.lp-code-bar i:first-child { background: #ff6b6b; }
+.lp-code-bar span { margin-left: 8px; font-size: 11px; letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.45); }
+.lp-tok-k { color: #c8c8cf; }
+.lp-tok-s { color: var(--lime); }
+.lp-tok-n { color: #7dd3fc; }
+.lp-tok-p { color: rgba(255, 255, 255, 0.45); }
+.lp-code-line { display: block; width: max-content; clip-path: inset(0 100% 0 0); transition: clip-path 0.15s linear; }
+.is-landed .lp-code-line { clip-path: inset(0 0 0 0); transition: clip-path 0.34s steps(16, end) calc(0.2s + var(--n) * 0.2s); }
+.lp-caret { display: inline-block; width: 0.55em; height: 1.15em; margin-left: 3px; vertical-align: -0.2em; background: var(--lime); opacity: 0; }
+.is-top .lp-caret { animation: lp-blink 1s steps(1) 1.5s infinite; }
+.lp-code-ok {
+  position: absolute; right: 16px; bottom: 16px;
+  padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  background: var(--lime); color: var(--ink);
+  opacity: 0; transform: translateY(8px) scale(0.8);
+  transition: opacity 0.15s, transform 0.15s;
+}
+.is-landed .lp-code-ok { opacity: 1; transform: none; transition: opacity 0.3s var(--ease) 1.55s, transform 0.6s var(--spring) 1.55s; }
+
+/* alerts: breaches slide in one after another and keep pulsing */
+.lp-alert-row { opacity: 0; transform: translate3d(48px, 0, 0); transition: opacity 0.15s, transform 0.15s; }
+.is-landed .lp-alert-row {
+  opacity: 1; transform: none;
+  transition: opacity 0.4s var(--ease) calc(0.15s + var(--n) * 0.14s), transform 0.7s var(--spring) calc(0.15s + var(--n) * 0.14s);
+}
+.lp-alert-row > span { position: relative; }
+.lp-alert-row > span::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: #fb7185; opacity: 0; }
+.is-top .lp-alert-row > span::after { animation: lp-ping 1.8s var(--ease) calc(0.9s + var(--n) * 0.3s) infinite; }
+.lp-alert-row em { display: inline-flex; align-items: center; gap: 5px; }
+.lp-alert-row em::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #e11d48; }
+.is-top .lp-alert-row em::before { animation: lp-blink 1.1s steps(1) infinite; }
+
+/* lock: the shield pops in, rings ripple out, the tags drop into place */
+.lp-lock-ring { position: relative; }
+.lp-lock-ring svg { position: relative; transform: scale(0.4); opacity: 0; transition: transform 0.15s, opacity 0.15s; }
+.is-landed .lp-lock-ring svg { transform: none; opacity: 1; transition: transform 0.8s var(--spring) 0.1s, opacity 0.3s var(--ease) 0.1s; }
+.is-top .lp-lock-ring svg { animation: lp-float 3.2s ease-in-out 1s infinite; }
+.lp-ripple {
+  position: absolute; left: 50%; top: 50%; width: 96px; height: 96px; border-radius: 50%;
+  border: 2px solid rgba(20, 20, 22, 0.28); opacity: 0; transform: translate(-50%, -50%);
+}
+.is-top .lp-ripple { animation: lp-ripple 2.6s var(--ease) calc(0.8s + var(--n, 0) * 1.3s) infinite; }
+.lp-lock .lp-lock-tag { opacity: 0; transform: translate3d(0, -16px, 0) scale(0.9); transition: opacity 0.15s, transform 0.15s; }
+.is-landed .lp-lock-tag {
+  opacity: 1; transform: none;
+  transition: opacity 0.35s var(--ease) calc(0.45s + var(--n) * 0.12s), transform 0.7s var(--spring) calc(0.45s + var(--n) * 0.12s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-stack-card .lp-chip, .lp-code-line, .lp-code-ok, .lp-alert-row, .lp-lock-ring svg, .lp-lock .lp-lock-tag { transition: none; }
+  .is-top .lp-caret, .is-top .lp-alert-row > span::after, .is-top .lp-alert-row em::before,
+  .is-top .lp-lock-ring svg, .is-top .lp-ripple { animation: none; }
+}
 
 /* ---------- steps: pinned sideways rail ---------- */
 .lp-rail { position: relative; height: 240vh; }

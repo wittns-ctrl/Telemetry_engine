@@ -195,7 +195,7 @@ function useLandingMotion(rootRef) {
     //    section is pinned.
     let tabTo = 0; let tabAt = 0;
     let railTo = 0; let railAt = 0;
-    let casTo = 0; let casAt = 0;
+    let casTo = 0; let casAt = 0; let casIn = false;
     let raf = 0; let last = 0; let dirty = true;
     const drops = cards.length - 1; // the first card is already on the table
     const HOLD = 0.3; // a little scroll at the end where the full pile just sits
@@ -211,10 +211,20 @@ function useLandingMotion(rootRef) {
       const cr = cascade.getBoundingClientRect();
       const cmax = cr.height - vh;
       casTo = cmax > 0 ? clamp(-cr.top / cmax, 0, 1) * (drops + HOLD) : drops;
+      // The first card is already on the table; it plays once its stage is mostly in view.
+      const wasIn = casIn;
+      casIn = cr.top < vh * 0.35 && cr.bottom > vh * 0.5;
+      if (wasIn !== casIn) dirty = true;
     }
 
     function paintCascade() {
-      if (reduce) { cards.forEach((c) => { c.style.transform = ''; c.style.opacity = ''; c.style.removeProperty('--dim'); }); return; }
+      if (reduce) {
+        cards.forEach((c) => {
+          c.style.transform = ''; c.style.opacity = ''; c.style.removeProperty('--dim');
+          c.classList.add('is-landed');
+        });
+        return;
+      }
       const vh = window.innerHeight;
       // How far each card has fallen: 0 = waiting above the screen, 1 = on the pile.
       const t = cards.map((_, i) => (i === 0 ? 1 : clamp(casAt - (i - 1), 0, 1)));
@@ -232,6 +242,10 @@ function useLandingMotion(rootRef) {
         card.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) rotate(${r.toFixed(2)}deg) scale(${s.toFixed(4)})`;
         card.style.opacity = i === 0 ? '' : clamp(t[i] * 5, 0, 1).toFixed(3);
         card.style.setProperty('--dim', Math.min(depth, 2).toFixed(3));
+        // A card plays its content animation once it has landed and is on top.
+        const landed = i === 0 ? casIn : t[i] > 0.9;
+        card.classList.toggle('is-landed', landed);
+        card.classList.toggle('is-top', landed && depth < 0.5);
       });
     }
 
@@ -458,22 +472,38 @@ const FAQ = [
   },
 ];
 
+// A reading as it is posted to the API, one line per entry so it can type in.
+const CODE_LINES = [
+  [['p', '{']],
+  [['k', '  "sensor_id"'], ['p', ': '], ['s', '"sensor_edge_node_4"'], ['p', ',']],
+  [['k', '  "metric_type"'], ['p', ': '], ['s', '"temperature"'], ['p', ',']],
+  [['k', '  "value"'], ['p', ': '], ['n', '71.4'], ['p', ',']],
+  [['k', '  "unit"'], ['p', ': '], ['s', '"C"']],
+  [['p', '}']],
+];
+
 function StackVisual({ kind }) {
   if (kind === 'code') {
     return (
-      <pre className="lp-code">{`{
-  "sensor_id": "sensor_edge_node_4",
-  "metric_type": "temperature",
-  "value": 71.4,
-  "unit": "C"
-}`}</pre>
+      <div className="lp-code">
+        <div className="lp-code-bar" aria-hidden="true"><i /><i /><i /><span>POST /api/metrics</span></div>
+        <pre>
+          {CODE_LINES.map((line, n) => (
+            <span key={n} className="lp-code-line" style={{ '--n': n }}>
+              {line.map(([tone, text], j) => <span key={j} className={`lp-tok-${tone}`}>{text}</span>)}
+              {n === CODE_LINES.length - 1 && <span className="lp-caret" aria-hidden="true" />}
+            </span>
+          ))}
+        </pre>
+        <span className="lp-code-ok" aria-hidden="true">201 Stored</span>
+      </div>
     );
   }
   if (kind === 'alerts') {
     return (
       <div className="lp-alerts">
-        {[['sensor_edge_node_4', 'temperature · 108.2'], ['sensor_db_cluster_a', 'cpu · 96.4'], ['sensor_gateway_01', 'network · 1,420']].map(([s, m]) => (
-          <div key={s} className="lp-alert-row">
+        {[['sensor_edge_node_4', 'temperature · 108.2'], ['sensor_db_cluster_a', 'cpu · 96.4'], ['sensor_gateway_01', 'network · 1,420']].map(([s, m], n) => (
+          <div key={s} className="lp-alert-row" style={{ '--n': n }}>
             <span><AlertTriangle size={14} /></span>
             <div><b>{s}</b><i>{m}</i></div>
             <em>CRITICAL</em>
@@ -484,8 +514,14 @@ function StackVisual({ kind }) {
   }
   return (
     <div className="lp-lock">
-      <div className="lp-lock-ring"><ShieldCheck size={34} strokeWidth={1.6} /></div>
-      <span>Your devices</span><span>Your readings</span><span>Your alerts</span>
+      <div className="lp-lock-ring">
+        <i className="lp-ripple" aria-hidden="true" />
+        <i className="lp-ripple" aria-hidden="true" style={{ '--n': 1 }} />
+        <ShieldCheck size={34} strokeWidth={1.6} />
+      </div>
+      {['Your devices', 'Your readings', 'Your alerts'].map((t, n) => (
+        <span key={t} className="lp-lock-tag" style={{ '--n': n }}>{t}</span>
+      ))}
     </div>
   );
 }
