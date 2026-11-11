@@ -269,6 +269,22 @@ export async function fetchDeviceAlerts(deviceId, { activeOnly = false, limit = 
   return apiJson(`/api/v1/alerts?${params.toString()}`, {}, "Failed to load alerts");
 }
 
+/**
+ * Ask the API for a diagnostic report on one stored alert.
+ * Resolves to the report: { alert_id, device_id, generated_at, analysis_method
+ * ("LLM" | "rule_based"), root_cause_analysis, urgency_level, actionable_steps:
+ * [{ step_number, instruction, category, estimated_time_minutes }], additional_context }.
+ * Without an OpenAI key the API still answers, with analysis_method "rule_based".
+ */
+export async function requestDiagnosis(alertId, deviceId) {
+  const data = await apiJson(
+    "/api/v1/diagnostics/analyze",
+    { method: "POST", body: JSON.stringify({ alert_id: alertId, device_id: deviceId }) },
+    "Could not generate a report for this alert",
+  );
+  return data.report;
+}
+
 /** Build the authenticated live-telemetry socket URL for a device. */
 export function telemetrySocketUrl(deviceId) {
   const token = getAccessToken() || "";

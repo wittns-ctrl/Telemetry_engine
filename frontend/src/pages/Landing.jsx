@@ -431,7 +431,7 @@ function LiquidNav() {
 /* Content                                                             */
 /* ------------------------------------------------------------------ */
 // Feature cards. Everything claimed here is something the app shows today
-// (see DevicesView and the anomaly engine's limits in app/core/config.py).
+// (see DevicesView, DiagnosisPanel and the anomaly engine's limits in app/core/config.py).
 const STACK = [
   {
     icon: Activity,
@@ -446,6 +446,12 @@ const STACK = [
     visual: 'alerts',
   },
   {
+    icon: Sparkles,
+    title: 'Told what to do about it',
+    body: 'Open an alert and get a diagnosis in plain words: the likely cause, how urgent it is, and the steps to fix it. It is written by AI, so treat it as a suggestion.',
+    visual: 'diagnosis',
+  },
+  {
     icon: ShieldCheck,
     title: 'Private to your account',
     body: 'Only you can see your PCs and readings. Sign in with email or Google, and delete everything whenever you like.',
@@ -458,6 +464,7 @@ const STEPS = [
   { icon: Download, title: 'Install the agent', body: 'Run the Lectio agent on your Windows 10 or 11 PC and sign in once. Your PC adds itself.' },
   { icon: Activity, title: 'Watch it live', body: 'Temperatures, load and memory stream to your dashboard as they happen.' },
   { icon: BellRing, title: 'Get warned', body: 'If a reading crosses a safe limit, an alert shows up in Lectio right away.' },
+  { icon: Sparkles, title: 'Find out why', body: 'Open the alert under My Devices and press Diagnose for the likely cause and step-by-step fixes.' },
 ];
 
 // The vital signs on the dark band.
@@ -489,6 +496,7 @@ const FAQ = [
     group: 'Alerts and your data',
     items: [
       { q: 'How do alerts work?', a: 'Every reading is checked against a safe limit, such as 90°C for a CPU. When a reading crosses it, an alert appears in your live stream and on your dashboard straight away.' },
+      { q: 'What is an AI diagnosis?', a: 'Open an alert under My Devices and press Diagnose. Lectio looks at the alert and your PC\'s readings from the few minutes around it, then explains the likely cause, how urgent it is, and what to do, step by step. It is written by AI (OpenAI) and can be wrong, so check it before acting. If the AI is unavailable, you get Lectio\'s standard steps for that kind of alert instead, labelled as such.' },
       { q: 'Who can see my data?', a: 'Only you. Each account sees its own PCs, readings and alerts, and nothing from anyone else. We never sell your data.' },
       { q: 'How long is my data kept?', a: 'Until you remove the PC or delete your account. Deleting either one permanently erases its readings and alerts.' },
     ],
@@ -505,6 +513,14 @@ const SENSOR_ROWS = [
 ];
 
 // Sample alerts, using the app's real default limits.
+// Sample report for the diagnosis card: the cause, then numbered steps.
+const DIAGNOSIS_ROWS = [
+  ['Likely cause', 'Dust in the CPU cooler', 'Act now'],
+  ['Clean the cooler and fans', 'Hardware', '~20 min'],
+  ['Check the cooler is seated', 'Hardware', '~30 min'],
+  ['Close heavy background apps', 'Software', '~10 min'],
+];
+
 const ALERT_ROWS = [
   ['CPU temperature', 'Gaming PC · 96°C, limit 90°C'],
   ['Power supply 12V', 'Office PC · 11.2 V, below 11.4 V'],
@@ -520,6 +536,19 @@ function StackVisual({ kind }) {
             <span><r.icon size={14} /></span>
             <div><b>{r.name}</b></div>
             <em>{r.value}</em>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (kind === 'diagnosis') {
+    return (
+      <div className="lp-alerts">
+        {DIAGNOSIS_ROWS.map(([title, sub, tag], n) => (
+          <div key={title} className="lp-alert-row lp-sensor-row" style={{ '--n': n }}>
+            <span>{n === 0 ? <Sparkles size={14} /> : n}</span>
+            <div><b>{title}</b><i>{sub}</i></div>
+            <em>{tag}</em>
           </div>
         ))}
       </div>
@@ -700,7 +729,7 @@ export default function Landing() {
       <section className="lp-rail" id="steps" data-rail data-section>
         <div className="lp-rail-pin">
           <div className="lp-rail-head" data-reveal>
-            <h2>Up and running in four steps</h2>
+            <h2>Up and running in five steps</h2>
             <p>No extra hardware and nothing to wire up. Just your Windows PC and a free account.</p>
             <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
           </div>
