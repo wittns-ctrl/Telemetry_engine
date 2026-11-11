@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Link } from 'react-router-dom';
 import {
   Activity, AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, CircleHelp, Cpu, House,
-  LifeBuoy, LogIn, MoreHorizontal, Radio, Search, ShieldCheck, Sparkles, Thermometer, Workflow, Zap, Layers,
+  LifeBuoy, LogIn, MoreHorizontal, Radio, ShieldCheck, Sparkles, Thermometer, Workflow, Zap, Layers,
 } from 'lucide-react';
 import './landing.css';
 
@@ -10,10 +10,10 @@ import './landing.css';
 /* Phone mock-ups used in the hero cards (illustrative sample data)    */
 /* ------------------------------------------------------------------ */
 const PHONE_TILES = [
-  { label: 'Temperature', icon: Thermometer, tone: 'amber' },
-  { label: 'CPU Load', icon: Cpu, tone: 'cyan' },
-  { label: 'Network', icon: Radio, tone: 'ink' },
-  { label: 'Alerts', icon: AlertTriangle, tone: 'rose' },
+  { label: 'Temperature', icon: Thermometer, tone: 'lime' },
+  { label: 'CPU Load', icon: Cpu, tone: 'ink' },
+  { label: 'Network', icon: Radio, tone: 'white' },
+  { label: 'Alerts', icon: AlertTriangle, tone: 'soft' },
 ];
 
 function PhoneTiles() {
@@ -63,9 +63,9 @@ function PhoneLive() {
 /* Static dashboard preview shown inside the tablet (sample data)      */
 /* ------------------------------------------------------------------ */
 const PREVIEW_BARS = [
-  { label: 'Temperature', pct: 44, tone: '#f59e0b' },
-  { label: 'CPU', pct: 33, tone: '#06b6d4' },
-  { label: 'Network', pct: 23, tone: '#232327' },
+  { label: 'Temperature', pct: 44, tone: '#c2ea2e' },
+  { label: 'CPU', pct: 33, tone: '#1c1c1f' },
+  { label: 'Network', pct: 23, tone: '#a1a1aa' },
 ];
 const PREVIEW_SENSORS = ['sensor_server_101', 'sensor_edge_node_4', 'sensor_db_cluster_a', 'sensor_gateway_01'];
 const PREVIEW_NAV = ['Dashboard', 'My Devices', 'Metrics Studio', 'Live Stream', 'Analytics', 'Sensors'];
@@ -181,14 +181,23 @@ function useLandingMotion(rootRef) {
     // With reduced motion the feature cards are simply listed one after another.
     cascade.classList.toggle('is-static', reduce);
 
-    // 1. Entrance animations: elements fade up once, the first time they are seen.
+    // 1. Entrance animations: elements fade up the first time they are seen.
+    //    Ones marked data-replay play again every time they come back on screen.
     const io = new IntersectionObserver(
       (entries) => entries.forEach((en) => {
-        if (en.isIntersecting) { en.target.classList.add('is-in'); io.unobserve(en.target); }
+        if (!en.isIntersecting) return;
+        en.target.classList.add('is-in');
+        if (!('replay' in en.target.dataset)) io.unobserve(en.target);
       }),
       { threshold: 0.15, rootMargin: '0px 0px -6% 0px' },
     );
     $$('[data-reveal]').forEach((el) => io.observe(el));
+    // Reset replaying elements only once they are fully off screen, so the reset is never seen.
+    const away = new IntersectionObserver(
+      (entries) => entries.forEach((en) => { if (!en.isIntersecting) en.target.classList.remove('is-in'); }),
+      { threshold: 0 },
+    );
+    $$('[data-reveal][data-replay]').forEach((el) => away.observe(el));
 
     // 2. Scroll-linked motion: the tablet lies flat as it rises, the feature
     //    cards cascade onto a pile, and the steps slide sideways while their
@@ -290,6 +299,7 @@ function useLandingMotion(rootRef) {
     return () => {
       cancelAnimationFrame(raf);
       io.disconnect();
+      away.disconnect();
       window.removeEventListener('scroll', readScroll);
       window.removeEventListener('resize', onResize);
       document.documentElement.classList.remove('lp-smooth');
@@ -404,7 +414,6 @@ function LiquidNav() {
       <span className="lp-dock-sep" aria-hidden="true" />
 
       <div className="lp-chrome-end">
-        <a className="lp-round" href="#faq" onClick={() => go('faq')} aria-label="Find answers in the FAQ"><Search size={17} /></a>
         <Link className="lp-login" to="/signin" aria-label="Log in">
           <span className="lp-login-text">Log in</span>
           <LogIn className="lp-login-ic" size={17} />
@@ -449,9 +458,9 @@ const STEPS = [
 ];
 
 const PILLS = [
-  { k: '°C', label: 'Temperature', tone: 'amber' },
-  { k: '%', label: 'CPU load', tone: 'cyan' },
-  { k: 'MB/s', label: 'Network', tone: 'lime' },
+  { k: '°C', label: 'Temperature', tone: 'lime' },
+  { k: '%', label: 'CPU load', tone: 'light' },
+  { k: 'MB/s', label: 'Network', tone: 'graphite' },
 ];
 
 const FAQ = [
@@ -526,10 +535,6 @@ function StackVisual({ kind }) {
   );
 }
 
-function Badge({ children }) {
-  return <p className="lp-badge"><span className="lp-badge-ic"><Activity size={13} strokeWidth={2.6} /></span>{children}</p>;
-}
-
 function FaqItem({ n, q, a, open, onToggle }) {
   const id = `faq-${n}`;
   return (
@@ -569,7 +574,6 @@ export default function Landing() {
       {/* HERO */}
       <section className="lp-hero" id="home" data-section>
         <div className="lp-hero-copy">
-          <Badge>Real-time device monitoring, simplified</Badge>
           <h1>Your Trusted Gateway To <span className="lp-mark">Live Device Telemetry</span></h1>
           <p className="lp-lead">Track temperature, CPU and network readings from every machine you run, get alerted the moment a limit breaks, and keep it all in one simple, clear place.</p>
           <div className="lp-actions">
@@ -627,7 +631,6 @@ export default function Landing() {
       {/* FEATURES — cards stack over each other while you scroll. */}
       <section className="lp-features" id="features" data-section>
         <div className="lp-head" data-reveal>
-          <Badge>Features</Badge>
           <h2>Telemetry That Fits The Way You Already Work</h2>
         </div>
         <div className="lp-cascade" data-cascade>
@@ -650,7 +653,6 @@ export default function Landing() {
       <section className="lp-rail" id="steps" data-rail data-section>
         <div className="lp-rail-pin">
           <div className="lp-rail-head" data-reveal>
-            <Badge>How it works</Badge>
             <h2>From Sign-Up To First Alert In Four Steps</h2>
             <p>No hardware to buy and nothing to wire up. Scroll to walk through it.</p>
           </div>
@@ -670,7 +672,7 @@ export default function Landing() {
 
       {/* WHAT WE WATCH — pills drop into place when the band appears. */}
       <section className="lp-band">
-        <div className="lp-band-inner" data-reveal>
+        <div className="lp-band-inner" data-reveal data-replay>
           <p className="lp-kicker">What we watch</p>
           <h2>Three signals, checked on every reading</h2>
           <p>Each one has its own limit. Cross it and you hear about it straight away.</p>
@@ -687,7 +689,6 @@ export default function Landing() {
       {/* FAQ */}
       <section className="lp-faq" id="faq" data-section>
         <div className="lp-head" data-reveal>
-          <Badge>Frequently Asked Questions</Badge>
           <h2>Get Quick Answers To Common Questions</h2>
           <p>Find solutions, explore the product, and get set up faster</p>
         </div>
