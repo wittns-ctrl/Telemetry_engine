@@ -487,7 +487,7 @@ function StackVisual({ kind }) {
     return (
       <div className="lp-alerts">
         {ALERT_ROWS.map(([s, m], n) => (
-          <div key={s} className="lp-alert-row" style={{ '--n': n }}>
+          <div key={s} className="lp-alert-row is-critical" style={{ '--n': n }}>
             <span><AlertTriangle size={14} /></span>
             <div><b>{s}</b><i>{m}</i></div>
             <em>CRITICAL</em>

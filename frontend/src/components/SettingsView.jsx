@@ -241,7 +241,7 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
                   />
                   <div
                     className={`absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 font-medium text-sm ${
-                      user.email_verified ? "text-ink-600" : "text-amber-600"
+                      user.email_verified ? "text-ink-600" : "text-amber-700" /* 4.8:1; amber-600 text is only 3.2:1 */
                     }`}
                   >
                     {user.email_verified ? (
