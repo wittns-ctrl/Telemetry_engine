@@ -152,6 +152,14 @@ function DashboardPreview() {
 const CHASE = 12; // how tightly scroll-linked motion follows the scroll position (per second)
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const ease = (t) => 1 - (1 - t) ** 3; // ease-out cubic
+// Ease-out with a small overshoot, so a falling card lands and settles.
+const land = (t) => 1 + 2.4 * (t - 1) ** 3 + 1.4 * (t - 1) ** 2;
+// Where each card comes to rest on the pile, and which way it swings in from.
+const CASCADE_REST = [
+  { r: -2.4, x: -6 },
+  { r: 1.8, x: 8, from: 1 },
+  { r: -0.8, x: -2, from: -1 },
+];
 
 function useLandingMotion(rootRef) {
   useEffect(() => {
@@ -166,8 +174,12 @@ function useLandingMotion(rootRef) {
     const glow = $('[data-glow]');
     const rail = $('[data-rail]');
     const railTrack = $('[data-rail-track]');
+    const cascade = $('[data-cascade]');
+    const cards = $$('[data-cascade-card]');
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const wide = window.matchMedia('(min-width: 901px)');
+    // With reduced motion the feature cards are simply listed one after another.
+    cascade.classList.toggle('is-static', reduce);
 
     // 1. Entrance animations: elements fade up once, the first time they are seen.
     const io = new IntersectionObserver(
@@ -178,11 +190,15 @@ function useLandingMotion(rootRef) {
     );
     $$('[data-reveal]').forEach((el) => io.observe(el));
 
-    // 2. Scroll-linked motion: the tablet lies flat as it rises, and the steps
-    //    slide sideways while their section is pinned.
+    // 2. Scroll-linked motion: the tablet lies flat as it rises, the feature
+    //    cards cascade onto a pile, and the steps slide sideways while their
+    //    section is pinned.
     let tabTo = 0; let tabAt = 0;
     let railTo = 0; let railAt = 0;
+    let casTo = 0; let casAt = 0;
     let raf = 0; let last = 0; let dirty = true;
+    const drops = cards.length - 1; // the first card is already on the table
+    const HOLD = 0.3; // a little scroll at the end where the full pile just sits
 
     function readScroll() {
       const vh = window.innerHeight;
@@ -192,9 +208,35 @@ function useLandingMotion(rootRef) {
       const rr = rail.getBoundingClientRect();
       const max = rr.height - vh;
       railTo = max > 0 ? clamp(-rr.top / max, 0, 1) : 0;
+      const cr = cascade.getBoundingClientRect();
+      const cmax = cr.height - vh;
+      casTo = cmax > 0 ? clamp(-cr.top / cmax, 0, 1) * (drops + HOLD) : drops;
+    }
+
+    function paintCascade() {
+      if (reduce) { cards.forEach((c) => { c.style.transform = ''; c.style.opacity = ''; c.style.removeProperty('--dim'); }); return; }
+      const vh = window.innerHeight;
+      // How far each card has fallen: 0 = waiting above the screen, 1 = on the pile.
+      const t = cards.map((_, i) => (i === 0 ? 1 : clamp(casAt - (i - 1), 0, 1)));
+      cards.forEach((card, i) => {
+        const rest = CASCADE_REST[i % CASCADE_REST.length];
+        const fall = 1 - land(t[i]);
+        const side = rest.from || 0;
+        // Cards that have landed on top push this one back into the pile.
+        let depth = 0;
+        for (let j = i + 1; j < cards.length; j += 1) depth += ease(t[j]);
+        const y = fall * -(vh * 0.95) - depth * 16;
+        const x = rest.x + fall * side * 90;
+        const r = rest.r + fall * side * 13;
+        const s = 1 - depth * 0.045;
+        card.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) rotate(${r.toFixed(2)}deg) scale(${s.toFixed(4)})`;
+        card.style.opacity = i === 0 ? '' : clamp(t[i] * 5, 0, 1).toFixed(3);
+        card.style.setProperty('--dim', Math.min(depth, 2).toFixed(3));
+      });
     }
 
     function paint() {
+      paintCascade();
       const s = ease(tabAt);
       tablet.style.transform = `translate3d(0,${((1 - s) * 50).toFixed(1)}px,0) rotateX(${((1 - s) * 38).toFixed(2)}deg) scale(${(0.88 + 0.12 * s).toFixed(4)})`;
       glow.style.opacity = s;
@@ -213,8 +255,9 @@ function useLandingMotion(rootRef) {
       const k = reduce ? 1 : 1 - Math.exp(-dt * CHASE);
       const tg = tabTo - tabAt;
       const rg = railTo - railAt;
-      const moving = Math.abs(tg) > 0.0002 || Math.abs(rg) > 0.0002;
-      if (moving) { tabAt += tg * k; railAt += rg * k; }
+      const cg = casTo - casAt;
+      const moving = Math.abs(tg) > 0.0002 || Math.abs(rg) > 0.0002 || Math.abs(cg) > 0.0005;
+      if (moving) { tabAt += tg * k; railAt += rg * k; casAt += cg * k; }
       if (moving || dirty) { paint(); dirty = false; }
       raf = requestAnimationFrame(frame);
     }
@@ -226,6 +269,7 @@ function useLandingMotion(rootRef) {
     readScroll();
     tabAt = tabTo;
     railAt = railTo;
+    casAt = casTo;
     paint();
     raf = requestAnimationFrame(frame);
 
@@ -365,18 +409,21 @@ const STACK = [
     title: 'Ingest from anywhere',
     body: 'Install the agent on a machine or post readings straight to the API. Temperature, CPU and network metrics land in one place.',
     visual: 'code',
+    tone: 'paper',
   },
   {
     icon: AlertTriangle,
     title: 'Alerts the moment a limit breaks',
     body: 'Every reading is checked against your thresholds as it arrives. Breaches show up in the live stream right away.',
     visual: 'alerts',
+    tone: 'ink',
   },
   {
     icon: ShieldCheck,
     title: 'Private to your account',
     body: 'Each account only sees its own devices and readings. Sign in with email or Google.',
     visual: 'lock',
+    tone: 'lime',
   },
 ];
 
@@ -547,9 +594,10 @@ export default function Landing() {
           <Badge>Features</Badge>
           <h2>Telemetry That Fits The Way You Already Work</h2>
         </div>
-        <div className="lp-stack">
+        <div className="lp-cascade" data-cascade>
+          <div className="lp-cascade-pin">
           {STACK.map((c, i) => (
-            <article key={c.title} className="lp-stack-card" style={{ '--i': i }}>
+            <article key={c.title} className={`lp-stack-card lp-stack-${c.tone}`} data-cascade-card style={{ '--i': i }}>
               <div className="lp-stack-copy">
                 <span className="lp-chip"><c.icon size={18} /></span>
                 <h3>{c.title}</h3>
@@ -558,6 +606,7 @@ export default function Landing() {
               <div className="lp-stack-visual"><StackVisual kind={c.visual} /></div>
             </article>
           ))}
+          </div>
         </div>
       </section>
 
