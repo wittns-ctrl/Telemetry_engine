@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Activity, AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, Cpu, LifeBuoy,
-  MoreHorizontal, Radio, Search, ShieldCheck, Thermometer, Zap, Layers,
+  Activity, AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, CircleHelp, Cpu, House,
+  LifeBuoy, LogIn, MoreHorizontal, Radio, Search, ShieldCheck, Sparkles, Thermometer, Workflow, Zap, Layers,
 } from 'lucide-react';
 import './landing.css';
 
@@ -178,18 +178,7 @@ function useLandingMotion(rootRef) {
     );
     $$('[data-reveal]').forEach((el) => io.observe(el));
 
-    // 2. Highlight the nav link for the section currently on screen.
-    const links = $$('[data-nav]');
-    const spy = new IntersectionObserver(
-      (entries) => entries.forEach((en) => {
-        if (!en.isIntersecting) return;
-        links.forEach((a) => a.classList.toggle('is-active', a.dataset.nav === en.target.id));
-      }),
-      { rootMargin: '-45% 0px -50% 0px' },
-    );
-    $$('[data-section]').forEach((el) => spy.observe(el));
-
-    // 3. Scroll-linked motion: the tablet lies flat as it rises, and the steps
+    // 2. Scroll-linked motion: the tablet lies flat as it rises, and the steps
     //    slide sideways while their section is pinned.
     let tabTo = 0; let tabAt = 0;
     let railTo = 0; let railAt = 0;
@@ -243,12 +232,128 @@ function useLandingMotion(rootRef) {
     return () => {
       cancelAnimationFrame(raf);
       io.disconnect();
-      spy.disconnect();
       window.removeEventListener('scroll', readScroll);
       window.removeEventListener('resize', onResize);
       document.documentElement.classList.remove('lp-smooth');
     };
   }, [rootRef]);
+}
+
+/* ------------------------------------------------------------------ */
+/* Floating nav with a glass lens that slides to the active section    */
+/* ------------------------------------------------------------------ */
+const NAV_ITEMS = [
+  { id: 'home', label: 'Home', icon: House },
+  { id: 'features', label: 'Features', icon: Sparkles },
+  { id: 'steps', label: 'How it works', short: 'Steps', icon: Workflow },
+  { id: 'faq', label: 'FAQ', icon: CircleHelp },
+];
+
+function LiquidNav() {
+  const [active, setActive] = useState('home');
+  const trackRef = useRef(null);
+  const lensRef = useRef(null);
+  const bodyRef = useRef(null);
+  const itemRefs = useRef({});
+  const lastX = useRef(null);
+  const lockUntil = useRef(0);
+
+  // Follow the section on screen as the page scrolls.
+  useEffect(() => {
+    const spy = new IntersectionObserver(
+      (entries) => entries.forEach((en) => {
+        if (en.isIntersecting && performance.now() > lockUntil.current) setActive(en.target.id);
+      }),
+      { rootMargin: '-45% 0px -50% 0px' },
+    );
+    document.querySelectorAll('.lp [data-section]').forEach((el) => spy.observe(el));
+    const unlock = () => { lockUntil.current = 0; };
+    window.addEventListener('scrollend', unlock);
+    return () => { spy.disconnect(); window.removeEventListener('scrollend', unlock); };
+  }, []);
+
+  // Put the lens over the active item; stretch it like liquid while it travels.
+  const place = useCallback((wobble) => {
+    const el = itemRefs.current[active];
+    const lens = lensRef.current;
+    if (!el || !lens) return;
+    const x = el.offsetLeft + el.offsetWidth / 2;
+    lens.style.setProperty('--x', `${x}px`);
+    lens.style.setProperty('--w', `${el.offsetWidth}px`);
+    const dist = lastX.current == null ? 0 : Math.abs(x - lastX.current);
+    lastX.current = x;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (wobble && dist > 4 && !reduce && bodyRef.current?.animate) {
+      const s = Math.min(0.28, 0.08 + dist / 900);
+      bodyRef.current.animate(
+        [
+          { transform: 'scale(1, 1)' },
+          { transform: `scale(${1 + s}, ${1 - s * 0.45})`, offset: 0.3 },
+          { transform: `scale(${1 - s * 0.18}, ${1 + s * 0.12})`, offset: 0.68 },
+          { transform: 'scale(1, 1)' },
+        ],
+        { duration: 680, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)' },
+      );
+    }
+  }, [active]);
+
+  useLayoutEffect(() => { place(true); }, [place]);
+
+  // Re-measure when the layout changes (fonts, breakpoints), without the wobble.
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return undefined;
+    const ro = new ResizeObserver(() => place(false));
+    ro.observe(track);
+    const id = requestAnimationFrame(() => lensRef.current?.classList.add('is-ready'));
+    return () => { ro.disconnect(); cancelAnimationFrame(id); };
+  }, [place]);
+
+  const go = (id) => {
+    lockUntil.current = performance.now() + 1400;
+    setActive(id);
+  };
+
+  return (
+    <header className="lp-chrome" data-chrome>
+      <a className="lp-brand" href="#home" onClick={() => go('home')} aria-label="Telemetry Engine home">
+        <span className="lp-brand-mark"><Activity size={18} strokeWidth={2.6} /></span>
+        <span className="lp-brand-name">Telemetry Engine</span>
+      </a>
+
+      <span className="lp-dock-sep" aria-hidden="true" />
+
+      <nav className="lp-dock" aria-label="Primary" ref={trackRef}>
+        <span className="lp-lens" ref={lensRef} aria-hidden="true"><span className="lp-lens-body" ref={bodyRef} /></span>
+        {NAV_ITEMS.map((it) => (
+          <a
+            key={it.id}
+            href={`#${it.id}`}
+            ref={(el) => { itemRefs.current[it.id] = el; }}
+            className={`lp-dock-item ${active === it.id ? 'is-active' : ''}`}
+            aria-current={active === it.id ? 'true' : undefined}
+            onClick={() => go(it.id)}
+          >
+            <it.icon className="lp-dock-ic" size={21} strokeWidth={2.1} />
+            <span className="lp-dock-label">
+              <span className="lp-dock-long">{it.label}</span>
+              <span className="lp-dock-short">{it.short || it.label}</span>
+            </span>
+          </a>
+        ))}
+      </nav>
+
+      <span className="lp-dock-sep" aria-hidden="true" />
+
+      <div className="lp-chrome-end">
+        <a className="lp-round" href="#faq" onClick={() => go('faq')} aria-label="Find answers in the FAQ"><Search size={17} /></a>
+        <Link className="lp-login" to="/signin" aria-label="Log in">
+          <span className="lp-login-text">Log in</span>
+          <LogIn className="lp-login-ic" size={17} />
+        </Link>
+      </div>
+    </header>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -376,19 +481,7 @@ export default function Landing() {
 
   return (
     <div className="lp" ref={rootRef}>
-      <header className="lp-chrome" data-chrome>
-        <a className="lp-brand" href="#home">Telemetry Engine</a>
-        <nav className="lp-nav" aria-label="Primary">
-          <a href="#home" data-nav="home" className="is-active">Home</a>
-          <a href="#features" data-nav="features">Features</a>
-          <a href="#steps" data-nav="steps">How it works</a>
-          <a href="#faq" data-nav="faq">FAQ</a>
-        </nav>
-        <div className="lp-chrome-end">
-          <a className="lp-round" href="#faq" aria-label="Find answers in the FAQ"><Search size={17} /></a>
-          <Link className="lp-btn lp-btn-dark lp-btn-sm" to="/signin">Log in</Link>
-        </div>
-      </header>
+      <LiquidNav />
 
       {/* HERO */}
       <section className="lp-hero" id="home" data-section>
