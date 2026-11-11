@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Cpu, MonitorSmartphone, RefreshCw, AlertTriangle, HardDrive, Zap, MemoryStick, Wifi, WifiOff } from "lucide-react";
+import { Cpu, MonitorSmartphone, RefreshCw, AlertTriangle, HardDrive, Zap, MemoryStick, Wifi, WifiOff, Sparkles, ChevronUp } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
   API_BASE,
@@ -8,7 +8,9 @@ import {
   fetchDeviceAlerts,
   telemetrySocketUrl,
   refreshAccessToken,
+  requestDiagnosis,
 } from "../services/api";
+import { DiagnosisPanel } from "./DiagnosisPanel";
 
 const MAX_POINTS = 60;
 
@@ -58,6 +60,10 @@ export function DevicesView() {
   const [history, setHistory] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [socketState, setSocketState] = useState("idle");
+  // Diagnostic reports by alert id, and which alerts have their report open.
+  const [diagnoses, setDiagnoses] = useState({});
+  const [openDiagnoses, setOpenDiagnoses] = useState({});
+  const selectedIdRef = useRef(null);
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -102,6 +108,9 @@ export function DevicesView() {
     setSnapshot(null);
     setHistory([]);
     setAlerts([]);
+    setDiagnoses({});
+    setOpenDiagnoses({});
+    selectedIdRef.current = selectedId;
 
     fetchLatestTelemetry(selectedId)
       .then((snap) => {
@@ -180,6 +189,30 @@ export function DevicesView() {
       if (wsRef.current) wsRef.current.close();
     };
   }, [selectedId, pushPoint]);
+
+  const loadDiagnosis = useCallback(async (alertId, deviceId) => {
+    setDiagnoses((prev) => ({ ...prev, [alertId]: { status: "loading" } }));
+    let next;
+    try {
+      next = { status: "ready", report: await requestDiagnosis(alertId, deviceId) };
+    } catch (error) {
+      next = { status: "error", error };
+    }
+    // Drop the answer if the user has switched to another device meanwhile.
+    if (selectedIdRef.current === deviceId) {
+      setDiagnoses((prev) => ({ ...prev, [alertId]: next }));
+    }
+  }, []);
+
+  const toggleDiagnosis = (alertId) => {
+    const opening = !openDiagnoses[alertId];
+    setOpenDiagnoses((prev) => ({ ...prev, [alertId]: opening }));
+    // Reports are kept once fetched; only ask again after a failure.
+    const existing = diagnoses[alertId];
+    if (opening && (!existing || existing.status === "error")) {
+      loadDiagnosis(alertId, selectedId);
+    }
+  };
 
   const selected = devices.find((d) => d.id === selectedId);
 
@@ -326,8 +359,23 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
           <ul className="space-y-2">
             {alerts.map((a) => (
               <li key={a.id} className={`border rounded-xl px-3 py-2 text-sm ${SEVERITY_STYLES[a.severity] || SEVERITY_STYLES.INFO}`}>
-                <div className="font-medium">{a.message}</div>
-                <div className="text-xs opacity-80">{a.severity} · {a.rule_name} · {new Date(a.created_at).toLocaleString()}</div>
+                <div className="flex flex-wrap items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium">{a.message}</div>
+                    <div className="text-xs opacity-80">{a.severity} · {a.rule_name} · {new Date(a.created_at).toLocaleString()}</div>
+                  </div>
+                  <button
+                    onClick={() => toggleDiagnosis(a.id)}
+                    aria-expanded={!!openDiagnoses[a.id]}
+                    className="flex-none inline-flex items-center gap-1 rounded-lg bg-white/80 border border-current/20 px-2 py-1 text-xs font-medium hover:bg-white"
+                  >
+                    {openDiagnoses[a.id] ? <ChevronUp size={12} /> : <Sparkles size={12} />}
+                    {openDiagnoses[a.id] ? "Hide diagnosis" : "Diagnose"}
+                  </button>
+                </div>
+                {openDiagnoses[a.id] && (
+                  <DiagnosisPanel state={diagnoses[a.id]} onRetry={() => loadDiagnosis(a.id, selectedId)} />
+                )}
               </li>
             ))}
           </ul>

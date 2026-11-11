@@ -403,8 +403,9 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 /* The stage pins while you scroll; each card drops in from above, twisting
    as it falls, and lands slightly askew on the cards already there. */
 .lp-features { padding: clamp(80px, 11vw, 160px) var(--pad) clamp(40px, 6vw, 80px); }
-/* 150vh: half a screen of extra scrolling for the two cards that drop in. */
-.lp-cascade { position: relative; height: 150vh; margin: 0 calc(var(--pad) * -1); }
+/* 175vh: three-quarters of a screen of extra scrolling for the three cards
+   that drop in (about a quarter of a screen each). */
+.lp-cascade { position: relative; height: 175vh; margin: 0 calc(var(--pad) * -1); }
 .lp-cascade-pin {
   position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden;
   display: grid; place-items: center;
@@ -437,7 +438,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-stack-visual { min-width: 0; }
 .lp-alerts { display: grid; gap: 10px; }
 .lp-alert-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #fff; box-shadow: 0 0 0 1px rgba(28, 28, 31, 0.06), 0 10px 20px -16px rgba(28, 28, 31, 0.4); }
-.lp-alert-row > span { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--ink); color: var(--lime); flex-shrink: 0; }
+.lp-alert-row > span { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--ink); color: var(--lime); flex-shrink: 0; font-size: 13px; font-weight: 700; }
 .lp-alert-row div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .lp-alert-row b { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lp-alert-row i { font-style: normal; font-size: 12px; color: var(--fg-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -501,7 +502,12 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-rail-head > p { color: var(--fg-soft); font-size: 16px; line-height: 1.5; max-width: 34ch; }
 .lp-rail-head .lp-btn { margin-top: 6px; }
 .lp-rail-window { min-width: 0; }
-.lp-rail-track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(16px, 2vw, 28px); }
+.lp-rail-track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(14px, 1.6vw, 24px); }
+.lp-step { min-width: 0; }
+/* Five across gets cramped below ~1100px, so go three-and-two until the swipe row takes over. */
+@media (max-width: 1100px) and (min-width: 901px) {
+  .lp-rail-track { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .lp-step {
   min-height: 260px; padding: 28px; border-radius: 26px;
   background: var(--tile); display: flex; flex-direction: column;
