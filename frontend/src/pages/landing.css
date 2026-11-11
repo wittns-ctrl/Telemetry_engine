@@ -42,11 +42,11 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 [data-reveal].is-in { opacity: 1; transform: none; }
 
 /* ---------- top bar ---------- */
-/* A floating black pill, centred and only as wide as its contents. A glass lens
-   slides to the active section and stretches like liquid while it travels. */
+/* A floating glass pill, centred and only as wide as its contents. A glass lens
+   slides to the active section. */
 @keyframes lp-dock-in {
-  from { opacity: 0; transform: translate3d(0, -26px, 0) scale(0.94); }
-  to { opacity: 1; transform: none; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .lp-chrome {
   --bar-h: 62px;
@@ -62,7 +62,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   backdrop-filter: var(--glass-filter);
   box-shadow: var(--glass-rim), 0 16px 36px -18px rgba(14, 14, 16, 0.6), 0 2px 6px rgba(14, 14, 16, 0.12);
   transition: box-shadow 0.5s var(--ease), gap 0.5s var(--ease);
-  animation: lp-dock-in 0.9s var(--spring) both;
+  animation: lp-dock-in 0.4s var(--ease) both;
 }
 .lp-chrome.is-scrolled {
   box-shadow: var(--glass-rim), 0 24px 44px -16px rgba(14, 14, 16, 0.55), 0 4px 12px rgba(14, 14, 16, 0.18);
@@ -130,7 +130,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   transform: translate3d(calc(var(--x, 49px) - 50%), -50%, 0);
   pointer-events: none;
 }
-.lp-lens.is-ready { transition: transform 0.7s cubic-bezier(0.32, 1.28, 0.5, 1), width 0.4s var(--ease); }
+.lp-lens.is-ready { transition: transform 0.5s var(--ease), width 0.4s var(--ease); }
 .lp-lens-body {
   position: absolute; inset: 0; border-radius: 22px;
   background:
@@ -392,8 +392,8 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 /* The stage pins while you scroll; each card drops in from above, twisting
    as it falls, and lands slightly askew on the cards already there. */
 .lp-features { padding: clamp(80px, 11vw, 160px) var(--pad) clamp(40px, 6vw, 80px); }
-/* 200vh: about one extra screen of scrolling for the two cards that drop in (was 270vh). */
-.lp-cascade { position: relative; height: 200vh; margin: 0 calc(var(--pad) * -1); }
+/* 150vh: half a screen of extra scrolling for the two cards that drop in. */
+.lp-cascade { position: relative; height: 150vh; margin: 0 calc(var(--pad) * -1); }
 .lp-cascade-pin {
   position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden;
   display: grid; place-items: center;
@@ -448,8 +448,6 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 @keyframes lp-ping { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.9); opacity: 0; } }
 
 /* the chip spins into place */
-.lp-stack-card .lp-chip { transform: scale(0.6) rotate(-30deg); transition: transform 0.2s var(--ease), background 0.3s var(--ease); }
-.lp-stack-card.is-landed .lp-chip { transform: none; transition: transform 0.7s var(--spring) 0.05s, background 0.3s var(--ease); }
 
 /* alerts: breaches slide in one after another and keep pulsing */
 .lp-alert-row { opacity: 0; transform: translate3d(48px, 0, 0); transition: opacity 0.15s, transform 0.15s; }
@@ -479,24 +477,19 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   .is-top .lp-alert-row > span::after, .is-top .lp-alert-row em::before { animation: none; }
 }
 
-/* ---------- steps: pinned sideways rail ---------- */
-/* 180vh: under one extra screen of sideways travel (was 240vh). */
-.lp-rail { position: relative; height: 180vh; }
-.lp-rail-pin {
-  position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden;
-  display: grid; grid-template-columns: minmax(280px, 0.8fr) 1.6fr; align-items: center; gap: clamp(24px, 4vw, 60px);
-  padding: 90px 0 40px var(--pad);
-}
+/* ---------- steps: a plain row of four cards ---------- */
+.lp-rail { padding: clamp(70px, 9vw, 130px) var(--pad); }
+.lp-rail-pin { max-width: var(--max); margin: 0 auto; display: grid; gap: clamp(32px, 4vw, 52px); }
 .lp-rail-head { display: grid; gap: 18px; justify-items: start; }
 .lp-rail-head h2 { font-size: clamp(28px, 3.4vw, 46px); }
 .lp-rail-head > p { color: var(--fg-soft); font-size: 16px; line-height: 1.5; max-width: 34ch; }
 .lp-rail-head .lp-btn { margin-top: 6px; }
-.lp-rail-window { min-width: 0; overflow: hidden; padding: 30px 0; }
-.lp-rail-track { list-style: none; padding: 0 var(--pad) 0 0; display: flex; gap: 28px; width: max-content; will-change: transform; }
+.lp-rail-window { min-width: 0; }
+.lp-rail-track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(16px, 2vw, 28px); }
 .lp-step {
-  width: clamp(250px, 24vw, 310px); min-height: clamp(240px, 34vh, 300px); padding: 28px; border-radius: 26px;
+  min-height: 260px; padding: 28px; border-radius: 26px;
   background: var(--tile); display: flex; flex-direction: column;
-  transition: transform 0.4s var(--spring), box-shadow 0.4s var(--ease);
+  transition: transform 0.35s var(--ease), box-shadow 0.35s var(--ease);
 }
 .lp-step:hover { transform: translateY(-6px); box-shadow: 0 30px 44px -30px rgba(20, 20, 22, 0.45); }
 .lp-step-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: auto; padding-bottom: 28px; }
@@ -508,6 +501,8 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 /* ---------- charcoal band with dropping pills ---------- */
 .lp-band { background: linear-gradient(160deg, #2a2a2f, #0e0e10); color: #fff; padding: clamp(80px, 11vw, 160px) var(--pad); text-align: center; overflow: hidden; }
 .lp-band-inner { max-width: 760px; margin: 0 auto; display: grid; justify-items: center; gap: 16px; }
+/* data-reveal here only triggers the one-time card toss; the text itself doesn't fade in. */
+.lp .lp-band-inner[data-reveal] { opacity: 1; transform: none; }
 .lp-band .lp-kicker { color: rgba(255, 255, 255, 0.55); }
 .lp-band h2 { font-size: clamp(28px, 4vw, 48px); font-weight: 500; }
 .lp-band-inner > p:not(.lp-kicker) { color: rgba(255, 255, 255, 0.7); font-size: 16px; max-width: 46ch; }
@@ -690,11 +685,12 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   .lp-stack-card { grid-template-columns: 1fr; min-height: 0; }
   .lp-faq-grid { grid-template-columns: 1fr; }
   .lp-help { position: static; }
-  /* The rail becomes an ordinary swipeable row. */
-  .lp-rail { height: auto; }
-  .lp-rail-pin { position: static; height: auto; display: block; padding: 60px 0 40px var(--pad); }
+  /* On narrower screens the four steps become a swipeable row. */
+  .lp-rail { padding: 60px 0 40px var(--pad); }
+  .lp-rail-pin { display: block; }
   .lp-rail-head { padding-right: var(--pad); margin-bottom: 20px; }
-  .lp-rail-window { overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  .lp-rail-window { overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; padding-bottom: 8px; }
+  .lp-rail-track { display: flex; width: max-content; padding-right: var(--pad); }
   .lp-step { scroll-snap-align: start; min-height: 240px; width: min(78vw, 300px); }
 }
 @media (max-width: 720px) {
@@ -763,7 +759,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 /* cards */
 .lp-stat b { background: linear-gradient(transparent 62%, var(--lime) 62%); padding: 0 0.08em; }
 .lp-chip { transition: background 0.3s var(--ease), transform 0.4s var(--spring); }
-.lp-stack-card:hover .lp-chip { background: var(--lime); transform: scale(1.08); }
+.lp-stack-card:hover .lp-chip { background: var(--lime); }
 .lp-step-n { transition: background 0.3s var(--ease); }
 .lp-step:hover .lp-step-n { background: var(--lime); }
 .lp-lock-ring svg { color: var(--lime); }

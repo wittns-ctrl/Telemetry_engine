@@ -174,53 +174,38 @@ function useLandingMotion(rootRef) {
     const tabletZone = $('[data-tablet-zone]');
     const tablet = $('[data-tablet]');
     const glow = $('[data-glow]');
-    const rail = $('[data-rail]');
-    const railTrack = $('[data-rail-track]');
     const cascade = $('[data-cascade]');
     const cards = $$('[data-cascade-card]');
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const wide = window.matchMedia('(min-width: 901px)');
     // With reduced motion the feature cards are simply listed one after another.
     cascade.classList.toggle('is-static', reduce);
 
-    // 1. Entrance animations: elements fade up the first time they are seen.
-    //    Ones marked data-replay play again every time they come back on screen.
+    // 1. Entrance animations play once, the first time an element is seen.
     const io = new IntersectionObserver(
       (entries) => entries.forEach((en) => {
         if (!en.isIntersecting) return;
         en.target.classList.add('is-in');
-        if (!('replay' in en.target.dataset)) io.unobserve(en.target);
+        io.unobserve(en.target);
       }),
       // Start a little before an element scrolls in, so it is already visible
       // when it arrives (and the cards peeking in under the hero show on load).
       { threshold: 0, rootMargin: '0px 0px 8% 0px' },
     );
     $$('[data-reveal]').forEach((el) => io.observe(el));
-    // Reset replaying elements only once they are fully off screen, so the reset is never seen.
-    const away = new IntersectionObserver(
-      (entries) => entries.forEach((en) => { if (!en.isIntersecting) en.target.classList.remove('is-in'); }),
-      { threshold: 0 },
-    );
-    $$('[data-reveal][data-replay]').forEach((el) => away.observe(el));
 
-    // 2. Scroll-linked motion: the tablet lies flat as it rises, the feature
-    //    cards cascade onto a pile, and the steps slide sideways while their
-    //    section is pinned.
+    // 2. Scroll-linked motion: the tablet lies flat as it rises, and the
+    //    feature cards cascade onto a pile while their section is pinned.
     let tabTo = 0; let tabAt = 0;
-    let railTo = 0; let railAt = 0;
     let casTo = 0; let casAt = 0; let casIn = false;
     let raf = 0; let last = 0; let dirty = true;
     const drops = cards.length - 1; // the first card is already on the table
-    const HOLD = 0.3; // a little scroll at the end where the full pile just sits
+    const HOLD = 0.15; // a little scroll at the end where the full pile just sits
 
     function readScroll() {
       const vh = window.innerHeight;
       chrome.classList.toggle('is-scrolled', window.scrollY > 12);
       const zr = tabletZone.getBoundingClientRect();
       tabTo = clamp((vh - zr.top) / (vh * 0.85), 0, 1);
-      const rr = rail.getBoundingClientRect();
-      const max = rr.height - vh;
-      railTo = max > 0 ? clamp(-rr.top / max, 0, 1) : 0;
       const cr = cascade.getBoundingClientRect();
       const cmax = cr.height - vh;
       casTo = cmax > 0 ? clamp(-cr.top / cmax, 0, 1) * (drops + HOLD) : drops;
@@ -269,12 +254,6 @@ function useLandingMotion(rootRef) {
       const s = ease(tabAt);
       tablet.style.transform = `translate3d(0,${((1 - s) * 50).toFixed(1)}px,0) rotateX(${((1 - s) * 38).toFixed(2)}deg) scale(${(0.88 + 0.12 * s).toFixed(4)})`;
       glow.style.opacity = s;
-      if (wide.matches) {
-        const travel = Math.max(0, railTrack.scrollWidth - railTrack.parentElement.clientWidth);
-        railTrack.style.transform = `translate3d(${(-railAt * travel).toFixed(1)}px,0,0)`;
-      } else {
-        railTrack.style.transform = '';
-      }
     }
 
     function frame(now) {
@@ -283,10 +262,9 @@ function useLandingMotion(rootRef) {
       last = now;
       const k = reduce ? 1 : 1 - Math.exp(-dt * CHASE);
       const tg = tabTo - tabAt;
-      const rg = railTo - railAt;
       const cg = casTo - casAt;
-      const moving = Math.abs(tg) > 0.0002 || Math.abs(rg) > 0.0002 || Math.abs(cg) > 0.0005;
-      if (moving) { tabAt += tg * k; railAt += rg * k; casAt += cg * k; }
+      const moving = Math.abs(tg) > 0.0002 || Math.abs(cg) > 0.0005;
+      if (moving) { tabAt += tg * k; casAt += cg * k; }
       if (moving || dirty) { paint(); dirty = false; }
       raf = requestAnimationFrame(frame);
     }
@@ -297,7 +275,6 @@ function useLandingMotion(rootRef) {
     document.documentElement.classList.add('lp-smooth');
     readScroll();
     tabAt = tabTo;
-    railAt = railTo;
     casAt = casTo;
     paint();
     raf = requestAnimationFrame(frame);
@@ -305,7 +282,6 @@ function useLandingMotion(rootRef) {
     return () => {
       cancelAnimationFrame(raf);
       io.disconnect();
-      away.disconnect();
       window.removeEventListener('scroll', readScroll);
       window.removeEventListener('resize', onResize);
       document.documentElement.classList.remove('lp-smooth');
@@ -327,9 +303,7 @@ function LiquidNav() {
   const [active, setActive] = useState('home');
   const trackRef = useRef(null);
   const lensRef = useRef(null);
-  const bodyRef = useRef(null);
   const itemRefs = useRef({});
-  const lastX = useRef(null);
   const lockUntil = useRef(0);
 
   // Follow the section on screen as the page scrolls.
@@ -346,38 +320,22 @@ function LiquidNav() {
     return () => { spy.disconnect(); window.removeEventListener('scrollend', unlock); };
   }, []);
 
-  // Put the lens over the active item; stretch it like liquid while it travels.
-  const place = useCallback((wobble) => {
+  // Put the glass lens over the active item (it slides there via a CSS transition).
+  const place = useCallback(() => {
     const el = itemRefs.current[active];
     const lens = lensRef.current;
     if (!el || !lens) return;
-    const x = el.offsetLeft + el.offsetWidth / 2;
-    lens.style.setProperty('--x', `${x}px`);
+    lens.style.setProperty('--x', `${el.offsetLeft + el.offsetWidth / 2}px`);
     lens.style.setProperty('--w', `${el.offsetWidth}px`);
-    const dist = lastX.current == null ? 0 : Math.abs(x - lastX.current);
-    lastX.current = x;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (wobble && dist > 4 && !reduce && bodyRef.current?.animate) {
-      const s = Math.min(0.28, 0.08 + dist / 900);
-      bodyRef.current.animate(
-        [
-          { transform: 'scale(1, 1)' },
-          { transform: `scale(${1 + s}, ${1 - s * 0.45})`, offset: 0.3 },
-          { transform: `scale(${1 - s * 0.18}, ${1 + s * 0.12})`, offset: 0.68 },
-          { transform: 'scale(1, 1)' },
-        ],
-        { duration: 680, easing: 'cubic-bezier(0.3, 0.7, 0.4, 1)' },
-      );
-    }
   }, [active]);
 
-  useLayoutEffect(() => { place(true); }, [place]);
+  useLayoutEffect(() => { place(); }, [place]);
 
-  // Re-measure when the layout changes (fonts, breakpoints), without the wobble.
+  // Re-measure when the layout changes (fonts, breakpoints).
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return undefined;
-    const ro = new ResizeObserver(() => place(false));
+    const ro = new ResizeObserver(() => place());
     ro.observe(track);
     const id = requestAnimationFrame(() => lensRef.current?.classList.add('is-ready'));
     return () => { ro.disconnect(); cancelAnimationFrame(id); };
@@ -398,7 +356,7 @@ function LiquidNav() {
       <span className="lp-dock-sep" aria-hidden="true" />
 
       <nav className="lp-dock" aria-label="Primary" ref={trackRef}>
-        <span className="lp-lens" ref={lensRef} aria-hidden="true"><span className="lp-lens-body" ref={bodyRef} /></span>
+        <span className="lp-lens" ref={lensRef} aria-hidden="true"><span className="lp-lens-body" /></span>
         {NAV_ITEMS.map((it) => (
           <a
             key={it.id}
@@ -668,7 +626,7 @@ export default function Landing() {
             <div className="lp-tablet-screen"><DashboardPreview /></div>
           </div>
         </div>
-        <div className="lp-preview-copy" data-reveal>
+        <div className="lp-preview-copy">
           <h2>One dashboard for every PC you own</h2>
           <p>Totals, safe limits, recent alerts and a live health gauge, all on one clean screen.</p>
           <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
@@ -677,7 +635,7 @@ export default function Landing() {
 
       {/* FEATURES — cards stack over each other while you scroll. */}
       <section className="lp-features" id="features" data-section>
-        <div className="lp-head" data-reveal>
+        <div className="lp-head">
           <h2>Everything you need to keep your PC healthy</h2>
         </div>
         <div className="lp-cascade" data-cascade>
@@ -696,16 +654,16 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* STEPS — the section pins and the cards slide sideways as you scroll. */}
-      <section className="lp-rail" id="steps" data-rail data-section>
+      {/* STEPS — a plain row of four cards. */}
+      <section className="lp-rail" id="steps" data-section>
         <div className="lp-rail-pin">
-          <div className="lp-rail-head" data-reveal>
+          <div className="lp-rail-head">
             <h2>Up and running in four steps</h2>
             <p>No extra hardware and nothing to wire up. Just your Windows PC and a free account.</p>
             <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
           </div>
           <div className="lp-rail-window">
-            <ol className="lp-rail-track" data-rail-track>
+            <ol className="lp-rail-track">
               {STEPS.map((s, i) => (
                 <li key={s.title} className="lp-step">
                   <div className="lp-step-top">
@@ -723,7 +681,7 @@ export default function Landing() {
 
       {/* WHAT WE WATCH — pills drop into place when the band appears. */}
       <section className="lp-band">
-        <div className="lp-band-inner" data-reveal data-replay>
+        <div className="lp-band-inner" data-reveal>
           <p className="lp-kicker">What we watch</p>
           <h2>Five vital signs, checked on every reading</h2>
           <p>Each one has a safe limit. Cross it and Lectio flags it straight away.</p>
@@ -739,12 +697,12 @@ export default function Landing() {
 
       {/* FAQ */}
       <section className="lp-faq" id="faq" data-section>
-        <div className="lp-head" data-reveal>
+        <div className="lp-head">
           <h2>Questions, answered</h2>
           <p>Everything you might want to know before you sign up.</p>
         </div>
         <div className="lp-faq-grid">
-          <aside className="lp-help" data-reveal>
+          <aside className="lp-help">
             <div className="lp-help-art"><LifeBuoy size={64} strokeWidth={1.3} /></div>
             <div className="lp-help-text">
               <h3>Built-in help</h3>
@@ -755,7 +713,7 @@ export default function Landing() {
           </aside>
           <div className="lp-faq-list">
             {FAQ.map((g) => (
-              <div key={g.group} className="lp-faq-group" data-reveal>
+              <div key={g.group} className="lp-faq-group">
                 <h3>{g.group}</h3>
                 {g.items.map((it) => {
                   faqN += 1;
@@ -772,7 +730,7 @@ export default function Landing() {
 
       {/* CLOSING */}
       <section className="lp-close">
-        <div data-reveal>
+        <div>
           <h2>Peace of mind for <span className="lp-mark" data-reveal>every PC</span> you own</h2>
           <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
           <p className="lp-close-note">Free · Windows 10 &amp; 11 · No credit card</p>
