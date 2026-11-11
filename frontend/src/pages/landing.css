@@ -445,7 +445,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 /* Plain readings: a neutral value badge, no blinking alarm dot. */
 /* (doubled class so these win over the alert-row rules further down) */
 .lp-alert-row.lp-sensor-row em { background: var(--tile); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.lp-alert-row.lp-sensor-row em::before, .lp-alert-row.lp-sensor-row > span::after { display: none; }
+.lp-alert-row.lp-sensor-row em::before { display: none; }
 .lp-alert-row em { font-style: normal; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--lime); color: var(--ink); }
 .lp-lock { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
 .lp-lock-ring { flex-basis: 100%; display: grid; place-items: center; margin-bottom: 8px; }
@@ -454,28 +454,20 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 
 /* ---------- features: what plays inside each card once it lands ---------- */
 /* Cards get .is-landed when they settle on the pile (and lose it when lifted off,
-   so it replays), and .is-top while nothing covers them, which runs the idle loops.
-   Delays live on the landed state only, so lifting a card resets it at once. */
-@keyframes lp-blink { 50% { opacity: 0; } }
-@keyframes lp-ping { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.9); opacity: 0; } }
+   so it replays). Nothing loops once a card has landed. Delays live on the
+   landed state only, so lifting a card resets it at once. */
 
-/* the chip spins into place */
-
-/* alerts: breaches slide in one after another and keep pulsing */
+/* alerts: breaches slide in one after another, then sit still */
 .lp-alert-row { opacity: 0; transform: translate3d(48px, 0, 0); transition: opacity 0.15s, transform 0.15s; }
 .is-landed .lp-alert-row {
   opacity: 1; transform: none;
   transition: opacity 0.4s var(--ease) calc(0.15s + var(--n) * 0.14s), transform 0.7s var(--spring) calc(0.15s + var(--n) * 0.14s);
 }
 .lp-alert-row > span { position: relative; }
-.lp-alert-row > span::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--lime); opacity: 0; }
-.is-top .lp-alert-row > span::after { animation: lp-ping 1.8s var(--ease) calc(0.9s + var(--n) * 0.3s) infinite; }
 .lp-alert-row em { display: inline-flex; align-items: center; gap: 5px; }
 .lp-alert-row em::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); }
-.is-top .lp-alert-row em::before { animation: lp-blink 1.1s steps(1) infinite; }
 /* Critical alerts use the status red, so lime only ever means healthy/live. */
 .lp-alert-row.is-critical > span { background: var(--critical-soft); color: var(--critical-icon); box-shadow: inset 0 0 0 1px var(--critical-line); }
-.lp-alert-row.is-critical > span::after { background: var(--critical-icon); }
 .lp-alert-row.is-critical em { background: var(--critical-soft); color: var(--critical); box-shadow: inset 0 0 0 1px var(--critical-line); }
 .lp-alert-row.is-critical em::before { background: var(--critical-icon); }
 
@@ -491,7 +483,6 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 
 @media (prefers-reduced-motion: reduce) {
   .lp-stack-card .lp-chip, .lp-alert-row, .lp-lock-ring svg, .lp-lock .lp-lock-tag { transition: none; }
-  .is-top .lp-alert-row > span::after, .is-top .lp-alert-row em::before { animation: none; }
 }
 
 /* ---------- steps: a plain row of four cards ---------- */
