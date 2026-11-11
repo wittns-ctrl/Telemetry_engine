@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Activity, AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, CircleHelp, Cpu, House,
-  LifeBuoy, LogIn, MoreHorizontal, Radio, ShieldCheck, Sparkles, Thermometer, Workflow, Zap, Layers,
+  Activity, AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, BellRing, ChevronDown, CircleHelp, Cpu, Download,
+  HardDrive, House, LifeBuoy, MemoryStick, MonitorSmartphone, MoreHorizontal, Radio, ShieldCheck, Sparkles,
+  Thermometer, UserPlus, Workflow, Zap, Layers,
 } from 'lucide-react';
+import { SITE } from '../siteInfo';
 import './landing.css';
 
 /* ------------------------------------------------------------------ */
@@ -11,8 +13,8 @@ import './landing.css';
 /* ------------------------------------------------------------------ */
 const PHONE_TILES = [
   { label: 'Temperature', icon: Thermometer, tone: 'lime' },
-  { label: 'CPU Load', icon: Cpu, tone: 'ink' },
-  { label: 'Network', icon: Radio, tone: 'white' },
+  { label: 'CPU load', icon: Cpu, tone: 'ink' },
+  { label: 'GPU', icon: MonitorSmartphone, tone: 'white' },
   { label: 'Alerts', icon: AlertTriangle, tone: 'soft' },
 ];
 
@@ -20,7 +22,7 @@ function PhoneTiles() {
   return (
     <div className="ph ph-tilt" aria-hidden="true">
       <div className="ph-screen">
-        <div className="ph-title">Your Devices</div>
+        <div className="ph-title">Your PCs</div>
         <div className="ph-grid">
           {PHONE_TILES.map((t) => (
             <div key={t.label} className="ph-tile">
@@ -189,7 +191,9 @@ function useLandingMotion(rootRef) {
         en.target.classList.add('is-in');
         if (!('replay' in en.target.dataset)) io.unobserve(en.target);
       }),
-      { threshold: 0.15, rootMargin: '0px 0px -6% 0px' },
+      // Start a little before an element scrolls in, so it is already visible
+      // when it arrives (and the cards peeking in under the hero show on load).
+      { threshold: 0, rootMargin: '0px 0px 8% 0px' },
     );
     $$('[data-reveal]').forEach((el) => io.observe(el));
     // Reset replaying elements only once they are fully off screen, so the reset is never seen.
@@ -416,10 +420,8 @@ function LiquidNav() {
       <span className="lp-dock-sep" aria-hidden="true" />
 
       <div className="lp-chrome-end">
-        <Link className="lp-login" to="/signin" aria-label="Log in">
-          <span className="lp-login-text">Log in</span>
-          <LogIn className="lp-login-ic" size={17} />
-        </Link>
+        <Link className="lp-login" to="/signin">Log in</Link>
+        <Link className="lp-signup" to="/signup">Sign up<span className="lp-signup-long">&nbsp;free</span></Link>
       </div>
     </header>
   );
@@ -428,89 +430,105 @@ function LiquidNav() {
 /* ------------------------------------------------------------------ */
 /* Content                                                             */
 /* ------------------------------------------------------------------ */
+// Feature cards. Everything claimed here is something the app shows today
+// (see DevicesView and the anomaly engine's limits in app/core/config.py).
 const STACK = [
   {
-    icon: Zap,
-    title: 'Ingest from anywhere',
-    body: 'Install the agent on a machine or post readings straight to the API. Temperature, CPU and network metrics land in one place.',
-    visual: 'code',
+    icon: Activity,
+    title: 'See every part of your PC',
+    body: 'CPU and GPU temperature and load, memory, power-supply voltage, and drive space and health, live in one place.',
+    visual: 'sensors',
   },
   {
     icon: AlertTriangle,
-    title: 'Alerts the moment a limit breaks',
-    body: 'Every reading is checked against your thresholds as it arrives. Breaches show up in the live stream right away.',
+    title: 'Warned before it becomes a problem',
+    body: 'Every reading is checked against a safe limit as it arrives. If one is crossed, the alert shows up in Lectio straight away.',
     visual: 'alerts',
   },
   {
     icon: ShieldCheck,
     title: 'Private to your account',
-    body: 'Each account only sees its own devices and readings. Sign in with email or Google.',
+    body: 'Only you can see your PCs and readings. Sign in with email or Google, and delete everything whenever you like.',
     visual: 'lock',
   },
 ];
 
 const STEPS = [
-  { title: 'Create your account', body: 'Sign up with email or Google and verify your address.' },
-  { title: 'Connect a machine', body: 'Run the agent, sign in once, and the machine registers itself.' },
-  { title: 'Watch it live', body: 'Readings stream to your dashboard over a live connection.' },
-  { title: 'Diagnose issues', body: 'AI diagnostics explain what a breach most likely means.' },
+  { icon: UserPlus, title: 'Create your free account', body: 'Sign up with email or Google. No credit card.' },
+  { icon: Download, title: 'Install the agent', body: 'Run the Lectio agent on your Windows 10 or 11 PC and sign in once. Your PC adds itself.' },
+  { icon: Activity, title: 'Watch it live', body: 'Temperatures, load and memory stream to your dashboard as they happen.' },
+  { icon: BellRing, title: 'Get warned', body: 'If a reading crosses a safe limit, an alert shows up in Lectio right away.' },
 ];
 
+// The vital signs on the dark band.
 const PILLS = [
-  { k: '°C', label: 'Temperature' },
-  { k: '%', label: 'CPU load' },
-  { k: 'MB/s', label: 'Network' },
+  { k: '°C', label: 'CPU & GPU temperature' },
+  { k: '%', label: 'CPU & GPU load' },
+  { k: 'GB', label: 'Memory in use' },
+  { k: 'V', label: 'Power supply' },
+  { k: 'SSD', label: 'Drive space & health' },
 ];
 
 const FAQ = [
   {
-    group: 'Getting started',
+    group: 'The basics',
     items: [
-      { q: 'How do I connect a device?', a: 'Run the telemetry agent on the machine and sign in once. It registers that machine to your account and starts sending readings, which then show up under My Devices.' },
-      { q: 'Do I need special hardware?', a: 'No. The agent is software that runs on the machines you already have. You can also post readings straight to the API, or use the built-in simulator to try things out.' },
+      { q: 'Is Lectio really free?', a: 'Yes. Lectio is free to use, with no credit card and no limit on how many PCs you connect.' },
+      { q: 'Which computers does it work on?', a: 'Windows 10 and Windows 11 desktops and laptops. Lectio reads the sensors your PC already has, so you don\'t need any extra hardware.' },
+      { q: 'What does Lectio measure?', a: 'CPU and GPU temperature and load, memory use, power-supply voltage, and drive space and health. Each reading is saved with the time it was taken.' },
     ],
   },
   {
-    group: 'Data and alerts',
+    group: 'Setting up',
     items: [
-      { q: 'What does Lectio measure?', a: 'Temperature, CPU load and network throughput. Each reading is stored with its sensor and the time it arrived.' },
-      { q: 'How do alerts work?', a: 'Every metric type has a limit. When a reading goes over it, an alert is raised and appears in your live stream and on the dashboard straight away.' },
-      { q: 'Who can see my data?', a: 'Only you. Each account sees its own devices, readings and alerts, and nothing from anyone else.' },
+      { q: 'How do I connect my PC?', a: 'Run the Lectio agent on the PC and sign in once. It adds that PC to your account and starts sending readings, which show up under My Devices.' },
+      { q: 'How many PCs can I connect?', a: 'As many as you like. Each one gets its own page under My Devices.' },
+    ],
+  },
+  {
+    group: 'Alerts and your data',
+    items: [
+      { q: 'How do alerts work?', a: 'Every reading is checked against a safe limit, such as 90°C for a CPU. When a reading crosses it, an alert appears in your live stream and on your dashboard straight away.' },
+      { q: 'Who can see my data?', a: 'Only you. Each account sees its own PCs, readings and alerts, and nothing from anyone else. We never sell your data.' },
+      { q: 'How long is my data kept?', a: 'Until you remove the PC or delete your account. Deleting either one permanently erases its readings and alerts.' },
     ],
   },
 ];
 
-// A reading as it is posted to the API, one line per entry so it can type in.
-const CODE_LINES = [
-  [['p', '{']],
-  [['k', '  "sensor_id"'], ['p', ': '], ['s', '"sensor_edge_node_4"'], ['p', ',']],
-  [['k', '  "metric_type"'], ['p', ': '], ['s', '"temperature"'], ['p', ',']],
-  [['k', '  "value"'], ['p', ': '], ['n', '71.4'], ['p', ',']],
-  [['k', '  "unit"'], ['p', ': '], ['s', '"C"']],
-  [['p', '}']],
+// Sample readings for the "every part of your PC" card.
+const SENSOR_ROWS = [
+  { icon: Thermometer, name: 'CPU', value: '64°C · 38%' },
+  { icon: MonitorSmartphone, name: 'GPU', value: '71°C · 52%' },
+  { icon: MemoryStick, name: 'Memory', value: '9.4 of 16 GB' },
+  { icon: Zap, name: 'Power supply', value: '12.04 V' },
+  { icon: HardDrive, name: 'Drive C:', value: '96% health' },
+];
+
+// Sample alerts, using the app's real default limits.
+const ALERT_ROWS = [
+  ['CPU temperature', 'Gaming PC · 96°C, limit 90°C'],
+  ['Power supply 12V', 'Office PC · 11.2 V, below 11.4 V'],
+  ['Drive health', 'Gaming PC · 8% left, below 10%'],
 ];
 
 function StackVisual({ kind }) {
-  if (kind === 'code') {
+  if (kind === 'sensors') {
     return (
-      <div className="lp-code">
-        <div className="lp-code-bar" aria-hidden="true"><i /><i /><i /><span>POST /api/metrics</span></div>
-        <pre>
-          {CODE_LINES.map((line, n) => (
-            <span key={n} className="lp-code-line" style={{ '--n': n }}>
-              {line.map(([tone, text], j) => <span key={j} className={`lp-tok-${tone}`}>{text}</span>)}
-              {n === CODE_LINES.length - 1 && <span className="lp-caret" aria-hidden="true" />}
-            </span>
-          ))}
-        </pre>
-        <span className="lp-code-ok" aria-hidden="true">201 Stored</span>
+      <div className="lp-alerts">
+        {SENSOR_ROWS.map((r, n) => (
+          <div key={r.name} className="lp-alert-row lp-sensor-row" style={{ '--n': n }}>
+            <span><r.icon size={14} /></span>
+            <div><b>{r.name}</b></div>
+            <em>{r.value}</em>
+          </div>
+        ))}
       </div>
     );
   }
   if (kind === 'alerts') {
     return (
       <div className="lp-alerts">
-        {[['sensor_edge_node_4', 'temperature · 108.2'], ['sensor_db_cluster_a', 'cpu · 96.4'], ['sensor_gateway_01', 'network · 1,420']].map(([s, m], n) => (
+        {ALERT_ROWS.map(([s, m], n) => (
           <div key={s} className="lp-alert-row" style={{ '--n': n }}>
             <span><AlertTriangle size={14} /></span>
             <div><b>{s}</b><i>{m}</i></div>
@@ -523,13 +541,35 @@ function StackVisual({ kind }) {
   return (
     <div className="lp-lock">
       <div className="lp-lock-ring">
-        <i className="lp-ripple" aria-hidden="true" />
-        <i className="lp-ripple" aria-hidden="true" style={{ '--n': 1 }} />
         <ShieldCheck size={34} strokeWidth={1.6} />
       </div>
       {['Your devices', 'Your readings', 'Your alerts'].map((t, n) => (
         <span key={t} className="lp-lock-tag" style={{ '--n': n }}>{t}</span>
       ))}
+    </div>
+  );
+}
+
+// Footer wordmark. A light sweeps across it on a loop (CSS); while a mouse is over
+// it, the light follows the pointer instead.
+function Wordmark() {
+  const wrapRef = useRef(null);
+  const textRef = useRef(null);
+
+  const follow = (e) => {
+    if (e.pointerType !== 'mouse' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const box = textRef.current.getBoundingClientRect();
+    wrapRef.current.classList.add('is-tracking');
+    textRef.current.style.setProperty('--lx', `${(((e.clientX - box.left) / box.width) * 100).toFixed(1)}%`);
+  };
+  const release = () => {
+    wrapRef.current.classList.remove('is-tracking');
+    textRef.current.style.removeProperty('--lx');
+  };
+
+  return (
+    <div className="lp-wordmark" data-reveal aria-hidden="true" ref={wrapRef} onPointerMove={follow} onPointerLeave={release}>
+      <span ref={textRef}>lectio</span>
     </div>
   );
 }
@@ -560,7 +600,7 @@ export default function Landing() {
 
   useEffect(() => {
     const prev = document.title;
-    document.title = 'Lectio — real-time device monitoring';
+    document.title = 'Lectio — free PC health monitoring for Windows';
     return () => { document.title = prev; };
   }, []);
 
@@ -574,40 +614,47 @@ export default function Landing() {
       {/* HERO */}
       <section className="lp-hero" id="home" data-section>
         <div className="lp-hero-copy">
-          <h1>Your Trusted Gateway To <span className="lp-mark">Live Device Telemetry</span></h1>
-          <p className="lp-lead">Track temperature, CPU and network readings from every machine you run, get alerted the moment a limit breaks, and keep it all in one simple, clear place.</p>
+          <p className="lp-eyebrow"><span className="lp-eyebrow-dot" aria-hidden="true" />Lectio · free PC health monitor for Windows</p>
+          <h1>Know the moment your PC <span className="lp-mark">runs too hot</span></h1>
+          <p className="lp-lead">Lectio keeps an eye on your computer&apos;s temperatures, CPU and GPU load, memory and drives, and warns you as soon as something crosses a safe limit.</p>
           <div className="lp-actions">
-            <Link className="lp-btn lp-btn-dark" to="/signin">Start Now</Link>
-            <a className="lp-btn lp-btn-soft" href="#features">Learn More</a>
+            <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
+            <a className="lp-btn lp-btn-soft" href="#steps">See how it works</a>
           </div>
+          <ul className="lp-facts" aria-label="At a glance">
+            <li>Free to use</li>
+            <li>Windows 10 &amp; 11</li>
+            <li>No credit card</li>
+          </ul>
+          <p className="lp-have-account">Already have an account? <Link to="/signin">Log in</Link></p>
         </div>
 
         <div className="lp-bento">
-          <article className="lp-tile lp-tile-tall" data-reveal>
+          <article className="lp-tile lp-tile-tall">
             <div className="lp-tile-art"><PhoneTiles /></div>
             <div className="lp-tile-text">
-              <h3>Precision Monitoring</h3>
-              <p>Watch temperature, CPU load and network throughput for each device, checked against your limits.</p>
+              <h3>All your PCs in one place</h3>
+              <p>Check temperature, load and memory for every PC you own, each one against safe limits.</p>
             </div>
           </article>
 
-          <article className="lp-tile lp-tile-wide" data-reveal style={{ '--d': '90ms' }}>
+          <article className="lp-tile lp-tile-wide" style={{ '--d': '90ms' }}>
             <div className="lp-tile-body">
-              <h3>Your Fleet, Decoded</h3>
-              <p>From live CPU load to temperature trends, follow every reading that matters to the health of your machines.</p>
-              <Link className="lp-btn lp-btn-line" to="/signin">Open Dashboard</Link>
+              <h3>Your PC, decoded</h3>
+              <p>From CPU load to GPU temperature, follow every reading that matters to your PC&apos;s health.</p>
+              <a className="lp-btn lp-btn-line" href="#preview">See the dashboard</a>
             </div>
             <PhoneLive />
           </article>
 
-          <article className="lp-tile lp-tile-stats" data-reveal style={{ '--d': '180ms' }}>
+          <article className="lp-tile lp-tile-stats" style={{ '--d': '180ms' }}>
             <div>
-              <h3>Metric Types</h3>
-              <div className="lp-stat"><b>3</b><span>Temperature, CPU load and network, ready out of the box</span></div>
+              <h3>Price</h3>
+              <div className="lp-stat"><b>Free</b><span>No credit card, and no limit on how many PCs you connect</span></div>
             </div>
             <div>
-              <h3>Always Streaming</h3>
-              <div className="lp-stat"><b>Live</b><span>Readings and alerts reach your dashboard as they arrive</span></div>
+              <h3>Always up to date</h3>
+              <div className="lp-stat"><b>Live</b><span>Readings and alerts reach your dashboard as they happen</span></div>
             </div>
           </article>
         </div>
@@ -622,16 +669,16 @@ export default function Landing() {
           </div>
         </div>
         <div className="lp-preview-copy" data-reveal>
-          <h2>One dashboard for every device you run</h2>
-          <p>Totals, limits, recent alerts and a live safety gauge, on a clean white canvas that stays readable all day.</p>
-          <Link className="lp-btn lp-btn-dark" to="/signin">Get started</Link>
+          <h2>One dashboard for every PC you own</h2>
+          <p>Totals, safe limits, recent alerts and a live health gauge, all on one clean screen.</p>
+          <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
         </div>
       </section>
 
       {/* FEATURES — cards stack over each other while you scroll. */}
       <section className="lp-features" id="features" data-section>
         <div className="lp-head" data-reveal>
-          <h2>Telemetry That Fits The Way You Already Work</h2>
+          <h2>Everything you need to keep your PC healthy</h2>
         </div>
         <div className="lp-cascade" data-cascade>
           <div className="lp-cascade-pin">
@@ -653,14 +700,18 @@ export default function Landing() {
       <section className="lp-rail" id="steps" data-rail data-section>
         <div className="lp-rail-pin">
           <div className="lp-rail-head" data-reveal>
-            <h2>From Sign-Up To First Alert In Four Steps</h2>
-            <p>No hardware to buy and nothing to wire up. Scroll to walk through it.</p>
+            <h2>Up and running in four steps</h2>
+            <p>No extra hardware and nothing to wire up. Just your Windows PC and a free account.</p>
+            <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
           </div>
           <div className="lp-rail-window">
             <ol className="lp-rail-track" data-rail-track>
               {STEPS.map((s, i) => (
                 <li key={s.title} className="lp-step">
-                  <span className="lp-step-n">{i + 1}</span>
+                  <div className="lp-step-top">
+                    <span className="lp-step-n">{i + 1}</span>
+                    <span className="lp-step-ic" aria-hidden="true"><s.icon size={26} strokeWidth={1.8} /></span>
+                  </div>
                   <h3>{s.title}</h3>
                   <p>{s.body}</p>
                 </li>
@@ -674,8 +725,8 @@ export default function Landing() {
       <section className="lp-band">
         <div className="lp-band-inner" data-reveal data-replay>
           <p className="lp-kicker">What we watch</p>
-          <h2>Three signals, checked on every reading</h2>
-          <p>Each one has its own limit. Cross it and you hear about it straight away.</p>
+          <h2>Five vital signs, checked on every reading</h2>
+          <p>Each one has a safe limit. Cross it and Lectio flags it straight away.</p>
           <div className="lp-pills">
             {PILLS.map((p, i) => (
               <div key={p.label} className="lp-capsule" style={{ '--n': i }}>
@@ -689,18 +740,18 @@ export default function Landing() {
       {/* FAQ */}
       <section className="lp-faq" id="faq" data-section>
         <div className="lp-head" data-reveal>
-          <h2>Get Quick Answers To Common Questions</h2>
-          <p>Find solutions, explore the product, and get set up faster</p>
+          <h2>Questions, answered</h2>
+          <p>Everything you might want to know before you sign up.</p>
         </div>
         <div className="lp-faq-grid">
           <aside className="lp-help" data-reveal>
             <div className="lp-help-art"><LifeBuoy size={64} strokeWidth={1.3} /></div>
             <div className="lp-help-text">
-              <h3>Built-in Help</h3>
+              <h3>Built-in help</h3>
               <span>Step-by-step guides inside the app</span>
             </div>
-            <p>Every account includes a Help page that walks you through connecting devices, sending readings and reading alerts.</p>
-            <Link className="lp-btn lp-btn-dark" to="/signin">Sign in to get started <ArrowRight size={16} /></Link>
+            <p>Every account includes a Help page that walks you through connecting your PC, reading your dashboard and understanding alerts.</p>
+            <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
           </aside>
           <div className="lp-faq-list">
             {FAQ.map((g) => (
@@ -722,25 +773,34 @@ export default function Landing() {
       {/* CLOSING */}
       <section className="lp-close">
         <div data-reveal>
-          <h2>Clear, reliable monitoring for <span className="lp-mark" data-reveal>every machine</span> you run</h2>
-          <Link className="lp-btn lp-btn-dark" to="/signin">Get started <ArrowRight size={16} /></Link>
+          <h2>Peace of mind for <span className="lp-mark" data-reveal>every PC</span> you own</h2>
+          <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
+          <p className="lp-close-note">Free · Windows 10 &amp; 11 · No credit card</p>
         </div>
       </section>
       </main>
 
       <footer className="lp-footer">
-        <div className="lp-footer-row">
-          <span>Real-time telemetry, alerts and diagnostics</span>
-          <nav aria-label="Footer">
-            <a href="#features">Features</a>
-            <a href="#steps">How it works</a>
-            <a href="#faq">FAQ</a>
-            <Link to="/signin">Log in</Link>
-            <Link to="/privacy">Privacy</Link>
-            <Link to="/terms">Terms</Link>
-          </nav>
+        {/* Soft shapes drifting behind the glass, so it has something to blur. */}
+        <div className="lp-footer-orbs" aria-hidden="true"><i /><i /><i /></div>
+        <div className="lp-footer-glass">
+          <div className="lp-footer-row">
+            <span>Free PC health monitoring for Windows</span>
+            <nav aria-label="Footer">
+              <a href="#features">Features</a>
+              <a href="#steps">How it works</a>
+              <a href="#faq">FAQ</a>
+              <Link to="/signup">Sign up</Link>
+              <Link to="/signin">Log in</Link>
+              {SITE.contactEmail
+                ? <a href={`mailto:${SITE.contactEmail}`}>Contact</a>
+                : <Link to="/privacy">Contact</Link>}
+              <Link to="/privacy">Privacy</Link>
+              <Link to="/terms">Terms</Link>
+            </nav>
+          </div>
+          <Wordmark />
         </div>
-        <div className="lp-wordmark" data-reveal aria-hidden="true"><span>Lectio</span></div>
       </footer>
     </div>
   );

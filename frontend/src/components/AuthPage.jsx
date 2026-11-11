@@ -44,9 +44,10 @@ function PasswordInput({ placeholder, value, onChange, name, label }) {
 }
 
 // ── Main Auth Page ─────────────────────────────────────────────────────────────
-export function AuthPage({ onAuthSuccess }) {
+export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
   const navigate = useNavigate();
-  const [screen, setScreen] = useState("signin");
+  // /signup opens straight on the sign-up form; /signin on the log-in form.
+  const [screen, setScreen] = useState(initialScreen);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
 

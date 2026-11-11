@@ -1,25 +1,16 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, ArrowLeft } from 'lucide-react';
+import { SITE } from '../siteInfo';
 import './legal.css';
 
-/* ------------------------------------------------------------------ */
-/* Fill these in before launch. Anything left as null shows up on the */
-/* page as a highlighted [placeholder] so it cannot be missed.         */
-/* ------------------------------------------------------------------ */
-const LEGAL = {
-  company: null, // e.g. 'Lectio Ltd' or your own name if you run it personally
-  contactEmail: null, // e.g. 'privacy@yourdomain.com'
-  hosting: null, // where the database lives, e.g. 'MongoDB Atlas, EU (Frankfurt) region'
-  emailProvider: null, // who sends verification and reset emails, e.g. 'Brevo' or 'Amazon SES'
-  logRetention: null, // how long sign-in security logs are kept, e.g. '12 months'
-  governingLaw: null, // e.g. 'Rwanda' or 'England and Wales'
-  lastUpdated: '11 November 2026',
-};
+// Business details live in src/siteInfo.js (shared with the landing footer).
+// Anything left as null shows up on the page as a highlighted [placeholder].
+const LEGAL = SITE;
 
 function Fill({ value, label }) {
   if (value) return value;
-  return <mark className="lg-todo" title="Fill this in in src/pages/Legal.jsx">[{label}]</mark>;
+  return <mark className="lg-todo" title="Fill this in in src/siteInfo.js">[{label}]</mark>;
 }
 
 const Company = () => <Fill value={LEGAL.company} label="Your company name" />;

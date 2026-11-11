@@ -11,6 +11,16 @@
   --pad: clamp(16px, 4vw, 48px);
   --max: 1180px;
 
+  /* Liquid glass, shared by the floating navbar and the footer panel: a dark
+     tint over whatever is behind (blurred and saturated through it), a soft
+     sheen across the top half, and a bright rim on the upper edge with a dimmer
+     one along the bottom. */
+  --glass-tint: rgba(12, 12, 14, 0.74);
+  --glass-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.03) 48%, rgba(255, 255, 255, 0) 52%);
+  --glass-filter: blur(24px) saturate(190%) brightness(0.85);
+  --glass-rim: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.09), inset 0 0 18px rgba(255, 255, 255, 0.05);
+
   position: relative;
   display: flow-root; /* keeps the floating nav's top margin inside the page */
   background: var(--paper);
@@ -27,7 +37,8 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 
 /* ---------- entrance animations ---------- */
 @keyframes lp-up { from { opacity: 0; transform: translate3d(0, 24px, 0); } to { opacity: 1; transform: none; } }
-[data-reveal] { opacity: 0; transform: translate3d(0, 28px, 0); transition: opacity 0.8s var(--ease) var(--d, 0ms), transform 0.8s var(--ease) var(--d, 0ms); }
+/* Short and subtle, so content never lags behind a fast scroll. */
+[data-reveal] { opacity: 0; transform: translate3d(0, 18px, 0); transition: opacity 0.55s var(--ease) var(--d, 0ms), transform 0.55s var(--ease) var(--d, 0ms); }
 [data-reveal].is-in { opacity: 1; transform: none; }
 
 /* ---------- top bar ---------- */
@@ -45,13 +56,25 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   display: flex; align-items: center; gap: 10px;
   width: fit-content; max-width: calc(100% - 32px);
   height: var(--bar-h); margin: 18px auto 0; padding: 0 10px 0 11px;
-  border-radius: 999px; background: #0b0b0d; color: #fff;
-  box-shadow: 0 16px 36px -18px rgba(14, 14, 16, 0.6), 0 2px 6px rgba(14, 14, 16, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  border-radius: 999px; color: #fff;
+  background: var(--glass-sheen), var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-rim), 0 16px 36px -18px rgba(14, 14, 16, 0.6), 0 2px 6px rgba(14, 14, 16, 0.12);
   transition: box-shadow 0.5s var(--ease), gap 0.5s var(--ease);
   animation: lp-dock-in 0.9s var(--spring) both;
 }
 .lp-chrome.is-scrolled {
-  box-shadow: 0 24px 44px -16px rgba(14, 14, 16, 0.55), 0 4px 12px rgba(14, 14, 16, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  box-shadow: var(--glass-rim), 0 24px 44px -16px rgba(14, 14, 16, 0.55), 0 4px 12px rgba(14, 14, 16, 0.18);
+}
+/* No backdrop blur (older browsers), or the visitor asked for less
+   transparency: fall back to solid black (navbar and footer glass). */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lp-chrome, .lp-footer-glass { background: #0b0b0d; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .lp-chrome, .lp-footer-glass { background: #0b0b0d; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .lp-footer-orbs { display: none; }
 }
 
 /* brand: the name tucks away once you start scrolling */
@@ -78,26 +101,26 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   position: relative; z-index: 1; flex: none;
   width: var(--item-w); height: 100%;
   display: grid; place-items: center;
-  color: rgba(255, 255, 255, 0.38);
+  /* 72% white: labels stay readable (≥4.5:1) even where white page shows through the glass */
+  color: rgba(255, 255, 255, 0.72);
   -webkit-tap-highlight-color: transparent;
   transition: color 0.35s var(--ease);
 }
-.lp-chrome .lp-dock-item:hover { color: rgba(255, 255, 255, 0.7); }
+.lp-chrome .lp-dock-item:hover { color: rgba(255, 255, 255, 0.92); }
 .lp-chrome .lp-dock-item.is-active { color: #fff; }
 .lp-chrome .lp-dock-item:focus-visible { outline: 2px solid var(--lime); outline-offset: -6px; border-radius: 22px; }
-.lp-dock-ic { transition: transform 0.55s var(--spring), filter 0.4s var(--ease); }
+/* Every item shows its label, so the icons never have to be guessed. The active
+   one is brighter and glows under the glass lens. */
+.lp-dock-ic { transform: translateY(-7px); transition: filter 0.4s var(--ease); }
 .lp-dock-item.is-active .lp-dock-ic {
-  transform: translateY(-7px);
   filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.65)) drop-shadow(0 0 12px rgba(255, 255, 255, 0.25));
 }
 .lp-dock-label {
   position: absolute; left: 0; right: 0; top: 50%;
   text-align: center; white-space: nowrap;
-  font-size: 11px; font-weight: 600; letter-spacing: 0.01em; color: #fff;
-  opacity: 0; transform: translateY(12px) scale(0.85);
-  transition: opacity 0.3s var(--ease), transform 0.5s var(--spring);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.01em; color: inherit;
+  transform: translateY(3px);
 }
-.lp-dock-item.is-active .lp-dock-label { opacity: 1; transform: translateY(3px); transition-delay: 0.08s; }
 .lp-dock-short { display: none; }
 
 /* the glass lens */
@@ -140,16 +163,23 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 }
 
 /* right side */
-.lp-chrome-end { display: flex; align-items: center; gap: 8px; }
+.lp-chrome-end { display: flex; align-items: center; gap: 4px; }
+/* Returning users: a quiet text link. New users: the white "Sign up free" button. */
 .lp-chrome .lp-login {
-  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  height: 42px; padding: 0 22px; border-radius: 999px;
+  display: inline-flex; align-items: center; height: 42px; padding: 0 14px; border-radius: 999px;
+  color: rgba(255, 255, 255, 0.86); font-size: 14.5px; font-weight: 600; white-space: nowrap;
+  transition: color 0.25s var(--ease), background 0.25s var(--ease);
+}
+.lp-chrome .lp-login:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.lp-chrome .lp-signup {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 42px; padding: 0 20px; border-radius: 999px;
   background: #fff; color: var(--ink); font-size: 14.5px; font-weight: 600; white-space: nowrap;
   transition: background 0.25s var(--ease), transform 0.35s var(--spring);
 }
-.lp-chrome .lp-login:hover { background: var(--lime); transform: translateY(-1px); }
-.lp-chrome .lp-login:active { transform: scale(0.96); }
-.lp-login-ic { display: none; }
+.lp-chrome .lp-signup:hover { background: var(--lime); transform: translateY(-1px); }
+.lp-chrome .lp-signup:active { transform: scale(0.96); }
+.lp-chrome .lp-login:focus-visible, .lp-chrome .lp-signup:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
 
 /* ---------- buttons ---------- */
 .lp-btn {
@@ -179,24 +209,58 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
 
 /* ---------- hero ---------- */
-.lp-hero { padding: clamp(28px, 4.4vw, 60px) var(--pad) clamp(70px, 9vw, 130px); }
-.lp-hero-copy { display: flex; flex-direction: column; align-items: center; text-align: center; gap: clamp(20px, 2.4vw, 28px); }
-.lp-hero-copy > * { animation: lp-up 0.8s var(--ease) both; }
-.lp-hero-copy > :nth-child(2) { animation-delay: 80ms; }
-.lp-hero-copy > :nth-child(3) { animation-delay: 160ms; }
-.lp-hero-copy > :nth-child(4) { animation-delay: 240ms; }
+/* The headline, lead and buttons fill most of the first screen (centred under
+   the floating nav), and the tops of the bento cards peek in at the bottom as a
+   hint that there is more below. --nav-space is the nav's height plus its top
+   margin; --hero-peek is how much of the cards shows on load. */
+.lp { --nav-space: 80px; --hero-peek: clamp(72px, 11vh, 120px); }
+.lp-hero { padding: 0 var(--pad) clamp(70px, 9vw, 130px); }
+.lp-hero-copy {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: clamp(18px, 2.2vw, 26px);
+  min-height: calc(100vh - var(--nav-space) - var(--hero-peek));
+  min-height: calc(100svh - var(--nav-space) - var(--hero-peek));
+  padding-block: clamp(20px, 3vh, 40px);
+}
+.lp-hero-copy > * { animation: lp-up 0.7s var(--ease) both; }
+.lp-hero-copy > :nth-child(2) { animation-delay: 60ms; }
+.lp-hero-copy > :nth-child(3) { animation-delay: 120ms; }
+.lp-hero-copy > :nth-child(4) { animation-delay: 180ms; }
+.lp-hero-copy > :nth-child(n + 5) { animation-delay: 240ms; }
 .lp-lead { max-width: 56ch; color: var(--fg-soft); font-size: clamp(15px, 1.25vw, 17px); line-height: 1.5; text-wrap: pretty; }
 .lp-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
 
+/* "Lectio · free PC health monitor for Windows" */
+.lp-eyebrow {
+  display: inline-flex; align-items: center; gap: 9px; padding: 7px 14px 7px 10px; border-radius: 999px;
+  background: var(--tile); font-size: 13.5px; font-weight: 600; color: var(--fg);
+}
+.lp-eyebrow-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 3px rgba(212, 245, 90, 0.35); }
+/* Free · Windows 10 & 11 · No credit card */
+.lp-facts {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; margin: -4px 0 0; padding: 0; list-style: none;
+  font-size: 14px; font-weight: 500; color: var(--fg-soft);
+}
+.lp-facts li { display: inline-flex; align-items: center; gap: 7px; }
+.lp-facts li::before {
+  content: ""; width: 16px; height: 16px; border-radius: 50%; flex: none;
+  background: var(--lime) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.3 2.3 4.7-4.9' fill='none' stroke='%230e0e10' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat;
+}
+.lp-have-account { margin-top: -8px; font-size: 14px; color: var(--fg-soft); }
+.lp-have-account a, .lp a.lp-inline-link { color: var(--fg); font-weight: 600; text-decoration: underline; text-decoration-color: rgba(20, 20, 22, 0.3); text-underline-offset: 3px; }
+.lp-have-account a:hover { text-decoration-color: currentColor; }
+
 .lp-bento {
-  max-width: var(--max); margin: clamp(56px, 7.5vw, 104px) auto 0;
+  max-width: var(--max); margin: clamp(16px, 2vw, 32px) auto 0;
   display: grid; grid-template-columns: 0.47fr 1fr; grid-template-rows: auto auto; gap: clamp(20px, 2.6vw, 32px);
 }
+/* The hero cards peek into the first screen, so they fade up on page load
+   (after the headline) instead of waiting to be scrolled into view. */
 .lp-tile {
   position: relative; border-radius: 26px; background: var(--tile);
-  transition: opacity 0.8s var(--ease) var(--d, 0ms), transform 0.8s var(--ease) var(--d, 0ms), box-shadow 0.4s var(--ease);
+  animation: lp-up 0.7s var(--ease) calc(320ms + var(--d, 0ms)) both;
+  transition: box-shadow 0.4s var(--ease);
 }
-.lp-tile.is-in:hover { box-shadow: 0 30px 50px -34px rgba(20, 20, 22, 0.45); }
+.lp-tile:hover { box-shadow: 0 30px 50px -34px rgba(20, 20, 22, 0.45); }
 .lp-tile h3 { font-size: clamp(20px, 2.1vw, 27px); font-weight: 500; letter-spacing: -0.03em; }
 .lp-tile p { color: var(--fg-soft); font-size: 15px; line-height: 1.5; }
 .lp-tile-tall { grid-row: span 2; display: flex; flex-direction: column; overflow: hidden; text-align: center; }
@@ -219,8 +283,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   font-size: 13px;
 }
 .ph-screen { height: 100%; border-radius: 34px; background: #fff; overflow: hidden; box-shadow: inset 0 0 0 3px #0e0e10; padding: 14px; }
-.ph-tilt { position: absolute; left: 50%; bottom: 8px; width: 250px; transform: translateX(-46%) rotate(-13deg); transform-origin: 50% 100%; animation: ph-sway 8s ease-in-out infinite; }
-@keyframes ph-sway { 0%, 100% { transform: translateX(-46%) rotate(-13deg); } 50% { transform: translateX(-46%) translateY(-8px) rotate(-11deg); } }
+.ph-tilt { position: absolute; left: 50%; bottom: 8px; width: 250px; transform: translateX(-46%) rotate(-13deg); transform-origin: 50% 100%; }
 .ph-tilt .ph-screen { display: flex; flex-direction: column; justify-content: flex-end; padding: 18px 16px 34px; }
 .ph-title { font-size: 1.3em; font-weight: 500; color: var(--fg-faint); margin-bottom: 0.8em; }
 .ph-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6em; }
@@ -233,8 +296,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .ph-white { background: #fff; color: var(--ink); box-shadow: 0 0 0 0.08em rgba(28, 28, 31, 0.1); }
 .ph-soft { background: var(--lime-soft); color: var(--ink); box-shadow: inset 0 0 0 0.08em rgba(28, 28, 31, 0.08); }
 .ph-crop { position: absolute; right: clamp(12px, 3vw, 34px); bottom: 0; width: 230px; height: calc(100% + 44px); overflow: hidden; padding: 0 0 0; pointer-events: none; }
-.ph-crop .ph { animation: ph-bob 7s ease-in-out infinite; }
-@keyframes ph-bob { 0%, 100% { transform: translate3d(0, 6px, 0); } 50% { transform: translate3d(0, 0, 0); } }
+.ph-crop .ph { transform: translate3d(0, 6px, 0); }
 .ph-island { width: 34%; height: 1.5em; border-radius: 99em; background: #0e0e10; margin: 0 auto 0.9em; }
 .ph-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.9em; }
 .ph-bar b { font-weight: 600; font-size: 1.05em; }
@@ -243,7 +305,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .ph-chart svg { position: absolute; inset: 22% 0 0; width: 100%; height: 78%; }
 .ph-area { fill: rgba(28, 28, 31, 0.08); }
 .ph-line { fill: none; stroke: #1c1c1f; stroke-width: 2.75; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; stroke-dasharray: 1; stroke-dashoffset: 1; }
-.is-in .ph-line { animation: ph-draw 1.8s var(--ease) 0.4s forwards; }
+.lp-tile .ph-line { animation: ph-draw 1.8s var(--ease) 0.9s forwards; }
 @keyframes ph-draw { to { stroke-dashoffset: 0; } }
 .ph-dot { position: absolute; left: 87.5%; top: 37.6%; margin: -0.4em 0 0 -0.4em; width: 0.8em; height: 0.8em; border-radius: 50%; background: #fff; box-shadow: 0 0 0 0.25em #1c1c1f; animation: ph-pulse 2s ease-in-out infinite; }
 @keyframes ph-pulse { 0%, 100% { box-shadow: 0 0 0 0.25em #1c1c1f, 0 0 0 0.25em rgba(28, 28, 31, 0.3); } 50% { box-shadow: 0 0 0 0.25em #1c1c1f, 0 0 0 0.9em rgba(28, 28, 31, 0); } }
@@ -330,7 +392,8 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 /* The stage pins while you scroll; each card drops in from above, twisting
    as it falls, and lands slightly askew on the cards already there. */
 .lp-features { padding: clamp(80px, 11vw, 160px) var(--pad) clamp(40px, 6vw, 80px); }
-.lp-cascade { position: relative; height: 270vh; margin: 0 calc(var(--pad) * -1); }
+/* 200vh: about one extra screen of scrolling for the two cards that drop in (was 270vh). */
+.lp-cascade { position: relative; height: 200vh; margin: 0 calc(var(--pad) * -1); }
 .lp-cascade-pin {
   position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden;
   display: grid; place-items: center;
@@ -361,19 +424,16 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-stack-card h3 { font-weight: 500; font-size: clamp(22px, 2.6vw, 32px); letter-spacing: -0.03em; line-height: 1.1; }
 .lp-stack-card p { margin-top: 16px; color: var(--fg-soft); font-size: 15.5px; line-height: 1.55; max-width: 38ch; }
 .lp-stack-visual { min-width: 0; }
-.lp-code {
-  position: relative; margin: 0; padding: 16px 24px 22px; border-radius: 20px;
-  background: linear-gradient(160deg, #2b2b30, #121214); color: #e7e7ea;
-  font: 13px/1.7 ui-monospace, Menlo, Consolas, monospace;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 24px 40px -24px rgba(14, 14, 16, 0.6);
-}
-.lp-code pre { margin: 0; font: inherit; overflow-x: auto; min-height: calc(6 * 1.7em); }
 .lp-alerts { display: grid; gap: 10px; }
 .lp-alert-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: #fff; box-shadow: 0 0 0 1px rgba(28, 28, 31, 0.06), 0 10px 20px -16px rgba(28, 28, 31, 0.4); }
 .lp-alert-row > span { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: var(--ink); color: var(--lime); flex-shrink: 0; }
-.lp-alert-row div { flex: 1; min-width: 0; display: flex; flex-direction: column; font-family: ui-monospace, Menlo, Consolas, monospace; }
-.lp-alert-row b { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; }
-.lp-alert-row i { font-style: normal; font-size: 11px; color: var(--fg-faint); }
+.lp-alert-row div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.lp-alert-row b { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-alert-row i { font-style: normal; font-size: 12px; color: var(--fg-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Plain readings: a neutral value badge, no blinking alarm dot. */
+/* (doubled class so these win over the alert-row rules further down) */
+.lp-alert-row.lp-sensor-row em { background: var(--tile); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.lp-alert-row.lp-sensor-row em::before, .lp-alert-row.lp-sensor-row > span::after { display: none; }
 .lp-alert-row em { font-style: normal; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--lime); color: var(--ink); }
 .lp-lock { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
 .lp-lock-ring { flex-basis: 100%; display: grid; place-items: center; margin-bottom: 8px; }
@@ -386,34 +446,10 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
    Delays live on the landed state only, so lifting a card resets it at once. */
 @keyframes lp-blink { 50% { opacity: 0; } }
 @keyframes lp-ping { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.9); opacity: 0; } }
-@keyframes lp-ripple { 0% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; } 100% { transform: translate(-50%, -50%) scale(2.1); opacity: 0; } }
-@keyframes lp-float { 50% { transform: translateY(-5px); } }
 
 /* the chip spins into place */
 .lp-stack-card .lp-chip { transform: scale(0.6) rotate(-30deg); transition: transform 0.2s var(--ease), background 0.3s var(--ease); }
 .lp-stack-card.is-landed .lp-chip { transform: none; transition: transform 0.7s var(--spring) 0.05s, background 0.3s var(--ease); }
-
-/* code: the request types itself out, then the API answers */
-.lp-code-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
-.lp-code-bar i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, 0.16); }
-.lp-code-bar i:first-child { background: var(--lime); }
-.lp-code-bar span { margin-left: 8px; font-size: 11px; letter-spacing: 0.02em; color: rgba(255, 255, 255, 0.45); }
-.lp-tok-k { color: #c8c8cf; }
-.lp-tok-s { color: var(--lime); }
-.lp-tok-n { color: #fff; }
-.lp-tok-p { color: rgba(255, 255, 255, 0.45); }
-.lp-code-line { display: block; width: max-content; clip-path: inset(0 100% 0 0); transition: clip-path 0.15s linear; }
-.is-landed .lp-code-line { clip-path: inset(0 0 0 0); transition: clip-path 0.34s steps(16, end) calc(0.2s + var(--n) * 0.2s); }
-.lp-caret { display: inline-block; width: 0.55em; height: 1.15em; margin-left: 3px; vertical-align: -0.2em; background: var(--lime); opacity: 0; }
-.is-top .lp-caret { animation: lp-blink 1s steps(1) 1.5s infinite; }
-.lp-code-ok {
-  position: absolute; right: 16px; bottom: 16px;
-  padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 700;
-  background: var(--lime); color: var(--ink);
-  opacity: 0; transform: translateY(8px) scale(0.8);
-  transition: opacity 0.15s, transform 0.15s;
-}
-.is-landed .lp-code-ok { opacity: 1; transform: none; transition: opacity 0.3s var(--ease) 1.55s, transform 0.6s var(--spring) 1.55s; }
 
 /* alerts: breaches slide in one after another and keep pulsing */
 .lp-alert-row { opacity: 0; transform: translate3d(48px, 0, 0); transition: opacity 0.15s, transform 0.15s; }
@@ -428,16 +464,10 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-alert-row em::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); }
 .is-top .lp-alert-row em::before { animation: lp-blink 1.1s steps(1) infinite; }
 
-/* lock: the shield pops in, rings ripple out, the tags drop into place */
+/* lock: the shield pops in, then the tags drop into place */
 .lp-lock-ring { position: relative; }
 .lp-lock-ring svg { position: relative; transform: scale(0.4); opacity: 0; transition: transform 0.15s, opacity 0.15s; }
 .is-landed .lp-lock-ring svg { transform: none; opacity: 1; transition: transform 0.8s var(--spring) 0.1s, opacity 0.3s var(--ease) 0.1s; }
-.is-top .lp-lock-ring svg { animation: lp-float 3.2s ease-in-out 1s infinite; }
-.lp-ripple {
-  position: absolute; left: 50%; top: 50%; width: 96px; height: 96px; border-radius: 50%;
-  border: 2px solid rgba(20, 20, 22, 0.28); opacity: 0; transform: translate(-50%, -50%);
-}
-.is-top .lp-ripple { animation: lp-ripple 2.6s var(--ease) calc(0.8s + var(--n, 0) * 1.3s) infinite; }
 .lp-lock .lp-lock-tag { opacity: 0; transform: translate3d(0, -16px, 0) scale(0.9); transition: opacity 0.15s, transform 0.15s; }
 .is-landed .lp-lock-tag {
   opacity: 1; transform: none;
@@ -445,13 +475,13 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lp-stack-card .lp-chip, .lp-code-line, .lp-code-ok, .lp-alert-row, .lp-lock-ring svg, .lp-lock .lp-lock-tag { transition: none; }
-  .is-top .lp-caret, .is-top .lp-alert-row > span::after, .is-top .lp-alert-row em::before,
-  .is-top .lp-lock-ring svg, .is-top .lp-ripple { animation: none; }
+  .lp-stack-card .lp-chip, .lp-alert-row, .lp-lock-ring svg, .lp-lock .lp-lock-tag { transition: none; }
+  .is-top .lp-alert-row > span::after, .is-top .lp-alert-row em::before { animation: none; }
 }
 
 /* ---------- steps: pinned sideways rail ---------- */
-.lp-rail { position: relative; height: 240vh; }
+/* 180vh: under one extra screen of sideways travel (was 240vh). */
+.lp-rail { position: relative; height: 180vh; }
 .lp-rail-pin {
   position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden;
   display: grid; grid-template-columns: minmax(280px, 0.8fr) 1.6fr; align-items: center; gap: clamp(24px, 4vw, 60px);
@@ -460,15 +490,18 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-rail-head { display: grid; gap: 18px; justify-items: start; }
 .lp-rail-head h2 { font-size: clamp(28px, 3.4vw, 46px); }
 .lp-rail-head > p { color: var(--fg-soft); font-size: 16px; line-height: 1.5; max-width: 34ch; }
+.lp-rail-head .lp-btn { margin-top: 6px; }
 .lp-rail-window { min-width: 0; overflow: hidden; padding: 30px 0; }
 .lp-rail-track { list-style: none; padding: 0 var(--pad) 0 0; display: flex; gap: 28px; width: max-content; will-change: transform; }
 .lp-step {
-  width: clamp(250px, 24vw, 320px); min-height: clamp(300px, 46vh, 400px); padding: 30px; border-radius: 26px;
+  width: clamp(250px, 24vw, 310px); min-height: clamp(240px, 34vh, 300px); padding: 28px; border-radius: 26px;
   background: var(--tile); display: flex; flex-direction: column;
   transition: transform 0.4s var(--spring), box-shadow 0.4s var(--ease);
 }
 .lp-step:hover { transform: translateY(-6px); box-shadow: 0 30px 44px -30px rgba(20, 20, 22, 0.45); }
-.lp-step-n { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; font-size: 14px; font-weight: 600; background: #fff; box-shadow: 0 0 0 1px rgba(28, 28, 31, 0.08); margin-bottom: auto; }
+.lp-step-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: auto; padding-bottom: 28px; }
+.lp-step-n { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; font-size: 14px; font-weight: 600; background: #fff; box-shadow: 0 0 0 1px rgba(28, 28, 31, 0.08); }
+.lp-step-ic { width: 58px; height: 58px; border-radius: 18px; display: grid; place-items: center; background: var(--ink); color: var(--lime); }
 .lp-step h3 { font-size: 21px; font-weight: 500; letter-spacing: -0.02em; }
 .lp-step p { margin-top: 8px; font-size: 14.5px; line-height: 1.5; color: var(--fg-soft); }
 
@@ -493,14 +526,6 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   86% { transform: translate3d(0, 8px, 0) rotate(calc(var(--tr) * 0.05)); animation-timing-function: ease-out; }
   100% { opacity: 1; transform: none; }
 }
-@keyframes lp-juggle {
-  0%, 100% { transform: none; }
-  30% { transform: translate3d(0, -5px, 0); }
-  58% { transform: none; animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
-  71% { transform: translate3d(0, -64px, 0) rotate(calc(var(--tr) * -0.35)); animation-timing-function: ease-in-out; }
-  77% { transform: translate3d(0, -60px, 0) rotate(calc(var(--tr) * -0.3)); animation-timing-function: cubic-bezier(0.55, 0, 0.85, 0.45); }
-  90% { transform: translate3d(0, 6px, 0) rotate(calc(var(--tr) * 0.04)); animation-timing-function: ease-out; }
-}
 .lp-capsule {
   --tx: -90px; --tr: -24deg;
   display: flex; flex-direction: column; gap: 12px;
@@ -516,10 +541,11 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-capsule:nth-child(1) { --ry: 10px; --rr: -6deg; }
 .lp-capsule:nth-child(2) { --tx: 80px; --tr: 20deg; --ry: -26px; --rr: 3deg; }
 .lp-capsule:nth-child(3) { --tx: -40px; --tr: -32deg; --ry: 18px; --rr: 7deg; }
+.lp-capsule:nth-child(4) { --tx: 60px; --tr: 26deg; --ry: -12px; --rr: -4deg; }
+.lp-capsule:nth-child(5) { --tx: -70px; --tr: -18deg; --ry: 14px; --rr: 5deg; }
 .is-in .lp-capsule {
   animation:
-    lp-toss 1.55s calc(0.15s + var(--n) * 0.2s) both,
-    lp-juggle 5.4s ease-in-out calc(2s + var(--n) * 1.6s) infinite;
+    lp-toss 1.55s calc(0.15s + var(--n) * 0.2s) both;
 }
 .lp-capsule b {
   flex: 1; display: grid; place-items: center; border-radius: 9px;
@@ -536,8 +562,6 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   width: 100%; aspect-ratio: 16 / 10; border-radius: 22px 22px 0 0; display: grid; place-items: center; color: #fff;
   background: radial-gradient(70% 90% at 30% 10%, rgba(255, 255, 255, 0.2), transparent 60%), linear-gradient(160deg, #3a3a40, #0e0e10);
 }
-.lp-help-art svg { animation: lp-spin 18s linear infinite; }
-@keyframes lp-spin { to { transform: rotate(360deg); } }
 .lp-help-text { width: 100%; margin-top: -16px; padding: 20px 22px; border-radius: 0 0 22px 22px; background: var(--tile); }
 .lp-help-text h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
 .lp-help-text span { font-size: 13.5px; color: var(--fg-soft); }
@@ -565,20 +589,99 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-close { padding: clamp(80px, 12vw, 180px) var(--pad); text-align: center; }
 .lp-close > div { display: grid; justify-items: center; gap: 26px; }
 .lp-close h2 { max-width: 18ch; font-weight: 500; font-size: clamp(28px, 4vw, 50px); }
-.lp-footer { background: linear-gradient(160deg, #2a2a2f, #0e0e10); color: #fff; padding: 26px var(--pad) 0; overflow: hidden; }
-.lp-footer-row { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 13px; color: rgba(255, 255, 255, 0.7); }
+.lp-close-note { margin-top: -10px; font-size: 14px; color: var(--fg-soft); }
+/* Footer: a floating liquid-glass panel, same glass as the navbar. Soft lime and
+   white shapes drift behind it so the blur has something to work on; they are
+   clipped to the panel's shape, so they only ever show through the glass. */
+.lp-footer {
+  --footer-gap: 0px; /* full-bleed: the panel runs edge to edge */
+  --footer-radius: clamp(22px, 2.6vw, 34px);
+  position: relative; isolation: isolate; color: #fff;
+  padding: 0 var(--footer-gap) var(--footer-gap);
+}
+.lp-footer-orbs {
+  position: absolute; z-index: 0; top: 0; left: var(--footer-gap); right: var(--footer-gap); bottom: var(--footer-gap);
+  border-radius: var(--footer-radius) var(--footer-radius) 0 0; overflow: hidden; background: #26262b; pointer-events: none;
+}
+@keyframes lp-orb-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(var(--dx), var(--dy), 0) scale(1.08); }
+}
+.lp-footer-orbs i {
+  position: absolute; aspect-ratio: 1; border-radius: 50%;
+  animation: lp-orb-drift var(--t, 18s) ease-in-out infinite;
+}
+.lp-footer-orbs i:nth-child(1) { width: 38%; left: -6%; top: 6%; background: var(--lime); --dx: 9vw; --dy: -2vw; }
+.lp-footer-orbs i:nth-child(2) { width: 26%; right: 6%; top: -26%; background: #f4f4f2; opacity: 0.55; --dx: -7vw; --dy: 3vw; --t: 22s; }
+.lp-footer-orbs i:nth-child(3) { width: 24%; left: 48%; bottom: -34%; background: var(--lime-soft); opacity: 0.8; --dx: -5vw; --dy: -3vw; --t: 26s; }
+
+.lp-footer-glass {
+  position: relative; z-index: 1; overflow: hidden;
+  border-radius: var(--footer-radius) var(--footer-radius) 0 0; /* square bottom: it sits on the page edge */
+  padding: 26px var(--pad) 0;
+  /* A soft top sheen (no hard edge: on a panel this tall it would cut through the wordmark). */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.03) 30%, rgba(255, 255, 255, 0) 55%), var(--glass-tint);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-rim), 0 30px 60px -30px rgba(14, 14, 16, 0.55);
+}
+.lp-footer-row { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 13px; color: rgba(255, 255, 255, 0.86); }
 .lp-footer-row nav { display: flex; gap: 22px; flex-wrap: wrap; }
 .lp-footer-row a { transition: color 0.25s var(--ease); }
 .lp-footer-row a:hover { color: #fff; }
+/* Footer wordmark: a big lowercase word in near-white that fades toward the
+   bottom edge. A soft light sweeps across the letters every few seconds (and
+   follows the mouse while it is over the word), with glitter at either side.
+   Styled after the reference recording, but bright enough to read clearly on
+   the glass. */
+@property --lx { syntax: '<length-percentage>'; inherits: true; initial-value: -30%; }
 .lp-wordmark {
-  /* "Lectio" is about 2.5em wide, so 34vw fills ~85-90% of the page and stays inside its padding. */
-  margin-top: clamp(30px, 6vw, 80px); font-size: clamp(90px, 34vw, 520px); font-weight: 700; letter-spacing: -0.055em;
-  line-height: 0.78; white-space: nowrap; text-align: center; overflow: hidden; padding-top: 0.12em;
+  margin-top: clamp(30px, 6vw, 80px); font-size: clamp(44px, 13.4vw, 250px); font-weight: 700; letter-spacing: -0.055em;
+  line-height: 0.78; white-space: nowrap; text-align: left; padding-top: 0.12em;
+  /* Clip the bottom of the letters like before, but let the glitter spill sideways. */
+  clip-path: inset(0 -100vw 0 -100vw);
 }
 /* The wrapper stays put so it can be detected on screen; only the text inside slides up. */
 .lp .lp-wordmark[data-reveal] { opacity: 1; transform: none; }
-.lp-wordmark span { display: block; transform: translate3d(0, 85%, 0); transition: transform 1.1s var(--ease); }
+.lp-wordmark span {
+  position: relative; display: inline-block;
+  transform: translate3d(0, 85%, 0); transition: transform 1.1s var(--ease), --lx 0.35s var(--ease);
+  color: transparent; -webkit-text-fill-color: transparent;
+  background-image:
+    /* the moving light */
+    radial-gradient(ellipse 0.95em 0.8em at var(--lx) 38%, rgb(255 255 255 / 0.45), rgb(255 255 255 / 0.14) 45%, rgb(255 255 255 / 0) 75%),
+    /* the letters themselves: clearly readable, fading toward the bottom edge */
+    linear-gradient(180deg, rgb(255 255 255 / 0.8) 0%, rgb(255 255 255 / 0.62) 45%, rgb(255 255 255 / 0.3) 80%, rgb(255 255 255 / 0.12) 100%);
+  -webkit-background-clip: text; background-clip: text;
+}
 .lp-wordmark.is-in span { transform: translate3d(0, 6%, 0); }
+
+/* The sweep: about 1.8s left to right, then a pause, on repeat. */
+@keyframes lp-sheen {
+  0% { --lx: -30%; }
+  26%, 100% { --lx: 130%; }
+}
+.lp-wordmark.is-in span { animation: lp-sheen 7s cubic-bezier(0.45, 0.05, 0.55, 0.95) 1.2s infinite; }
+/* While the mouse is over the word, the light follows it instead (set from Landing.jsx). */
+.lp-wordmark.is-tracking span { animation: none; }
+
+/* Glitter either side of the word: three overlapping dot fields with coprime
+   spacings, so together they read as scattered speckle rather than a grid. */
+.lp-wordmark span::before,
+.lp-wordmark span::after {
+  content: ""; position: absolute; top: 18%; width: 0.42em; height: 0.62em; pointer-events: none;
+  -webkit-text-fill-color: initial;
+  background-image:
+    radial-gradient(circle, rgb(255 255 255 / 0.5) 0 0.6px, transparent 1.1px),
+    radial-gradient(circle, rgb(255 255 255 / 0.3) 0 0.5px, transparent 1px),
+    radial-gradient(circle, rgb(255 255 255 / 0.22) 0 0.7px, transparent 1.2px);
+  background-size: 11px 17px, 17px 7px, 23px 13px;
+  -webkit-mask-image: radial-gradient(closest-side, #000 20%, transparent);
+  mask-image: radial-gradient(closest-side, #000 20%, transparent);
+  opacity: 0.55;
+}
+.lp-wordmark span::before { right: 100%; margin-right: 0.04em; }
+.lp-wordmark span::after { left: 100%; margin-left: 0.06em; }
 
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
@@ -595,17 +698,18 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   .lp-step { scroll-snap-align: start; min-height: 240px; width: min(78vw, 300px); }
 }
 @media (max-width: 720px) {
-  .lp-chrome { --bar-h: 56px; --lens-h: 46px; --item-w: 64px; gap: 6px; padding: 0 7px; top: 12px; margin-top: 14px; }
+  .lp { --nav-space: 70px; }
+  .lp-chrome { --bar-h: 56px; --lens-h: 46px; --item-w: 58px; gap: 6px; padding: 0 7px; top: 12px; margin-top: 14px; }
   .lp-chrome .lp-brand, .lp-dock-sep { display: none; }
-  .lp-dock-ic { width: 19px; height: 19px; }
-  .lp-dock-item.is-active .lp-dock-ic { transform: translateY(-6px); }
+  .lp-dock-ic { width: 19px; height: 19px; transform: translateY(-6px); }
   .lp-dock-label { font-size: 10.5px; }
   .lp-dock-long { display: none; }
   .lp-dock-short { display: inline; }
   .lp-lens-body { border-radius: 20px; }
-  .lp-chrome .lp-login { width: 42px; padding: 0; }
-  .lp-login-text { display: none; }
-  .lp-login-ic { display: block; }
+  /* No room for both buttons: phones get "Sign up"; Log in is in the hero and footer. */
+  .lp-chrome .lp-login { display: none; }
+  .lp-chrome .lp-signup { height: 40px; padding: 0 14px; font-size: 13.5px; }
+  .lp-signup-long { display: none; }
   .lp-btn { height: 48px; padding: 0 28px; }
   .lp-btn-sm { height: 40px; padding: 0 22px; }
   .lp-tile-wide { flex-direction: column; align-items: flex-start; padding-bottom: 0; overflow: hidden; }
@@ -621,9 +725,11 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   [data-reveal], .lp-capsule { transition: none; opacity: 1; transform: none; }
   .is-in .lp-capsule { animation: none; }
   .lp-wordmark span { transform: translate3d(0, 6%, 0); transition: none; }
+  .lp-wordmark.is-in span, .lp-wordmark span::before, .lp-wordmark span::after, .lp-footer-orbs i { animation: none; }
   .lp-chrome, .lp-hero-copy > *, .ph-tilt, .ph-crop .ph, .ph-dot, .lp-help-art svg { animation: none; }
   .lp-lens.is-ready, .lp-dock-ic, .lp-dock-label, .lp-brand-name { transition: none; }
-  .ph-line { stroke-dashoffset: 0; animation: none; }
+  .lp-tile .ph-line, .ph-line { stroke-dashoffset: 0; animation: none; }
+  .lp-tile { animation: none; }
 }
 
 /* ---------- lime accent ---------- */

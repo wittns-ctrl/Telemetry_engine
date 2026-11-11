@@ -1,15 +1,19 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
-import { DonezoDashboard } from './components/DonezoDashboard';
-import { MetricsStudioView } from './components/MetricsStudioView';
-import { LiveStreamView } from './components/LiveStreamView';
-import { AnalyticsView } from './components/AnalyticsView';
-import { SensorsView } from './components/SensorsView';
-import { HelpView } from './components/HelpView';
-import { SettingsView } from './components/SettingsView';
-import { DevicesView } from './components/DevicesView';
+
+// The signed-in screens (and the charts library they use) load only when opened,
+// so landing-page visitors don't download the whole dashboard up front.
+const named = (load, name) => lazy(() => load().then((m) => ({ default: m[name] })));
+const DonezoDashboard = named(() => import('./components/DonezoDashboard'), 'DonezoDashboard');
+const MetricsStudioView = named(() => import('./components/MetricsStudioView'), 'MetricsStudioView');
+const LiveStreamView = named(() => import('./components/LiveStreamView'), 'LiveStreamView');
+const AnalyticsView = named(() => import('./components/AnalyticsView'), 'AnalyticsView');
+const SensorsView = named(() => import('./components/SensorsView'), 'SensorsView');
+const HelpView = named(() => import('./components/HelpView'), 'HelpView');
+const SettingsView = named(() => import('./components/SettingsView'), 'SettingsView');
+const DevicesView = named(() => import('./components/DevicesView'), 'DevicesView');
 import { AuthPage } from './components/AuthPage';
 import { AuthModal } from './components/AuthModal';
 import { LogoutModal } from './components/LogoutModal';
@@ -197,6 +201,7 @@ function App() {
   return (
     <Routes>
       <Route path="/signin" element={isAuthenticated ? <Navigate to="/" replace /> : <AuthPage onAuthSuccess={handleAuthSuccess} />} />
+      <Route path="/signup" element={isAuthenticated ? <Navigate to="/" replace /> : <AuthPage key="signup" initialScreen="signup" onAuthSuccess={handleAuthSuccess} />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
@@ -224,6 +229,7 @@ function App() {
 
             {/* Dynamic Route View Body */}
             <main className="flex-1 p-2 md:p-4 overflow-y-auto">
+              <Suspense fallback={<div className="p-6 text-sm text-slate-400" role="status">Loading…</div>}>
 
               {activeNav === 'dashboard' && (
                 <DonezoDashboard
@@ -282,6 +288,7 @@ function App() {
                   onSignedOut={handleConfirmSignOut}
                 />
               )}
+              </Suspense>
 
             </main>
 
