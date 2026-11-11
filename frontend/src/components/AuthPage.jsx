@@ -349,6 +349,12 @@ export function AuthPage({ onAuthSuccess }) {
         </svg>
         Sign up with Google
       </button>
+      <p className="text-center text-[11px] leading-relaxed text-slate-500 mt-3">
+        By creating an account, you agree to our{" "}
+        <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#1c1c1f] underline underline-offset-2">Terms of Service</a>{" "}
+        and{" "}
+        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#1c1c1f] underline underline-offset-2">Privacy Policy</a>.
+      </p>
       <p className="text-center text-xs text-slate-500 mt-4">
         Already have an account?{" "}
         <button 

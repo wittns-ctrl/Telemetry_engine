@@ -207,8 +207,8 @@ export async function changePassword({ currentPassword, newPassword, confirmPass
   );
 }
 
-export async function deactivateAccount() {
-  return apiJson("/api/v1/auth/account", { method: "DELETE" }, "Failed to deactivate account");
+export async function deleteAccount() {
+  return apiJson("/api/v1/auth/account", { method: "DELETE" }, "Failed to delete account");
 }
 
 export async function forgotPassword(email) {

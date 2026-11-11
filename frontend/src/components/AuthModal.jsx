@@ -18,7 +18,7 @@ function Logo() {
       <div className="w-8 h-8 rounded-full bg-[#1c1c1f] flex items-center justify-center">
         <div className="w-3.5 h-3.5 border-2 border-white rounded-full" />
       </div>
-      <span className="font-bold text-slate-900 text-base tracking-tight">Telemetry Engine</span>
+      <span className="font-bold text-slate-900 text-base tracking-tight">Lectio</span>
     </div>
   );
 }
@@ -188,7 +188,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
     <Wrapper>
       <Logo />
       <h1 className="text-2xl font-bold text-slate-900 mb-1">Create your account</h1>
-      <p className="text-sm text-slate-400 mb-6">Get started with your telemetry engine.</p>
+      <p className="text-sm text-slate-400 mb-6">Get started with Lectio.</p>
       <ErrorBanner msg={errorMsg} />
       <form onSubmit={handleSignUp} className="space-y-4">
         <div>
@@ -219,7 +219,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
           <div className={`w-4 h-4 rounded border flex items-center justify-center mt-0.5 shrink-0 transition-colors ${agreeTerms ? "bg-[#1c1c1f] border-[#1c1c1f]" : "border-slate-300 bg-white"}`}>
             {agreeTerms && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
           </div>
-          <span className="select-none">I agree to the <span className="text-[#1c1c1f] font-semibold">Terms of Service</span> and <span className="text-[#1c1c1f] font-semibold">Privacy Policy</span></span>
+          <span className="select-none">I agree to the <a href="/terms" target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[#1c1c1f] font-semibold underline underline-offset-2">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-[#1c1c1f] font-semibold underline underline-offset-2">Privacy Policy</a></span>
         </label>
         <button type="submit" disabled={loading}
           className="w-full py-3 rounded-xl bg-[#1c1c1f] text-white font-bold text-sm hover:bg-ink-900 transition-colors disabled:opacity-60">

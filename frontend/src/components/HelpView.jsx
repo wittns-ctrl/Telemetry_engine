@@ -28,7 +28,7 @@ const TOPICS = [
     id: "settings",
     icon: Settings,
     title: "Manage your account",
-    body: "Change your name or password, resend the verification email, or deactivate your account from Settings.",
+    body: "Change your name or password, resend the verification email, or permanently delete your account from Settings.",
     action: "Open Settings",
   },
 ];

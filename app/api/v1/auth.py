@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+import logging
 import secrets
 
 from app.models.user import (
@@ -18,6 +19,12 @@ from app.models.refresh_token import RefreshToken
 from app.models.email_verification import EmailVerification
 from app.models.password_reset import PasswordReset
 from app.models.audit_log import AuditLog, AuditEventType
+from app.models.telemetry import Device, TelemetrySnapshotDocument
+from app.models.alert import AnomalyAlertDocument
+from app.models.metric import Metrics
+from app.services.anomaly_engine import anomaly_engine
+from app.core.websocket_manager import manager as stream_manager
+from app.core.sockets import manager as alerts_socket_manager
 from app.core.security import (
     verify_password, get_password_hash, create_access_token,
     create_refresh_token, hash_token, verify_token_hash, generate_family_id,
@@ -30,6 +37,7 @@ from app.services.email import email_service
 from beanie import PydanticObjectId
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
 
 async def log_audit_event(
@@ -433,31 +441,45 @@ async def change_password(
 
 @router.delete("/account")
 async def delete_account(
+    response: Response,
     current_user: User = Depends(get_current_user),
-    request: Request = None
 ):
-    """Deactivate/delete user account."""
-    # Soft delete - mark as inactive
-    current_user.is_active = False
-    current_user.updated_at = datetime.now(timezone.utc)
-    await current_user.save()
-    
-    # Revoke all refresh tokens
-    await RefreshToken.find_many(
-        RefreshToken.user_id == str(current_user.id)
-    ).update({"$set": {"is_revoked": True, "revoked_at": datetime.now(timezone.utc)}})
-    
-    # Log account deactivation
-    ip_address, user_agent = await get_client_info(request) if request else (None, None)
-    await log_audit_event(
-        user_id=str(current_user.id),
-        event_type=AuditEventType.ACCOUNT_DEACTIVATION,
-        success=True,
-        ip_address=ip_address,
-        user_agent=user_agent
+    """Permanently erase the account and everything stored for it.
+
+    Removes the user's devices, readings, alerts, legacy metrics, sign-in
+    sessions, email/password tokens and security logs, then the user record
+    itself. The user record goes last so a failure part-way can be retried
+    by calling this again. Nothing is kept, including the audit trail, so the
+    erasure promised in the privacy policy is complete.
+    """
+    user_oid = current_user.id
+    user_id = str(user_oid)
+
+    # Stop new sessions first, then cut live connections.
+    sessions = await RefreshToken.find(RefreshToken.user_id == user_id).delete()
+
+    devices = await Device.find(Device.user_id == user_oid).to_list()
+    for device in devices:
+        await anomaly_engine.clear_device_state(user_id, str(device.id))
+    await stream_manager.disconnect_user(user_id)
+    await alerts_socket_manager.disconnect_user(user_id)
+
+    readings = await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.user_id == user_oid).delete()
+    alerts = await AnomalyAlertDocument.find(AnomalyAlertDocument.user_id == user_oid).delete()
+    metrics = await Metrics.find(Metrics.user_id == user_id).delete()
+    await Device.find(Device.user_id == user_oid).delete()
+    await EmailVerification.find(EmailVerification.user_id == user_id).delete()
+    await PasswordReset.find(PasswordReset.user_id == user_id).delete()
+    await AuditLog.find(AuditLog.user_id == user_id).delete()
+    await current_user.delete()
+
+    logger.info(
+        "Account erased: %d devices, %d readings, %d alerts, %d metrics, %d sessions",
+        len(devices), *(getattr(r, "deleted_count", 0) for r in (readings, alerts, metrics, sessions)),
     )
-    
-    return {"message": "Account deactivated successfully"}
+
+    clear_refresh_cookie(response)
+    return {"message": "Account and all its data have been permanently deleted"}
 
 
 @router.post("/verify-email")

@@ -1,0 +1,64 @@
+/* Privacy and Terms pages. Namespaced under .lg, same palette and type as the landing page. */
+.lg {
+  --fg: #141416;
+  --fg-soft: rgba(20, 20, 22, 0.68);
+  --line: rgba(20, 20, 22, 0.1);
+  --tile: #f3f3f2;
+  --ink: #0e0e10;
+  --lime: #d4f55a;
+  --lime-soft: #e7fb9d;
+  --pad: clamp(16px, 4vw, 48px);
+
+  min-height: 100vh; min-height: 100svh;
+  display: flex; flex-direction: column;
+  background: #fff; color: var(--fg);
+  font-family: 'Inter Tight', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+.lg *, .lg *::before, .lg *::after { box-sizing: border-box; }
+.lg a:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; border-radius: 4px; }
+.lg ::selection { background: var(--lime); color: var(--ink); }
+
+.lg-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  max-width: 1080px; width: 100%; margin: 0 auto; padding: 22px var(--pad);
+}
+.lg-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: -0.02em; color: inherit; text-decoration: none; }
+.lg-brand-mark { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; background: var(--ink); color: var(--lime); }
+.lg-back {
+  display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 16px; border-radius: 999px;
+  background: var(--tile); color: inherit; text-decoration: none; font-size: 14px; font-weight: 600;
+  transition: background 0.2s ease;
+}
+.lg-back:hover { background: #e8e8e6; }
+
+.lg-main { flex: 1; width: 100%; max-width: 760px; margin: 0 auto; padding: clamp(32px, 6vw, 72px) var(--pad) clamp(64px, 9vw, 120px); }
+.lg-kicker { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fg-soft); }
+.lg h1 { margin: 12px 0 0; font-size: clamp(36px, 5.4vw, 60px); font-weight: 600; letter-spacing: -0.035em; line-height: 1.04; }
+.lg-meta { margin: 14px 0 0; font-size: 14px; color: var(--fg-soft); }
+.lg-intro { margin: 28px 0 0; font-size: clamp(17px, 1.6vw, 19px); line-height: 1.55; text-wrap: pretty; }
+.lg-draft {
+  margin-top: 28px; padding: 16px 18px; border-radius: 16px;
+  background: var(--lime-soft); font-size: 14.5px; line-height: 1.5;
+}
+
+.lg-body { margin-top: 12px; font-size: 16px; line-height: 1.7; }
+.lg-body h2 { margin: 52px 0 0; padding-top: 28px; border-top: 1px solid var(--line); font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; }
+.lg-body h3 { margin: 26px 0 0; font-size: 16.5px; font-weight: 600; }
+.lg-body p, .lg-body ul { margin: 12px 0 0; color: var(--fg-soft); }
+.lg-body ul { padding-left: 1.2em; }
+.lg-body li + li { margin-top: 6px; }
+.lg-body li::marker { color: rgba(20, 20, 22, 0.35); }
+.lg-body b { color: var(--fg); font-weight: 600; }
+.lg-body a { color: var(--fg); text-decoration: underline; text-decoration-color: rgba(20, 20, 22, 0.3); text-underline-offset: 3px; }
+.lg-body a:hover { text-decoration-color: currentColor; }
+.lg-body code { font: 0.9em ui-monospace, Menlo, Consolas, monospace; padding: 2px 6px; border-radius: 6px; background: var(--tile); color: var(--fg); }
+.lg-todo { padding: 1px 6px; border-radius: 6px; background: var(--lime); color: var(--ink); font-weight: 600; }
+
+.lg-foot {
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 24px var(--pad); background: linear-gradient(160deg, #2a2a2f, #0e0e10);
+  color: rgba(255, 255, 255, 0.7); font-size: 13px;
+}
+.lg-foot nav { display: flex; gap: 22px; }
+.lg-foot a { color: inherit; text-decoration: none; transition: color 0.2s ease; }
+.lg-foot a:hover { color: var(--lime); }

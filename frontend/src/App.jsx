@@ -17,6 +17,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import Landing from './pages/Landing';
+import { PrivacyPage, TermsPage } from './pages/Legal';
 import { LayoutGrid, Database, Radio, BarChart3, Cpu, Server, Settings, HelpCircle } from 'lucide-react';
 
 import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
@@ -199,6 +200,8 @@ function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
       <Route path="/" element={!isAuthenticated ? <Landing /> : (
         <div className="app-shell flex min-h-screen text-slate-900 font-sans">
           {/* Floating Donezo White Card Sidebar */}

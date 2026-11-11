@@ -16,7 +16,10 @@ from beanie import PydanticObjectId
 
 from app.api.deps import get_current_user
 from app.models.user import User, UserRole
-from app.models.telemetry import Device
+from app.models.telemetry import Device, TelemetrySnapshotDocument
+from app.models.alert import AnomalyAlertDocument
+from app.services.anomaly_engine import anomaly_engine
+from app.core.websocket_manager import manager as stream_manager
 from app.services.storage_service import StorageService
 from app.schemas.api import (
     DeviceResponse,
@@ -265,10 +268,25 @@ async def delete_device(
                 detail="Device does not belong to user"
             )
         
-        # Delete device (cascade deletes handled by Beanie if configured)
+        # Nothing cascades automatically, so remove the device's readings and
+        # alerts explicitly. The device record goes last so a failure part-way
+        # leaves it visible and the delete can be retried.
+        await anomaly_engine.clear_device_state(user_id, device_id)
+        await stream_manager.disconnect_device(user_id, device_id)
+        readings = await TelemetrySnapshotDocument.find(
+            TelemetrySnapshotDocument.device_id == device_oid,
+            TelemetrySnapshotDocument.user_id == current_user.id,
+        ).delete()
+        alerts = await AnomalyAlertDocument.find(
+            AnomalyAlertDocument.device_id == device_oid,
+            AnomalyAlertDocument.user_id == current_user.id,
+        ).delete()
         await device.delete()
-        
-        logger.info(f"Device {device_id} deleted by user {user_id}")
+
+        logger.info(
+            f"Device {device_id} deleted by user {user_id} "
+            f"({getattr(readings, 'deleted_count', 0)} readings, {getattr(alerts, 'deleted_count', 0)} alerts)"
+        )
         
         return None
     

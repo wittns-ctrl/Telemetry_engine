@@ -74,7 +74,7 @@ function DashboardPreview() {
   return (
     <div className="pv" aria-hidden="true">
       <aside className="pv-side">
-        <div className="pv-brand"><span className="pv-logo"><Layers size="1em" /></span>Telemetry</div>
+        <div className="pv-brand"><span className="pv-logo"><Layers size="1em" /></span>Lectio</div>
         {PREVIEW_NAV.map((n, i) => (
           <div key={n} className={`pv-nav ${i === 0 ? 'is-on' : ''}`}>{n}</div>
         ))}
@@ -252,7 +252,9 @@ function useLandingMotion(rootRef) {
         card.style.opacity = i === 0 ? '' : clamp(t[i] * 5, 0, 1).toFixed(3);
         card.style.setProperty('--dim', Math.min(depth, 2).toFixed(3));
         // A card plays its content animation once it has landed and is on top.
-        const landed = i === 0 ? casIn : t[i] > 0.9;
+        // land() reaches the pile at t≈0.42 and bottoms out its bounce at t≈0.6,
+        // so the content starts there rather than leaving a blank card on screen.
+        const landed = i === 0 ? casIn : t[i] > 0.6;
         card.classList.toggle('is-landed', landed);
         card.classList.toggle('is-top', landed && depth < 0.5);
       });
@@ -384,9 +386,9 @@ function LiquidNav() {
 
   return (
     <header className="lp-chrome" data-chrome>
-      <a className="lp-brand" href="#home" onClick={() => go('home')} aria-label="Telemetry Engine home">
+      <a className="lp-brand" href="#home" onClick={() => go('home')} aria-label="Lectio home">
         <span className="lp-brand-mark"><Activity size={18} strokeWidth={2.6} /></span>
-        <span className="lp-brand-name">Telemetry Engine</span>
+        <span className="lp-brand-name">Lectio</span>
       </a>
 
       <span className="lp-dock-sep" aria-hidden="true" />
@@ -432,21 +434,18 @@ const STACK = [
     title: 'Ingest from anywhere',
     body: 'Install the agent on a machine or post readings straight to the API. Temperature, CPU and network metrics land in one place.',
     visual: 'code',
-    tone: 'paper',
   },
   {
     icon: AlertTriangle,
     title: 'Alerts the moment a limit breaks',
     body: 'Every reading is checked against your thresholds as it arrives. Breaches show up in the live stream right away.',
     visual: 'alerts',
-    tone: 'ink',
   },
   {
     icon: ShieldCheck,
     title: 'Private to your account',
     body: 'Each account only sees its own devices and readings. Sign in with email or Google.',
     visual: 'lock',
-    tone: 'lime',
   },
 ];
 
@@ -458,9 +457,9 @@ const STEPS = [
 ];
 
 const PILLS = [
-  { k: '°C', label: 'Temperature', tone: 'lime' },
-  { k: '%', label: 'CPU load', tone: 'light' },
-  { k: 'MB/s', label: 'Network', tone: 'graphite' },
+  { k: '°C', label: 'Temperature' },
+  { k: '%', label: 'CPU load' },
+  { k: 'MB/s', label: 'Network' },
 ];
 
 const FAQ = [
@@ -474,7 +473,7 @@ const FAQ = [
   {
     group: 'Data and alerts',
     items: [
-      { q: 'What does Telemetry Engine measure?', a: 'Temperature, CPU load and network throughput. Each reading is stored with its sensor and the time it arrived.' },
+      { q: 'What does Lectio measure?', a: 'Temperature, CPU load and network throughput. Each reading is stored with its sensor and the time it arrived.' },
       { q: 'How do alerts work?', a: 'Every metric type has a limit. When a reading goes over it, an alert is raised and appears in your live stream and on the dashboard straight away.' },
       { q: 'Who can see my data?', a: 'Only you. Each account sees its own devices, readings and alerts, and nothing from anyone else.' },
     ],
@@ -561,7 +560,7 @@ export default function Landing() {
 
   useEffect(() => {
     const prev = document.title;
-    document.title = 'Telemetry Engine — real-time device monitoring';
+    document.title = 'Lectio — real-time device monitoring';
     return () => { document.title = prev; };
   }, []);
 
@@ -571,6 +570,7 @@ export default function Landing() {
     <div className="lp" ref={rootRef}>
       <LiquidNav />
 
+      <main id="main">
       {/* HERO */}
       <section className="lp-hero" id="home" data-section>
         <div className="lp-hero-copy">
@@ -636,7 +636,7 @@ export default function Landing() {
         <div className="lp-cascade" data-cascade>
           <div className="lp-cascade-pin">
           {STACK.map((c, i) => (
-            <article key={c.title} className={`lp-stack-card lp-stack-${c.tone}`} data-cascade-card style={{ '--i': i }}>
+            <article key={c.title} className="lp-stack-card" data-cascade-card style={{ '--i': i }}>
               <div className="lp-stack-copy">
                 <span className="lp-chip"><c.icon size={18} /></span>
                 <h3>{c.title}</h3>
@@ -678,7 +678,7 @@ export default function Landing() {
           <p>Each one has its own limit. Cross it and you hear about it straight away.</p>
           <div className="lp-pills">
             {PILLS.map((p, i) => (
-              <div key={p.label} className={`lp-capsule lp-capsule-${p.tone}`} style={{ '--n': i }}>
+              <div key={p.label} className="lp-capsule" style={{ '--n': i }}>
                 <b>{p.k}</b><span>{p.label}</span>
               </div>
             ))}
@@ -726,6 +726,7 @@ export default function Landing() {
           <Link className="lp-btn lp-btn-dark" to="/signin">Get started <ArrowRight size={16} /></Link>
         </div>
       </section>
+      </main>
 
       <footer className="lp-footer">
         <div className="lp-footer-row">
@@ -735,9 +736,11 @@ export default function Landing() {
             <a href="#steps">How it works</a>
             <a href="#faq">FAQ</a>
             <Link to="/signin">Log in</Link>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/terms">Terms</Link>
           </nav>
         </div>
-        <div className="lp-wordmark" data-reveal aria-hidden="true"><span>Telemetry Engine</span></div>
+        <div className="lp-wordmark" data-reveal aria-hidden="true"><span>Lectio</span></div>
       </footer>
     </div>
   );

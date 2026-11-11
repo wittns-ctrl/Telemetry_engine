@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="Telemetry Engine API",
+    title="Lectio API",
     description="High-Throughput Real-Time Telemetry Ingestion, Alerting, and Analytics Engine",
     version="1.0.0",
     lifespan=lifespan
@@ -48,7 +48,7 @@ app.add_middleware(
 async def health_check():
     return {
         "status": "healthy",
-        "service": "Telemetry Engine",
+        "service": "Lectio",
         "active_websockets": len(manager.active_connections),
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
@@ -183,7 +183,7 @@ async def get_metrics(
 
 @app.get(
     "/api/v1/metrics/stats",
-    summary="Telemetry Engine Statistics"
+    summary="Lectio Statistics"
 )
 async def get_metrics_stats(current_user: User = Depends(get_current_user)):
     user_id = str(current_user.id)

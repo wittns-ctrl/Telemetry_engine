@@ -36,7 +36,7 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
         <div className="w-8 h-8 rounded-full bg-ink-900 flex items-center justify-center text-white">
           <Activity size={18} strokeWidth={2.5} />
         </div>
-        <span className="font-bold text-lg text-slate-800 tracking-tight whitespace-nowrap">Telemetry Engine</span>
+        <span className="font-bold text-lg text-slate-800 tracking-tight whitespace-nowrap">Lectio</span>
       </div>
 
       {/* Menu Section */}

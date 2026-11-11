@@ -35,5 +35,13 @@ class ConnectionManager:
             except Exception:
                 self.disconnect(connection, user_id)
 
+    async def disconnect_user(self, user_id: str, reason: str = "Account deleted"):
+        """Close and forget every socket belonging to one user."""
+        for websocket in self._connections.pop(user_id, []):
+            try:
+                await websocket.close(code=1000, reason=reason)
+            except Exception:
+                pass
+
 
 manager = ConnectionManager()

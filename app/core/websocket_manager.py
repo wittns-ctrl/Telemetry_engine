@@ -251,6 +251,30 @@ class ConnectionManager:
                 total += len(connections)
             return total
     
+    async def disconnect_device(self, user_id: str, device_id: str, reason: str = "Device deleted"):
+        """Close and forget every connection watching one device."""
+        async with self._lock:
+            devices = self._connections.get(user_id, {})
+            connections = devices.pop(device_id, [])
+            if not devices:
+                self._connections.pop(user_id, None)
+        for websocket in connections:
+            try:
+                await websocket.close(code=1000, reason=reason)
+            except Exception as e:
+                logger.error(f"Error closing WebSocket: {e}")
+
+    async def disconnect_user(self, user_id: str, reason: str = "Account deleted"):
+        """Close and forget every connection belonging to one user."""
+        async with self._lock:
+            devices = self._connections.pop(user_id, {})
+        for connections in devices.values():
+            for websocket in connections:
+                try:
+                    await websocket.close(code=1000, reason=reason)
+                except Exception as e:
+                    logger.error(f"Error closing WebSocket: {e}")
+
     async def disconnect_all(self):
         """
         Disconnect all active WebSocket connections.

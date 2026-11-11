@@ -23,7 +23,7 @@ export function BrandPanel() {
         <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
           <div className="w-3.5 h-3.5 border-2 border-white rounded-full" />
         </div>
-        <span className="font-bold text-white text-base tracking-tight">Telemetry Engine</span>
+        <span className="font-bold text-white text-base tracking-tight">Lectio</span>
       </div>
 
       {/* Main heading and description */}
@@ -71,7 +71,7 @@ export function MobileBrandHeader() {
         <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
           <div className="w-3 h-3 border-2 border-white rounded-full" />
         </div>
-        <span className="font-bold text-white text-sm tracking-tight">Telemetry Engine</span>
+        <span className="font-bold text-white text-sm tracking-tight">Lectio</span>
       </div>
       <h2 className="text-white font-bold text-lg text-center leading-tight mb-1.5">
         Real-time telemetry.<br />Smarter decisions.

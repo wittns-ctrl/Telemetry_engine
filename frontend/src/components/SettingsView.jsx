@@ -3,7 +3,7 @@ import { User, Lock, Check, KeyRound, AlertTriangle, Mail } from "lucide-react";
 import {
   updateProfile,
   changePassword,
-  deactivateAccount,
+  deleteAccount,
   resendVerification,
 } from "../services/api";
 import { Avatar } from "./Avatar";
@@ -138,20 +138,29 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
     }
   };
 
-  // --- Deactivate account ---
-  const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
-  const [deactivating, setDeactivating] = useState(false);
-  const [deactivateStatus, setDeactivateStatus] = useState(null);
+  // --- Delete account (permanent) ---
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState(null);
+  const deleteConfirmed = deleteConfirmText.trim().toUpperCase() === "DELETE";
 
-  const handleDeactivate = async () => {
-    setDeactivating(true);
-    setDeactivateStatus(null);
+  const cancelDelete = () => {
+    setConfirmingDelete(false);
+    setDeleteConfirmText("");
+    setDeleteStatus(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirmed) return;
+    setDeleting(true);
+    setDeleteStatus(null);
     try {
-      await deactivateAccount();
+      await deleteAccount();
       onSignedOut?.();
     } catch (err) {
-      setDeactivateStatus({ type: "error", message: err.message });
-      setDeactivating(false);
+      setDeleteStatus({ type: "error", message: err.message });
+      setDeleting(false);
     }
   };
 
@@ -388,37 +397,54 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
             </form>
 
             <div className="mt-12 border border-rose-100 rounded-2xl p-6">
-              <h2 className="text-base font-bold text-rose-700 mb-1">Deactivate account</h2>
+              <h2 className="text-base font-bold text-rose-700 mb-1">Delete account</h2>
               <p className="text-sm text-slate-500 mb-4">
-                You'll be signed out everywhere and won't be able to sign in again.
+                Permanently deletes your account, every connected machine, all readings and alerts.
+                You'll be signed out everywhere. This can't be undone.
               </p>
-              <StatusMessage status={deactivateStatus} />
-              {confirmingDeactivate ? (
-                <div className="flex flex-col sm:flex-row gap-3 mt-4">
-                  <button
-                    type="button"
-                    onClick={() => setConfirmingDeactivate(false)}
-                    disabled={deactivating}
-                    className="flex-1 py-3 border-2 border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-50 cursor-pointer disabled:opacity-50"
-                  >
-                    Keep my account
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDeactivate}
-                    disabled={deactivating}
-                    className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 cursor-pointer disabled:opacity-50"
-                  >
-                    {deactivating ? "Deactivating…" : "Yes, deactivate my account"}
-                  </button>
+              <StatusMessage status={deleteStatus} />
+              {confirmingDelete ? (
+                <div className="mt-4">
+                  <label htmlFor="settings-delete-confirm" className="block text-slate-600 text-sm font-medium mb-2">
+                    Type <span className="font-mono font-bold text-rose-700">DELETE</span> to confirm
+                  </label>
+                  <input
+                    id="settings-delete-confirm"
+                    type="text"
+                    autoComplete="off"
+                    autoFocus
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleDelete(); }}
+                    disabled={deleting}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-rose-200 focus:border-rose-500 focus:outline-none text-slate-900"
+                  />
+                  <div className="flex flex-col sm:flex-row gap-3 mt-4">
+                    <button
+                      type="button"
+                      onClick={cancelDelete}
+                      disabled={deleting}
+                      className="flex-1 py-3 border-2 border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-50 cursor-pointer disabled:opacity-50"
+                    >
+                      Keep my account
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting || !deleteConfirmed}
+                      className="flex-1 py-3 bg-rose-600 text-white rounded-xl font-bold hover:bg-rose-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {deleting ? "Deleting…" : "Permanently delete my account"}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
                   type="button"
-                  onClick={() => setConfirmingDeactivate(true)}
+                  onClick={() => setConfirmingDelete(true)}
                   className="mt-2 py-3 px-5 border-2 border-rose-200 text-rose-700 rounded-xl font-bold hover:bg-rose-50 cursor-pointer"
                 >
-                  Deactivate account
+                  Delete account
                 </button>
               )}
             </div>

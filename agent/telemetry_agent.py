@@ -141,7 +141,7 @@ async def run(args: argparse.Namespace) -> int:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Send this machine's hardware telemetry to Telemetry Engine.")
+    parser = argparse.ArgumentParser(description="Send this machine's hardware telemetry to Lectio.")
     parser.add_argument("--api", default=os.environ.get("TELEMETRY_API", "http://localhost:8000"),
                         help="API base URL (env TELEMETRY_API)")
     parser.add_argument("--interval", type=float, default=2.0, help="Seconds between snapshots (min 1)")
