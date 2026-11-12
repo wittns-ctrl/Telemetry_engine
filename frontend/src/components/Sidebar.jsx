@@ -1,6 +1,5 @@
 import React from 'react';
 import { 
-  Activity, 
   LayoutDashboard, 
   Database, 
   Radio, 
@@ -12,6 +11,7 @@ import {
   ArrowRight,
   Cpu
 } from 'lucide-react';
+import { LectioMark } from './LectioMark';
 
 // Item ids must match the views rendered in App.jsx.
 export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => {
@@ -34,7 +34,7 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
       {/* Brand */}
       <div className="flex items-center gap-2 px-2 mb-10">
         <div className="w-8 h-8 rounded-full bg-ink-900 flex items-center justify-center text-white">
-          <Activity size={18} strokeWidth={2.5} />
+          <LectioMark size={18} />
         </div>
         <span className="font-bold text-lg text-slate-800 tracking-tight whitespace-nowrap">Lectio</span>
       </div>
@@ -56,7 +56,7 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-white' : 'text-slate-400'} />
+                  <item.icon size={18} className={isActive ? 'text-white' : 'text-slate-400'} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
@@ -84,7 +84,7 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
                     : 'text-slate-500 hover:bg-ink-900/5 hover:text-slate-800'
                 }`}
               >
-                <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className={isActive ? 'text-white' : 'text-slate-400'} />
+                <item.icon size={18} className={isActive ? 'text-white' : 'text-slate-400'} />
                 <span>{item.label}</span>
               </button>
             );
@@ -93,7 +93,7 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
             onClick={onLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors text-slate-500 hover:bg-ink-900/5 hover:text-slate-800 mt-2"
           >
-            <LogOut size={18} strokeWidth={2} className="text-slate-400" />
+            <LogOut size={18} className="text-slate-400" />
             <span>Logout</span>
           </button>
         </nav>
@@ -104,16 +104,6 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout }) => 
         {/* Decorative background shapes */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 blur-2xl rounded-full -mr-10 -mt-10"></div>
         <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-4">
-             <div className="flex -space-x-2">
-                <div className="w-8 h-8 rounded bg-white/10 border border-white/15 flex items-center justify-center">
-                  <Activity size={14} className="text-accent-400" />
-                </div>
-                <div className="w-8 h-8 rounded bg-white/10 border border-white/15 flex items-center justify-center backdrop-blur-sm">
-                   <Server size={14} className="text-accent-400" />
-                </div>
-             </div>
-          </div>
           <h4 className="font-semibold text-sm mb-1">System Status</h4>
           <p className="text-white/70 text-xs mb-4 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-accent-400"></span>All systems operational</p>
           <button className="flex items-center gap-2 text-xs font-medium text-white/75 hover:text-white transition-colors">

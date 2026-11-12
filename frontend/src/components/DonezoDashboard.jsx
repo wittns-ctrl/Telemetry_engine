@@ -4,9 +4,6 @@ import {
   Plus,
   TrendingUp,
   AlertTriangle,
-  Radio,
-  Thermometer,
-  Cpu,
 } from "lucide-react";
 
 const GAUGE_ARC_LENGTH = Math.PI * 40;
@@ -114,9 +111,7 @@ export function DonezoDashboard({
             <span className="text-xs font-semibold text-slate-700">
               Temperature Readings
             </span>
-            <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-700 border border-amber-100">
-              <Thermometer className="w-4 h-4" />
-            </div>
+            <span className="font-mono text-sm font-bold text-amber-700" aria-hidden="true">°C</span>
           </div>
           <div>
             <div className="text-3xl font-black text-slate-900 tracking-tight">
@@ -135,9 +130,7 @@ export function DonezoDashboard({
             <span className="text-xs font-semibold text-slate-700">
               CPU Load Readings
             </span>
-            <div className="w-8 h-8 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-700 border border-cyan-100">
-              <Cpu className="w-4 h-4" />
-            </div>
+            <span className="font-mono text-sm font-bold text-cyan-700" aria-hidden="true">%</span>
           </div>
           <div>
             <div className="text-3xl font-black text-slate-900 tracking-tight">
@@ -156,9 +149,7 @@ export function DonezoDashboard({
             <span className="text-xs font-semibold text-slate-700">
               Network Readings
             </span>
-            <div className="w-8 h-8 rounded-full bg-ink-50 flex items-center justify-center text-ink-700 border border-ink-100">
-              <Radio className="w-4 h-4" />
-            </div>
+            <span className="font-mono text-sm font-bold text-ink-700" aria-hidden="true">MB/s</span>
           </div>
           <div>
             <div className="text-3xl font-black text-slate-900 tracking-tight">
@@ -291,9 +282,7 @@ export function DonezoDashboard({
                   className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100 last:border-0 last:pb-0"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center shrink-0">
-                      <AlertTriangle className="w-4 h-4 text-rose-600" />
-                    </div>
+                    <span className="w-1 h-8 rounded-full bg-rose-500 shrink-0" aria-hidden="true" />
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-slate-900 font-mono truncate">
                         {alert.sensor_id || "unknown sensor"}

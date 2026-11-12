@@ -432,7 +432,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-cascade.is-static { height: auto; }
 .lp-cascade.is-static .lp-cascade-pin { position: static; height: auto; overflow: visible; gap: 28px; padding-top: 0; }
 .lp-cascade.is-static .lp-stack-card { grid-area: auto; }
-.lp-chip { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; background: #fff; color: var(--ink); box-shadow: 0 0 0 1px rgba(28, 28, 31, 0.08); margin-bottom: 30px; }
+.lp-chip { width: fit-content; height: 30px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; background: #fff; color: var(--ink); box-shadow: 0 0 0 1px rgba(28, 28, 31, 0.08); margin-bottom: 30px; }
 .lp-stack-card h3 { font-weight: 500; font-size: clamp(22px, 2.6vw, 32px); letter-spacing: -0.03em; line-height: 1.1; }
 .lp-stack-card p { margin-top: 16px; color: var(--fg-soft); font-size: 15.5px; line-height: 1.55; max-width: 38ch; }
 .lp-stack-visual { min-width: 0; }
@@ -449,7 +449,9 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-alert-row em { font-style: normal; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--lime); color: var(--ink); }
 .lp-lock { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
 .lp-lock-ring { flex-basis: 100%; display: grid; place-items: center; margin-bottom: 8px; }
-.lp-lock-ring svg { width: 96px; height: 96px; padding: 28px; border-radius: 999px; color: #fff; background: linear-gradient(160deg, #3a3a40, #121214); box-shadow: 0 0 0 10px rgba(28, 28, 31, 0.06), 0 0 0 22px rgba(28, 28, 31, 0.035); }
+.lp-lock-who { display: inline-flex; align-items: center; gap: 12px; padding: 8px 20px 8px 8px; border-radius: 999px; color: #fff; background: linear-gradient(160deg, #3a3a40, #121214); box-shadow: 0 0 0 10px rgba(28, 28, 31, 0.06), 0 0 0 22px rgba(28, 28, 31, 0.035); }
+.lp-lock-who span { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--lime); color: var(--ink); }
+.lp-lock-who b { font-size: 15px; font-weight: 600; }
 .lp-lock span { font-size: 13px; padding: 7px 14px; border-radius: 999px; background: #fff; box-shadow: 0 0 0 1px rgba(28, 28, 31, 0.08); }
 
 /* ---------- features: what plays inside each card once it lands ---------- */
@@ -473,8 +475,8 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 
 /* lock: the shield pops in, then the tags drop into place */
 .lp-lock-ring { position: relative; }
-.lp-lock-ring svg { position: relative; transform: scale(0.4); opacity: 0; transition: transform 0.15s, opacity 0.15s; }
-.is-landed .lp-lock-ring svg { transform: none; opacity: 1; transition: transform 0.8s var(--spring) 0.1s, opacity 0.3s var(--ease) 0.1s; }
+.lp-lock-who { position: relative; transform: scale(0.4); opacity: 0; transition: transform 0.15s, opacity 0.15s; }
+.is-landed .lp-lock-who { transform: none; opacity: 1; transition: transform 0.8s var(--spring) 0.1s, opacity 0.3s var(--ease) 0.1s; }
 .lp-lock .lp-lock-tag { opacity: 0; transform: translate3d(0, -16px, 0) scale(0.9); transition: opacity 0.15s, transform 0.15s; }
 .is-landed .lp-lock-tag {
   opacity: 1; transform: none;
@@ -482,7 +484,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lp-stack-card .lp-chip, .lp-alert-row, .lp-lock-ring svg, .lp-lock .lp-lock-tag { transition: none; }
+  .lp-stack-card .lp-chip, .lp-alert-row, .lp-lock-who, .lp-lock .lp-lock-tag { transition: none; }
 }
 
 /* ---------- steps: a plain row of four cards ---------- */
@@ -506,8 +508,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 }
 .lp-step:hover { transform: translateY(-6px); box-shadow: 0 30px 44px -30px rgba(20, 20, 22, 0.45); }
 .lp-step-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: auto; padding-bottom: 28px; }
-.lp-step-n { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; font-size: 14px; font-weight: 600; background: #fff; box-shadow: 0 0 0 1px rgba(28, 28, 31, 0.08); }
-.lp-step-ic { width: 58px; height: 58px; border-radius: 18px; display: grid; place-items: center; background: var(--ink); color: var(--lime); }
+.lp-step-n { padding: 0 0.06em; font-size: 48px; font-weight: 600; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
 .lp-step h3 { font-size: 21px; font-weight: 500; letter-spacing: -0.02em; }
 .lp-step p { margin-top: 8px; font-size: 14.5px; line-height: 1.5; color: var(--fg-soft); }
 
@@ -567,9 +568,12 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-faq-grid { max-width: var(--max); margin: 0 auto; display: grid; grid-template-columns: 0.56fr 1fr; gap: clamp(20px, 3.4vw, 44px); align-items: start; }
 .lp-help { position: sticky; top: 100px; display: grid; gap: 16px; justify-items: start; }
 .lp-help-art {
-  width: 100%; aspect-ratio: 16 / 10; border-radius: 22px 22px 0 0; display: grid; place-items: center; color: #fff;
+  width: 100%; aspect-ratio: 16 / 10; border-radius: 22px 22px 0 0; display: grid; align-content: center; gap: 10px;
+  margin: 0; padding: 26px 26px 40px; list-style: none; counter-reset: help; color: #fff;
   background: radial-gradient(70% 90% at 30% 10%, rgba(255, 255, 255, 0.2), transparent 60%), linear-gradient(160deg, #3a3a40, #0e0e10);
 }
+.lp-help-art li { counter-increment: help; display: flex; align-items: center; gap: 12px; font-size: 14.5px; font-weight: 500; }
+.lp-help-art li::before { content: counter(help, decimal-leading-zero); font-size: 12px; font-weight: 600; color: var(--lime); font-variant-numeric: tabular-nums; }
 .lp-help-text { width: 100%; margin-top: -16px; padding: 20px 22px; border-radius: 0 0 22px 22px; background: var(--tile); }
 .lp-help-text h3 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
 .lp-help-text span { font-size: 13.5px; color: var(--fg-soft); }
@@ -735,7 +739,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
   .is-in .lp-capsule { animation: none; }
   .lp-wordmark span { transform: translate3d(0, 6%, 0); transition: none; }
   .lp-wordmark.is-in span, .lp-wordmark span::before, .lp-wordmark span::after, .lp-footer-orbs i { animation: none; }
-  .lp-chrome, .lp-hero-copy > *, .ph-tilt, .ph-crop .ph, .ph-dot, .lp-help-art svg { animation: none; }
+  .lp-chrome, .lp-hero-copy > *, .ph-tilt, .ph-crop .ph, .ph-dot { animation: none; }
   .lp-lens.is-ready, .lp-dock-ic, .lp-dock-label, .lp-brand-name { transition: none; }
   .lp-tile .ph-line, .ph-line { stroke-dashoffset: 0; animation: none; }
   .lp-tile { animation: none; }
@@ -774,13 +778,11 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .lp-chip { transition: background 0.3s var(--ease), transform 0.4s var(--spring); }
 .lp-stack-card:hover .lp-chip { background: var(--lime); }
 .lp-step-n { transition: background 0.3s var(--ease); }
-.lp-step:hover .lp-step-n { background: var(--lime); }
-.lp-lock-ring svg { color: var(--lime); }
+.lp-step:hover .lp-step-n { background: linear-gradient(transparent 62%, var(--lime) 62%); }
 
 /* charcoal band and footer: lime reads well on dark */
 .lp-band .lp-kicker { color: var(--lime); }
 .lp-footer-row a:hover { color: var(--lime); }
-.lp-help-art svg { color: var(--lime); }
 
 /* FAQ: the open question is marked */
 .lp-faq-n { padding: 3px 8px; border-radius: 999px; transition: background 0.3s var(--ease), color 0.3s var(--ease); }

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Sparkles, BookOpen, Loader2, RefreshCw, Clock } from "lucide-react";
+import { Stethoscope, BookOpen, Loader2, RefreshCw, Clock } from "lucide-react";
 
 const URGENCY = {
   IMMEDIATE_ACTION_REQUIRED: { label: "Act now", style: "bg-red-100 text-red-800 border-red-200" },
@@ -69,7 +69,7 @@ export function DiagnosisPanel({ state, onRetry }) {
           {urgency.label}
         </span>
         <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-          {isAI ? <Sparkles size={12} /> : <BookOpen size={12} />}
+          {isAI ? <Stethoscope size={12} /> : <BookOpen size={12} />}
           {isAI ? "AI diagnosis" : "Built-in troubleshooting guide"}
         </span>
       </div>

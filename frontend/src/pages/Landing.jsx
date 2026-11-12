@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Activity, AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, BellRing, ChevronDown, CircleHelp, Cpu, Download,
-  HardDrive, House, LifeBuoy, MemoryStick, MonitorSmartphone, MoreHorizontal, Radio, ShieldCheck, Sparkles,
-  Thermometer, UserPlus, Workflow, Zap, Layers,
+  AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, CircleHelp, Cpu,
+  HardDrive, House, LayoutGrid, MemoryStick, MonitorSmartphone, MoreHorizontal, Radio, Stethoscope,
+  Thermometer, Workflow, Zap,
 } from 'lucide-react';
 import { SITE } from '../siteInfo';
+import { LectioMark } from '../components/LectioMark';
 import './landing.css';
 
 /* ------------------------------------------------------------------ */
@@ -76,7 +77,7 @@ function DashboardPreview() {
   return (
     <div className="pv" aria-hidden="true">
       <aside className="pv-side">
-        <div className="pv-brand"><span className="pv-logo"><Layers size="1em" /></span>Lectio</div>
+        <div className="pv-brand"><span className="pv-logo"><LectioMark size="1em" /></span>Lectio</div>
         {PREVIEW_NAV.map((n, i) => (
           <div key={n} className={`pv-nav ${i === 0 ? 'is-on' : ''}`}>{n}</div>
         ))}
@@ -294,7 +295,7 @@ function useLandingMotion(rootRef) {
 /* ------------------------------------------------------------------ */
 const NAV_ITEMS = [
   { id: 'home', label: 'Home', icon: House },
-  { id: 'features', label: 'Features', icon: Sparkles },
+  { id: 'features', label: 'Features', icon: LayoutGrid },
   { id: 'steps', label: 'How it works', short: 'Steps', icon: Workflow },
   { id: 'faq', label: 'FAQ', icon: CircleHelp },
 ];
@@ -349,7 +350,7 @@ function LiquidNav() {
   return (
     <header className="lp-chrome" data-chrome>
       <a className="lp-brand" href="#home" onClick={() => go('home')} aria-label="Lectio home">
-        <span className="lp-brand-mark"><Activity size={18} strokeWidth={2.6} /></span>
+        <span className="lp-brand-mark"><LectioMark size={20} /></span>
         <span className="lp-brand-name">Lectio</span>
       </a>
 
@@ -366,7 +367,7 @@ function LiquidNav() {
             aria-current={active === it.id ? 'true' : undefined}
             onClick={() => go(it.id)}
           >
-            <it.icon className="lp-dock-ic" size={21} strokeWidth={2.1} />
+            <it.icon className="lp-dock-ic" size={21} />
             <span className="lp-dock-label">
               <span className="lp-dock-long">{it.label}</span>
               <span className="lp-dock-short">{it.short || it.label}</span>
@@ -392,25 +393,25 @@ function LiquidNav() {
 // (see DevicesView, DiagnosisPanel and the anomaly engine's limits in app/core/config.py).
 const STACK = [
   {
-    icon: Activity,
+    tag: 'Sensors',
     title: 'See every part of your PC',
     body: 'CPU and GPU temperature and load, memory, power-supply voltage, and drive space and health, live in one place.',
     visual: 'sensors',
   },
   {
-    icon: AlertTriangle,
+    tag: 'Alerts',
     title: 'Warned before it becomes a problem',
     body: 'Every reading is checked against a safe limit as it arrives. If one is crossed, the alert shows up in Lectio straight away.',
     visual: 'alerts',
   },
   {
-    icon: Sparkles,
+    tag: 'Diagnosis',
     title: 'Told what to do about it',
     body: 'Open an alert and get a diagnosis in plain words: the likely cause, how urgent it is, and the steps to fix it. It is written by AI, so treat it as a suggestion.',
     visual: 'diagnosis',
   },
   {
-    icon: ShieldCheck,
+    tag: 'Privacy',
     title: 'Private to your account',
     body: 'Only you can see your PCs and readings. Sign in with email or Google, and delete everything whenever you like.',
     visual: 'lock',
@@ -418,11 +419,11 @@ const STACK = [
 ];
 
 const STEPS = [
-  { icon: UserPlus, title: 'Create your free account', body: 'Sign up with email or Google. No credit card.' },
-  { icon: Download, title: 'Install the agent', body: 'Run the Lectio agent on your Windows 10 or 11 PC and sign in once. Your PC adds itself.' },
-  { icon: Activity, title: 'Watch it live', body: 'Temperatures, load and memory stream to your dashboard as they happen.' },
-  { icon: BellRing, title: 'Get warned', body: 'If a reading crosses a safe limit, an alert shows up in Lectio right away.' },
-  { icon: Sparkles, title: 'Find out why', body: 'Open the alert under My Devices and press Diagnose for the likely cause and step-by-step fixes.' },
+  { title: 'Create your free account', body: 'Sign up with email or Google. No credit card.' },
+  { title: 'Install the agent', body: 'Run the Lectio agent on your Windows 10 or 11 PC and sign in once. Your PC adds itself.' },
+  { title: 'Watch it live', body: 'Temperatures, load and memory stream to your dashboard as they happen.' },
+  { title: 'Get warned', body: 'If a reading crosses a safe limit, an alert shows up in Lectio right away.' },
+  { title: 'Find out why', body: 'Open the alert under My Devices and press Diagnose for the likely cause and step-by-step fixes.' },
 ];
 
 // The vital signs on the dark band.
@@ -504,7 +505,7 @@ function StackVisual({ kind }) {
       <div className="lp-alerts">
         {DIAGNOSIS_ROWS.map(([title, sub, tag], n) => (
           <div key={title} className="lp-alert-row lp-sensor-row" style={{ '--n': n }}>
-            <span>{n === 0 ? <Sparkles size={14} /> : n}</span>
+            <span>{n === 0 ? <Stethoscope size={14} /> : n}</span>
             <div><b>{title}</b><i>{sub}</i></div>
             <em>{tag}</em>
           </div>
@@ -528,7 +529,7 @@ function StackVisual({ kind }) {
   return (
     <div className="lp-lock">
       <div className="lp-lock-ring">
-        <ShieldCheck size={34} strokeWidth={1.6} />
+        <div className="lp-lock-who"><span>You</span><b>Only you can see</b></div>
       </div>
       {['Your devices', 'Your readings', 'Your alerts'].map((t, n) => (
         <span key={t} className="lp-lock-tag" style={{ '--n': n }}>{t}</span>
@@ -672,7 +673,7 @@ export default function Landing() {
           {STACK.map((c, i) => (
             <article key={c.title} className="lp-stack-card" data-cascade-card style={{ '--i': i }}>
               <div className="lp-stack-copy">
-                <span className="lp-chip"><c.icon size={18} /></span>
+                <span className="lp-chip">{c.tag}</span>
                 <h3>{c.title}</h3>
                 <p>{c.body}</p>
               </div>
@@ -696,8 +697,7 @@ export default function Landing() {
               {STEPS.map((s, i) => (
                 <li key={s.title} className="lp-step">
                   <div className="lp-step-top">
-                    <span className="lp-step-n">{i + 1}</span>
-                    <span className="lp-step-ic" aria-hidden="true"><s.icon size={26} strokeWidth={1.8} /></span>
+                    <span className="lp-step-n">{String(i + 1).padStart(2, '0')}</span>
                   </div>
                   <h3>{s.title}</h3>
                   <p>{s.body}</p>
@@ -732,7 +732,9 @@ export default function Landing() {
         </div>
         <div className="lp-faq-grid">
           <aside className="lp-help">
-            <div className="lp-help-art"><LifeBuoy size={64} strokeWidth={1.3} /></div>
+            <ol className="lp-help-art">
+              {['Monitor a computer', 'Send a metric by hand', 'Watch readings live', 'Manage your account'].map((t) => <li key={t}>{t}</li>)}
+            </ol>
             <div className="lp-help-text">
               <h3>Built-in help</h3>
               <span>Step-by-step guides inside the app</span>

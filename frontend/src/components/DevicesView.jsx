@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Cpu, MonitorSmartphone, RefreshCw, AlertTriangle, HardDrive, Zap, MemoryStick, Wifi, WifiOff, Sparkles, ChevronUp } from "lucide-react";
+import { Cpu, MonitorSmartphone, RefreshCw, AlertTriangle, HardDrive, Zap, MemoryStick, Wifi, WifiOff, Stethoscope, ChevronUp } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import {
   API_BASE,
@@ -369,7 +369,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
                     aria-expanded={!!openDiagnoses[a.id]}
                     className="flex-none inline-flex items-center gap-1 rounded-lg bg-white/80 border border-current/20 px-2 py-1 text-xs font-medium hover:bg-white"
                   >
-                    {openDiagnoses[a.id] ? <ChevronUp size={12} /> : <Sparkles size={12} />}
+                    {openDiagnoses[a.id] ? <ChevronUp size={12} /> : <Stethoscope size={12} />}
                     {openDiagnoses[a.id] ? "Hide diagnosis" : "Diagnose"}
                   </button>
                 </div>

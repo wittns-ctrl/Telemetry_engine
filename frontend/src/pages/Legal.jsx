@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import { LectioMark } from '../components/LectioMark';
 import { SITE } from '../siteInfo';
 import './legal.css';
 
@@ -31,7 +32,7 @@ function LegalPage({ title, intro, children }) {
     <div className="lg">
       <header className="lg-top">
         <Link className="lg-brand" to="/" aria-label="Lectio home">
-          <span className="lg-brand-mark"><Activity size={16} strokeWidth={2.6} /></span>
+          <span className="lg-brand-mark"><LectioMark size={18} /></span>
           Lectio
         </Link>
         <Link className="lg-back" to="/"><ArrowLeft size={15} /> Back to home</Link>

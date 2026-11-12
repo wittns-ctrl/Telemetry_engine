@@ -1,32 +1,28 @@
 import React from "react";
-import { Cpu, Database, Radio, AlertTriangle, Settings } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { API_BASE } from "../services/api";
 
 const TOPICS = [
   {
     id: "devices",
-    icon: Cpu,
     title: "Monitor a computer",
     body: "Run the telemetry agent on the machine you want to watch. It signs in once, registers the machine, and then sends hardware readings every few seconds. The machine appears under My Devices.",
     action: "Open My Devices",
   },
   {
     id: "metrics",
-    icon: Database,
     title: "Send a metric by hand",
     body: "Metrics Studio lets you submit a single temperature, CPU or network reading and browse the readings already stored for your account.",
     action: "Open Metrics Studio",
   },
   {
     id: "live",
-    icon: Radio,
     title: "Watch readings live",
     body: "Live Stream charts readings as they arrive and lists alerts in real time. The simulator on that page sends random test readings to your own account so you can try the charts and alerts without a device.",
     action: "Open Live Stream",
   },
   {
     id: "settings",
-    icon: Settings,
     title: "Manage your account",
     body: "Change your name or password, resend the verification email, or permanently delete your account from Settings.",
     action: "Open Settings",
@@ -49,12 +45,7 @@ export function HelpView({ onNavigate }) {
             key={topic.id}
             className="glass rounded-3xl p-6 shadow-2xs flex flex-col"
           >
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-9 h-9 rounded-2xl bg-ink-50 border border-ink-100 flex items-center justify-center text-[#1c1c1f]">
-                <topic.icon className="w-4 h-4" />
-              </div>
-              <h2 className="text-sm font-bold text-slate-900">{topic.title}</h2>
-            </div>
+            <h2 className="text-sm font-bold text-slate-900 mb-3">{topic.title}</h2>
             <p className="text-xs text-slate-600 leading-relaxed flex-1">{topic.body}</p>
             <button
               type="button"

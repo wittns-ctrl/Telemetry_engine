@@ -8,6 +8,7 @@ import {
   Database,
   Cloud,
 } from "lucide-react";
+import { LectioMark } from "./LectioMark";
 
 // ── Left Brand Panel with Telemetry Illustration ─────────────────────────────
 export function BrandPanel() {
@@ -20,8 +21,8 @@ export function BrandPanel() {
 
       {/* Logo positioned at top-left */}
       <div className="flex items-center gap-2 mt-5 ml-6 relative z-10">
-        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
-          <div className="w-3.5 h-3.5 border-2 border-white rounded-full" />
+        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20 text-white">
+          <LectioMark size={18} />
         </div>
         <span className="font-bold text-white text-base tracking-tight">Lectio</span>
       </div>
@@ -68,8 +69,8 @@ export function MobileBrandHeader() {
   return (
     <div className="lg:hidden flex flex-col items-center justify-center bg-[#1c1c1f] p-4 rounded-t-3xl">
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
-          <div className="w-3 h-3 border-2 border-white rounded-full" />
+        <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center border border-white/20 text-white">
+          <LectioMark size={16} />
         </div>
         <span className="font-bold text-white text-sm tracking-tight">Lectio</span>
       </div>

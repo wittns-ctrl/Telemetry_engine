@@ -10,13 +10,14 @@ import {
   X,
   Check,
 } from "lucide-react";
+import { LectioMark } from "./LectioMark";
 import { loginUser, signupUser, forgotPassword, startGoogleSignIn } from "../services/api";
 
 function Logo() {
   return (
     <div className="flex items-center gap-2 mb-6">
-      <div className="w-8 h-8 rounded-full bg-[#1c1c1f] flex items-center justify-center">
-        <div className="w-3.5 h-3.5 border-2 border-white rounded-full" />
+      <div className="w-8 h-8 rounded-full bg-[#1c1c1f] flex items-center justify-center text-white">
+        <LectioMark size={18} />
       </div>
       <span className="font-bold text-slate-900 text-base tracking-tight">Lectio</span>
     </div>
