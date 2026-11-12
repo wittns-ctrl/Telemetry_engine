@@ -675,7 +675,7 @@ export default function Landing() {
           {STACK.map((c, i) => (
             <article key={c.title} className="lp-stack-card" data-cascade-card style={{ '--i': i }}>
               <div className="lp-stack-copy">
-                <span className="lp-chip">{c.tag}</span>
+                <span className={`lp-chip${c.visual === 'alerts' ? ' is-critical' : ''}`}>{c.tag}</span>
                 <h3>{c.title}</h3>
                 <p>{c.body}</p>
               </div>
