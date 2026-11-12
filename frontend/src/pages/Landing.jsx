@@ -471,7 +471,6 @@ const SENSOR_ROWS = [
   { icon: HardDrive, name: 'Drive C:', value: '96% health' },
 ];
 
-// Sample alerts, using the app's real default limits.
 // Sample report for the diagnosis card: the cause, then numbered steps.
 const DIAGNOSIS_ROWS = [
   ['Likely cause', 'Dust in the CPU cooler', 'Act now'],
@@ -480,10 +479,12 @@ const DIAGNOSIS_ROWS = [
   ['Close heavy background apps', 'Software', '~10 min'],
 ];
 
+// Sample alerts, using the app's real default limits. `fill` and `limit` place the
+// reading and the limit on each row's bar (as % of a sensible range for that sensor).
 const ALERT_ROWS = [
-  ['CPU temperature', 'Gaming PC · 96°C, limit 90°C'],
-  ['Power supply 12V', 'Office PC · 11.2 V, below 11.4 V'],
-  ['Drive health', 'Gaming PC · 8% left, below 10%'],
+  { icon: Thermometer, name: 'CPU temperature', device: 'Gaming PC', value: '96°C', limitText: 'limit 90°C', fill: 87, limit: 82 },
+  { icon: Zap, name: 'Power supply 12V', device: 'Office PC', value: '11.2 V', limitText: 'min 11.4 V', fill: 48, limit: 56 },
+  { icon: HardDrive, name: 'Drive health', device: 'Gaming PC', value: '8%', limitText: 'min 10%', fill: 8, limit: 10 },
 ];
 
 function StackVisual({ kind }) {
@@ -516,11 +517,12 @@ function StackVisual({ kind }) {
   if (kind === 'alerts') {
     return (
       <div className="lp-alerts">
-        {ALERT_ROWS.map(([s, m], n) => (
-          <div key={s} className="lp-alert-row is-critical" style={{ '--n': n }}>
-            <span><AlertTriangle size={14} /></span>
-            <div><b>{s}</b><i>{m}</i></div>
-            <em>CRITICAL</em>
+        {ALERT_ROWS.map((r, n) => (
+          <div key={r.name} className="lp-alert-row lp-reading-row is-critical" style={{ '--n': n }}>
+            <span><r.icon size={15} /></span>
+            <div><b>{r.name}</b><i>{r.device}</i></div>
+            <strong>{r.value}<small>{r.limitText}</small></strong>
+            <div className="lp-reading-bar" style={{ '--fill': `${r.fill}%`, '--limit': `${r.limit}%` }} aria-hidden="true" />
           </div>
         ))}
       </div>
