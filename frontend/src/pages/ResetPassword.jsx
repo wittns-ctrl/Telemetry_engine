@@ -1,25 +1,24 @@
 import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
-import { AuthPageLayout, ErrorBanner, SuccessBanner } from "../components/AuthLayout";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { AuthPageLayout, AuthHeading, PasswordField, ErrorBanner, SuccessBanner, u } from "../components/AuthLayout";
 import { resetPassword } from "../services/api";
+import art from "../assets/auth/reset-password.png";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
-  
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validation
     if (!token) return setErrorMsg("Missing or invalid password reset token. Please request a new link.");
     if (!newPassword) return setErrorMsg("Please enter a new password.");
@@ -28,11 +27,11 @@ export default function ResetPassword() {
     if (!/[a-z]/.test(newPassword)) return setErrorMsg("Password must contain at least one lowercase letter.");
     if (!/\d/.test(newPassword)) return setErrorMsg("Password must contain at least one digit.");
     if (newPassword !== confirmPassword) return setErrorMsg("Passwords do not match.");
-    
+
     setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
-    
+
     try {
       const res = await resetPassword(token, newPassword, confirmPassword);
       setSuccessMsg(res.message || "Your password has been successfully reset. You can now sign in with your new password.");
@@ -46,82 +45,26 @@ export default function ResetPassword() {
   };
 
   return (
-    <AuthPageLayout>
-      <div className="text-center mb-5">
-        <h1 className="text-[24px] font-bold text-slate-900 mb-1.5">Reset Password</h1>
-        <p className="text-xs text-slate-500">
-          Enter your new password below to reset your account.
-        </p>
-      </div>
-      
+    <AuthPageLayout image={art} small width={486} imageWidth={218} padX={25}>
+      <AuthHeading icon="lock" title="Create new password">Enter your new password below.</AuthHeading>
+
       <ErrorBanner msg={errorMsg} />
       <SuccessBanner msg={successMsg} />
-      
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">New password</label>
-          <div className="relative">
-            <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type={showPassword ? "text" : "password"}
-              required 
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              placeholder="Enter your new password"
-              className="w-full glass rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
-            />
-            <button 
-              type="button" 
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1.5">Password must be at least <span className="text-[#1c1c1f] font-semibold">8 characters</span></p>
-        </div>
-        
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">Confirm new password</label>
-          <div className="relative">
-            <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type={showConfirmPassword ? "text" : "password"}
-              required 
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your new password"
-              className="w-full glass rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
-            />
-            <button 
-              type="button" 
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        </div>
-        
-        <button 
-          type="submit" 
-          disabled={loading}
-          className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#1c1c1f]/20 active:scale-[0.98]"
-        >
-          {loading ? "Resetting..." : "Reset Password"}
+
+      <form onSubmit={handleSubmit} className="au-form">
+        <PasswordField style={{ marginTop: u(24.5), height: u(34) }} required autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New password" />
+        <PasswordField style={{ marginTop: u(15), height: u(34) }} required autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Confirm password" />
+        <button type="submit" disabled={loading} className="au-btn" style={{ marginTop: u(20) }}>
+          {loading ? "Resetting…" : "Reset Password"} <ArrowRight aria-hidden="true" />
         </button>
       </form>
-      
-      <p className="text-center text-xs text-slate-500 mt-4">
-        <button 
-          type="button" 
-          onClick={() => navigate("/signin")}
-          className="flex items-center justify-center gap-1.5 text-[#1c1c1f] font-semibold hover:underline mx-auto"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Back to sign in
+
+      {/* The design has no link here; it appears once the password is changed, as the way onward. */}
+      {successMsg && (
+        <button type="button" onClick={() => navigate("/signin")} className="au-link au-back" style={{ marginTop: u(18) }}>
+          <ArrowLeft aria-hidden="true" />Back to Sign In
         </button>
-      </p>
+      )}
     </AuthPageLayout>
   );
 }

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Mail, ArrowLeft, RefreshCw, CheckCircle2 } from "lucide-react";
-import { AuthPageLayout, ErrorBanner, SuccessBanner } from "../components/AuthLayout";
+import { Check } from "lucide-react";
+import { AuthPageLayout, ErrorBanner, SuccessBanner, u } from "../components/AuthLayout";
 import { verifyEmail, resendVerification } from "../services/api";
+import art from "../assets/auth/verify-email.png";
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -14,8 +15,6 @@ export default function VerifyEmail() {
   const [verifying, setVerifying] = useState(Boolean(token));
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
-  
-  const userEmail = emailParam || "your registered email address";
 
   useEffect(() => {
     if (token) {
@@ -35,14 +34,10 @@ export default function VerifyEmail() {
   }, [token]);
 
   const handleResend = async () => {
-    if (!emailParam) {
-      setErrorMsg("Please provide your email address to resend verification.");
-      return;
-    }
     setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
-    
+
     try {
       const res = await resendVerification(emailParam);
       setSuccessMsg(res.message || "Verification email has been resent. Please check your inbox.");
@@ -53,61 +48,36 @@ export default function VerifyEmail() {
     }
   };
 
+  // Without a token this is the "we emailed you" page; with one, the page the emailed link opens.
+  let title = "Verification Email Sent";
+  let body = <>Please check your inbox and<br />click the link to verify your account.</>;
+  if (token) {
+    title = verifying ? "Verifying your email…" : errorMsg ? "Verification failed" : "Email Verified";
+    body = verifying ? "This only takes a moment." : errorMsg ? "Ask for a new link and try again." : "Your account is ready to use.";
+  }
+
   return (
-    <AuthPageLayout>
-      <div className="flex flex-col items-center mb-5">
-        {/* Email verification illustration */}
-        <div className="w-20 h-20 rounded-full bg-ink-100 flex items-center justify-center mb-4">
-          <Mail className="w-10 h-10 text-[#1c1c1f]" />
-        </div>
-        
-        <h1 className="text-[24px] font-bold text-slate-900 mb-1.5 text-center">Verify your email</h1>
-        <p className="text-xs text-slate-500 text-center max-w-xs">
-          We've sent a verification link to <span className="font-semibold text-slate-700">{userEmail}</span>. 
-          Please check your inbox and click the link to verify your account.
-        </p>
-      </div>
-      
+    <AuthPageLayout image={art} small width={500} imageWidth={248} padX={25.5} padTop={56}>
+      <div className="au-halo"><span><Check aria-hidden="true" /></span></div>
+      <h1 className="au-title" style={{ marginTop: u(15), fontSize: u(16.5) }}>{title}</h1>
+      <p className="au-sub" style={{ marginTop: u(19.5), fontSize: u(10.7), lineHeight: u(16.5) }}>{body}</p>
+
       <ErrorBanner msg={errorMsg} />
       <SuccessBanner msg={successMsg} />
-      
-      <div className="space-y-3 w-full">
-        <button 
-          type="button"
-          onClick={handleResend}
-          disabled={loading}
-          className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#1c1c1f]/20 active:scale-[0.98] flex items-center justify-center gap-2"
-        >
-          {loading ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin" />
-              Sending...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="w-4 h-4" />
-              Resend verification email
-            </>
-          )}
-        </button>
-        
-        <p className="text-center text-xs text-slate-500 mt-4">
-          <button 
-            type="button" 
-            onClick={() => navigate("/signin")}
-            className="flex items-center justify-center gap-1.5 text-[#1c1c1f] font-semibold hover:underline mx-auto"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back to sign in
+
+      <button type="button" onClick={() => navigate("/signin")} className="au-soft" style={{ marginTop: u(54.5) }}>
+        Back to Sign In
+      </button>
+
+      {/* Not in the design: resending needs the address, which only the post-sign-up link carries. */}
+      {emailParam && (
+        <p className="au-foot" style={{ marginTop: u(14) }}>
+          Didn't get it?{" "}
+          <button type="button" onClick={handleResend} disabled={loading} className="au-link">
+            {loading ? "Sending…" : "Resend email"}
           </button>
         </p>
-      </div>
-      
-      <div className="mt-6 text-center">
-        <p className="text-[11px] text-slate-400">
-          Didn't receive the email? Check your spam folder or request a new link.
-        </p>
-      </div>
+      )}
     </AuthPageLayout>
   );
 }

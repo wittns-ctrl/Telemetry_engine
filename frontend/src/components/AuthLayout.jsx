@@ -1,299 +1,119 @@
-import React from "react";
-import {
-  Activity,
-  BarChart3,
-  Bell,
-  Cpu,
-  Server,
-  Database,
-  Cloud,
-} from "lucide-react";
-import { LectioMark } from "./LectioMark";
+import React, { useState } from "react";
+import { Eye, EyeOff, LockKeyhole } from "lucide-react";
+import "./auth.css";
 
-// ── Left Brand Panel with Telemetry Illustration ─────────────────────────────
-export function BrandPanel() {
+// n pixels of the design mock-up, scaled with the card. See auth.css.
+export const u = (n) => `calc(${n} * var(--u))`;
+
+// ── Page: picture on the left, form panel on the right ───────────────────────
+// width, imageWidth, padTop and padX are in mock-up pixels.
+export function AuthPageLayout({ image, width, imageWidth, padX, padTop, small = false, footnote, children }) {
+  const vars = {
+    "--w": width,
+    "--l": imageWidth,
+    "--h": small ? 396 : 541,
+    "--pt": padTop ?? (small ? 46 : 40),
+    "--px": padX,
+  };
   return (
-    <div className="hidden lg:flex flex-col bg-[#1c1c1f] relative overflow-hidden w-1/2 rounded-l-3xl">
-      {/* Background decorative elements */}
-      <div className="absolute w-80 h-80 rounded-full bg-white/5 -top-16 -right-16" />
-      <div className="absolute w-56 h-56 rounded-full bg-white/5 bottom-8 -left-12" />
-      <div className="absolute w-32 h-32 rounded-full bg-ink-400/10 top-1/2 right-6" />
-
-      {/* Logo positioned at top-left */}
-      <div className="flex items-center gap-2 mt-5 ml-6 relative z-10">
-        <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20 text-white">
-          <LectioMark size={18} />
-        </div>
-        <span className="font-bold text-white text-base tracking-tight">Lectio</span>
-      </div>
-
-      {/* Main heading and description */}
-      <div className="mt-8 ml-6 mr-6 relative z-10">
-        <h2 className="text-white font-bold text-[26px] leading-tight mb-3">
-          Real-time telemetry.<br />Smarter decisions.
-        </h2>
-        <p className="text-white/70 text-sm leading-relaxed max-w-sm">
-          Monitor, ingest, and analyze your telemetry<br />streams in real time.
-        </p>
-      </div>
-
-      {/* Telemetry Illustration */}
-      <div className="flex-1 flex items-center justify-center p-5 relative z-10">
-        <TelemetryIllustration />
-      </div>
-
-      {/* Feature highlights at bottom */}
-      <div className="grid grid-cols-3 gap-3 p-6 relative z-10">
-        <FeatureItem 
-          icon={<Activity className="w-4 h-4" />} 
-          title="Real-time Monitoring" 
-          description="Track everything as it happens." 
-        />
-        <FeatureItem 
-          icon={<BarChart3 className="w-4 h-4" />} 
-          title="Powerful Analytics" 
-          description="Visualize and analyze data." 
-        />
-        <FeatureItem 
-          icon={<Bell className="w-4 h-4" />} 
-          title="Instant Alerts" 
-          description="Get notified instantly." 
-        />
+    <div className="au">
+      <div className="au-wrap">
+        <main className={`au-card${small ? " au-sm" : ""}`} style={vars}>
+          <div className="au-art"><img src={image} alt="" /></div>
+          <div className="au-panel">{children}</div>
+        </main>
+        {footnote && <p className="au-foot au-footnote">{footnote}</p>}
       </div>
     </div>
   );
 }
 
-// ── Mobile Brand Header (shown on mobile/tablet) ───────────────────────────────
-export function MobileBrandHeader() {
+// ── Icon tile, title and one line of help text ───────────────────────────────
+const greenFill = (
+  <defs>
+    <linearGradient id="au-green" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stopColor="#3c9a45" />
+      <stop offset="1" stopColor="#0f5917" />
+    </linearGradient>
+  </defs>
+);
+
+const TILE_ICONS = {
+  star: <path fill="url(#au-green)" d="M12 1.5C12.9 7.2 16.8 11.1 22.5 12 16.8 12.9 12.9 16.8 12 22.5 11.1 16.8 7.2 12.9 1.5 12 7.2 11.1 11.1 7.2 12 1.5Z" />,
+  mail: (
+    <>
+      <rect x="2" y="5" width="20" height="14.5" rx="2.6" fill="url(#au-green)" />
+      <path d="M4 7.6l8 5.6 8-5.6" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
+  lock: (
+    <>
+      <path d="M7.6 11V8a4.4 4.4 0 0 1 8.8 0v3" fill="none" stroke="url(#au-green)" strokeWidth="2.6" />
+      <rect x="4.5" y="10" width="15" height="11.5" rx="2.8" fill="url(#au-green)" />
+      <path d="M12 13.6l1.7 1.9h-1.1v2.6h-1.2v-2.6h-1.1z" fill="#fff" />
+    </>
+  ),
+};
+
+export function AuthHeading({ icon = "star", title, children }) {
   return (
-    <div className="lg:hidden flex flex-col items-center justify-center bg-[#1c1c1f] p-4 rounded-t-3xl">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center border border-white/20 text-white">
-          <LectioMark size={16} />
-        </div>
-        <span className="font-bold text-white text-sm tracking-tight">Lectio</span>
+    <>
+      <div className="au-tile">
+        <svg viewBox="0 0 24 24" aria-hidden="true">{greenFill}{TILE_ICONS[icon]}</svg>
       </div>
-      <h2 className="text-white font-bold text-lg text-center leading-tight mb-1.5">
-        Real-time telemetry.<br />Smarter decisions.
-      </h2>
-      <p className="text-white/70 text-xs text-center leading-relaxed">
-        Monitor, ingest, and analyze your telemetry streams in real time.
-      </p>
-    </div>
+      <h1 className="au-title">{title}</h1>
+      <p className="au-sub">{children}</p>
+    </>
   );
 }
 
-// ── Telemetry Illustration Component ────────────────────────────────────────
-function TelemetryIllustration() {
+// ── Inputs ───────────────────────────────────────────────────────────────────
+export function Field({ icon: Icon, style, children, ...inputProps }) {
   return (
-    <div className="relative w-full max-w-md scale-90">
-      {/* Connection lines */}
-      <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 0 }}>
-        {/* Line from left sensor to dashboard */}
-        <line x1="10%" y1="50%" x2="30%" y2="50%" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="4,4" />
-        {/* Line from right device to dashboard */}
-        <line x1="70%" y1="30%" x2="50%" y2="50%" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="4,4" />
-        {/* Line from database to dashboard */}
-        <line x1="15%" y1="75%" x2="35%" y2="60%" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="4,4" />
-        {/* Line from cloud to dashboard */}
-        <line x1="85%" y1="70%" x2="65%" y2="55%" stroke="rgba(255,255,255,0.2)" strokeWidth="2" strokeDasharray="4,4" />
-      </svg>
-
-      {/* Left sensor device */}
-      <div className="absolute left-0 top-1/2 -translate-y-1/2" style={{ zIndex: 1 }}>
-        <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center">
-          <div className="w-6 h-6 bg-ink-400/30 rounded-lg flex items-center justify-center">
-            <Cpu className="w-4 h-4 text-ink-300" />
-          </div>
-        </div>
-      </div>
-
-      {/* Right connected device with WiFi signal */}
-      <div className="absolute right-0 top-[20%]" style={{ zIndex: 1 }}>
-        <div className="relative">
-          {/* WiFi signal lines */}
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 space-y-0.5">
-            <div className="w-5 h-0.5 bg-white/30 rounded" />
-            <div className="w-3.5 h-0.5 bg-white/40 rounded ml-0.5" />
-            <div className="w-2 h-0.5 bg-white/50 rounded ml-1" />
-          </div>
-          <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center">
-            <div className="w-6 h-6 bg-ink-400/30 rounded-lg flex items-center justify-center">
-              <Server className="w-4 h-4 text-ink-300" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Database cylinder (lower left) */}
-      <div className="absolute left-[5%] bottom-[15%]" style={{ zIndex: 1 }}>
-        <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center">
-          <Database className="w-5 h-5 text-ink-300" />
-        </div>
-      </div>
-
-      {/* Cloud icon (lower right) */}
-      <div className="absolute right-[5%] bottom-[20%]" style={{ zIndex: 1 }}>
-        <div className="w-10 h-10 bg-white/10 border border-white/20 rounded-xl flex items-center justify-center">
-          <Cloud className="w-5 h-5 text-ink-300" />
-        </div>
-      </div>
-
-      {/* Central dashboard panel */}
-      <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-4 relative" style={{ zIndex: 2 }}>
-        {/* Dashboard header with indicators */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex gap-1.5">
-            <div className="w-2 h-2 rounded-full bg-red-400/50" />
-            <div className="w-2 h-2 rounded-full bg-yellow-400/50" />
-            <div className="w-2 h-2 rounded-full bg-ink-400/50" />
-          </div>
-          <div className="flex gap-1.5">
-            <div className="w-5 h-5 rounded bg-white/10 flex items-center justify-center">
-              <div className="w-1.5 h-1.5 rounded-full bg-white/50" />
-            </div>
-          </div>
-        </div>
-
-        {/* Dashboard content grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Left side - data indicators */}
-          <div className="space-y-2">
-            <div className="bg-white/5 rounded-lg p-2">
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-accent-400" />
-                <div className="text-white/60 text-[10px]">Status</div>
-              </div>
-              <div className="text-white font-semibold text-xs">Active</div>
-            </div>
-            <div className="bg-white/5 rounded-lg p-2">
-              <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                <div className="text-white/60 text-[10px]">Connections</div>
-              </div>
-              <div className="text-white font-semibold text-xs">247</div>
-            </div>
-          </div>
-
-          {/* Right side - uptime gauge */}
-          <div className="bg-white/5 rounded-lg p-2 flex flex-col items-center justify-center">
-            <div className="relative w-12 h-12 mb-1">
-              <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
-                <path
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.2)"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                  fill="none"
-                  stroke="#45454c"
-                  strokeWidth="2"
-                  strokeDasharray="98.2, 100"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-white font-bold text-[10px]">98.2%</span>
-              </div>
-            </div>
-            <div className="text-white/60 text-[10px]">Uptime</div>
-          </div>
-        </div>
-
-        {/* Line chart */}
-        <div className="mt-3 bg-white/5 rounded-lg p-2">
-          <div className="flex items-end gap-0.5 h-8">
-            {[25, 40, 35, 55, 45, 70, 60, 80, 50, 90, 65, 85].map((h, i) => (
-              <div
-                key={i}
-                className="flex-1 rounded-t-sm transition-all"
-                style={{
-                  height: `${h}%`,
-                  backgroundColor: i === 11 ? "#d4f55a" : "rgba(255,255,255,0.15)",
-                }}
-              />
-            ))}
-          </div>
-          <div className="text-white/60 text-[10px] mt-1 text-center">Telemetry Stream</div>
-        </div>
-
-        {/* Bottom row - bar chart and list */}
-        <div className="grid grid-cols-2 gap-3 mt-3">
-          <div className="bg-white/5 rounded-lg p-2">
-            <div className="flex items-end gap-0.5 h-6">
-              {[40, 60, 35, 80, 55, 70, 45, 90].map((h, i) => (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t-sm"
-                  style={{
-                    height: `${h}%`,
-                    backgroundColor: i === 7 ? "#d4f55a" : "rgba(255,255,255,0.15)",
-                  }}
-                />
-              ))}
-            </div>
-            <div className="text-white/60 text-[10px] mt-0.5 text-center">Metrics</div>
-          </div>
-          <div className="bg-white/5 rounded-lg p-2">
-            <div className="space-y-1">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <div className="w-1 h-1 rounded-full bg-accent-400" />
-                  <div className="h-1 bg-white/20 rounded flex-1" style={{ width: `${60 + i * 10}%` }} />
-                </div>
-              ))}
-            </div>
-            <div className="text-white/60 text-[10px] mt-0.5 text-center">Events</div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <label className="au-field" style={style}>
+      <Icon aria-hidden="true" />
+      <input {...inputProps} />
+      {children}
+    </label>
   );
 }
 
-// ── Feature Item Component ───────────────────────────────────────────────────
-function FeatureItem({ icon, title, description }) {
+export function PasswordField(props) {
+  const [show, setShow] = useState(false);
   return (
-    <div className="flex flex-col items-center text-center">
-      <div className="w-8 h-8 rounded-lg bg-ink-400/20 flex items-center justify-center mb-1.5">
-        <div className="text-ink-300">{icon}</div>
-      </div>
-      <div className="text-white font-semibold text-[10px] mb-0.5">{title}</div>
-      <div className="text-white/50 text-[9px] leading-tight">{description}</div>
-    </div>
+    <Field icon={LockKeyhole} type={show ? "text" : "password"} {...props}>
+      <button type="button" onClick={() => setShow((s) => !s)} aria-label={show ? "Hide password" : "Show password"}>
+        {show ? <Eye /> : <EyeOff />}
+      </button>
+    </Field>
   );
 }
 
-// ── Page wrapper with centered card layout ────────────────────────────────────
-export function AuthPageLayout({ children }) {
-  return (
-    <div className="h-screen flex items-center justify-center font-sans bg-[#e8ecef] p-4 md:p-6 overflow-hidden">
-      <div className="w-full max-w-6xl h-[95vh] max-h-[800px] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row">
-        {/* Mobile brand header */}
-        <MobileBrandHeader />
-        {/* Left brand panel (desktop only) */}
-        <BrandPanel />
-        {/* Right form panel */}
-        <div className="flex-1 bg-white/95 backdrop-blur-sm rounded-r-none lg:rounded-r-3xl flex flex-col justify-center px-5 md:px-10 lg:px-14 py-6 lg:py-8 overflow-y-auto">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Error Banner Component ───────────────────────────────────────────────────
+// ── Messages ─────────────────────────────────────────────────────────────────
 export function ErrorBanner({ msg }) {
-  return msg ? (
-    <div className="mb-4 text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">{msg}</div>
-  ) : null;
+  return msg ? <div role="alert" className="au-banner au-banner-error">{msg}</div> : null;
 }
 
-// ── Success Banner Component ─────────────────────────────────────────────────
 export function SuccessBanner({ msg }) {
-  return msg ? (
-    <div className="mb-4 text-xs text-ink-600 bg-ink-50 border border-ink-200 rounded-xl px-4 py-3">{msg}</div>
-  ) : null;
+  return msg ? <div role="status" className="au-banner au-banner-ok">{msg}</div> : null;
+}
+
+// ── Brand marks for the social buttons ───────────────────────────────────────
+export function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    </svg>
+  );
+}
+
+export function AppleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" style={{ width: u(17), height: u(17) }}>
+      <path fill="#0a0a0a" d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
+    </svg>
+  );
 }

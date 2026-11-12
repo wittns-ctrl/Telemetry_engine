@@ -1,15 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  User,
-  CheckCircle2,
-  ArrowLeft,
-  Check,
-} from "lucide-react";
+import { Mail, User, ArrowRight } from "lucide-react";
 import {
   loginUser,
   signupUser,
@@ -17,28 +8,21 @@ import {
   completeGoogleSignIn,
   GOOGLE_ERROR_MESSAGES,
 } from "../services/api";
-import { AuthPageLayout, ErrorBanner } from "./AuthLayout";
+import { AuthPageLayout, AuthHeading, Field, PasswordField, ErrorBanner, GoogleIcon, AppleIcon, u } from "./AuthLayout";
+import signInArt from "../assets/auth/sign-in.png";
+import signUpArt from "../assets/auth/sign-up.png";
 
-// ── Password input ─────────────────────────────────────────────────────────────
-function PasswordInput({ placeholder, value, onChange, name, label }) {
-  const [show, setShow] = useState(false);
+// "Or continue with" and the two provider buttons. gaps = space above each of the three rows.
+function SocialButtons({ lines = false, gaps, onGoogle, onApple, disabled }) {
   return (
-    <div>
-      {label && <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>}
-      <div className="relative">
-        <Lock className="w-4 h-4 text-slate-300 absolute left-3.5 top-3.5" />
-        <input
-          type={show ? "text" : "password"}
-          name={name}
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-3 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:bg-white transition-all"
-        />
-        <button type="button" onClick={() => setShow(s => !s)} className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600">
-          {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-        </button>
-      </div>
+    <div className="au-form">
+      <div className={`au-or${lines ? " au-or-lines" : ""}`} style={{ marginTop: u(gaps[0]) }}>Or continue with</div>
+      <button type="button" className="au-social" onClick={onGoogle} disabled={disabled} style={{ marginTop: u(gaps[1]) }}>
+        <GoogleIcon />Continue with Google
+      </button>
+      <button type="button" className="au-social" onClick={onApple} disabled={disabled} style={{ marginTop: u(gaps[2]) }}>
+        <AppleIcon />Continue with Apple
+      </button>
     </div>
   );
 }
@@ -54,22 +38,9 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const clearError = () => setErrorMsg(null);
   const navigateScreen = (s) => { clearError(); setScreen(s); };
-
-  const checks = {
-    length: newPassword.length >= 8,
-    number: /\d/.test(newPassword),
-    uppercase: /[A-Z]/.test(newPassword),
-  };
 
   const handleSignIn = async (e) => {
     e.preventDefault();
@@ -84,7 +55,7 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
 
   const handleSignUp = async (e) => {
     e.preventDefault();
-    
+
     // Validation
     if (!fullName.trim()) return setErrorMsg("Please enter your full name.");
     if (!email.trim()) return setErrorMsg("Please enter your email address.");
@@ -94,15 +65,15 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
     if (!/[A-Z]/.test(password)) return setErrorMsg("Password must contain at least one uppercase letter.");
     if (!/[a-z]/.test(password)) return setErrorMsg("Password must contain at least one lowercase letter.");
     if (!/\d/.test(password)) return setErrorMsg("Password must contain at least one digit.");
-    if (password !== confirmPassword) return setErrorMsg("Passwords do not match.");
-    
+
     setLoading(true); clearError();
     try {
+      // The form has one password field (with a show/hide eye), so it doubles as the confirmation.
       await signupUser({
         fullName: fullName.trim(),
         email: email.trim(),
         password,
-        confirmPassword,
+        confirmPassword: password,
       });
       // Automatically authenticate on successful registration
       await loginUser(email, password);
@@ -139,328 +110,64 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
     startGoogleSignIn();
   };
 
-  const handleForgotPassword = () => {
-    navigate("/forgot-password");
-  };
-
-  const handleResetPassword = (e) => {
-    e.preventDefault();
-    if (newPassword !== confirmNewPassword) return setErrorMsg("Passwords do not match.");
-    if (!checks.length || !checks.number || !checks.uppercase) return setErrorMsg("Password does not meet all requirements.");
-    navigate("signin");
-  };
-
-  // ─── SIGN IN ────────────────────────────────────────────────────────────────
-  if (screen === "signin") return (
-    <AuthPageLayout>
-      <div className="text-center mb-5">
-        <h1 className="text-[24px] font-bold text-slate-900 mb-1.5">Sign In</h1>
-        <p className="text-xs text-slate-500">Welcome back! Please enter your details.</p>
-      </div>
-      <ErrorBanner msg={errorMsg} />
-      <form onSubmit={handleSignIn} className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">Email address</label>
-          <div className="relative">
-            <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type="email" 
-              required 
-              value={email} 
-              onChange={e => setEmail(e.target.value)} 
-              placeholder="you@company.com"
-              className="w-full glass rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">Password</label>
-          <div className="relative">
-            <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type={showPassword ? "text" : "password"}
-              required 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              placeholder="Enter your password"
-              className="w-full glass rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
-            />
-            <button 
-              type="button" 
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        </div>
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-600" onClick={() => setRememberMe(!rememberMe)}>
-            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${rememberMe ? "bg-[#1c1c1f] border-[#1c1c1f]" : "border-slate-300 bg-white"}`}>
-              {rememberMe && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
-            </div>
-            <span className="select-none">Remember me</span>
-          </label>
-          <button type="button" onClick={handleForgotPassword} className="text-xs text-[#1c1c1f] font-semibold hover:underline">Forgot password?</button>
-        </div>
-        <button 
-          type="submit" 
-          disabled={loading}
-          className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#1c1c1f]/20 active:scale-[0.98]"
-        >
-          {loading ? "Signing in..." : "Sign In"}
-        </button>
-      </form>
-      <div className="flex items-center gap-3 my-4">
-        <div className="flex-1 h-px bg-slate-200" />
-        <span className="text-[11px] text-slate-400">or</span>
-        <div className="flex-1 h-px bg-slate-200" />
-      </div>
-      <button 
-        type="button" 
-        onClick={handleGoogleSignIn}
-        disabled={loading}
-        className="w-full py-2.5 rounded-lg border border-slate-200 flex items-center justify-center gap-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors bg-white disabled:opacity-60"
-      >
-        <svg className="w-4 h-4" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        Sign in with Google
-      </button>
-      <p className="text-center text-xs text-slate-500 mt-4">
-        Don't have an account?{" "}
-        <button 
-          type="button" 
-          onClick={() => navigateScreen("signup")} 
-          className="text-[#1c1c1f] font-semibold hover:underline"
-        >
-          Sign up
-        </button>
-      </p>
-    </AuthPageLayout>
-  );
+  // The button is part of the design, but the backend only has Google sign-in so far.
+  const handleAppleSignIn = () => setErrorMsg("Apple sign-in isn't available yet. Use Google or your email instead.");
 
   // ─── SIGN UP ────────────────────────────────────────────────────────────────
   if (screen === "signup") return (
-    <AuthPageLayout>
-      <div className="text-center mb-5">
-        <h1 className="text-[24px] font-bold text-slate-900 mb-1.5">Sign Up</h1>
-        <p className="text-xs text-slate-500">Create your account to get started</p>
-      </div>
+    <AuthPageLayout
+      image={signUpArt}
+      width={744}
+      imageWidth={389}
+      padX={41.5}
+      footnote={
+        <>
+          By creating an account, you agree to our{" "}
+          <a href="/terms" target="_blank" rel="noopener noreferrer" className="au-link">Terms of Service</a>{" "}
+          and{" "}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer" className="au-link">Privacy Policy</a>.
+        </>
+      }
+    >
+      <AuthHeading title="Get started for free">Create your account in just a few steps</AuthHeading>
       <ErrorBanner msg={errorMsg} />
-      <form onSubmit={handleSignUp} className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">Full name</label>
-          <div className="relative">
-            <User className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type="text" 
-              required 
-              value={fullName} 
-              onChange={e => setFullName(e.target.value)} 
-              placeholder="Enter your full name"
-              className="w-full glass rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">Email address</label>
-          <div className="relative">
-            <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type="email" 
-              required 
-              value={email} 
-              onChange={e => setEmail(e.target.value)} 
-              placeholder="you@company.com"
-              className="w-full glass rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
-            />
-          </div>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">Password</label>
-          <div className="relative">
-            <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type={showPassword ? "text" : "password"}
-              required 
-              value={password} 
-              onChange={e => setPassword(e.target.value)} 
-              placeholder="Create a password"
-              className="w-full glass rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
-            />
-            <button 
-              type="button" 
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-1.5">Password must be at least <span className="text-[#1c1c1f] font-semibold">8 characters</span></p>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-700 mb-1.5">Confirm password</label>
-          <div className="relative">
-            <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type={showConfirmPassword ? "text" : "password"}
-              required 
-              value={confirmPassword} 
-              onChange={e => setConfirmPassword(e.target.value)} 
-              placeholder="Confirm your password"
-              className="w-full glass rounded-lg pl-10 pr-9 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
-            />
-            <button 
-              type="button" 
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        </div>
-        <button 
-          type="submit" 
-          disabled={loading}
-          className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors disabled:opacity-60 disabled:cursor-not-allowed shadow-md shadow-[#1c1c1f]/20 active:scale-[0.98]"
-        >
-          {loading ? "Creating account..." : "Create Account"}
+      <form onSubmit={handleSignUp} className="au-form">
+        <Field icon={User} style={{ marginTop: u(26) }} type="text" required autoComplete="name" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" />
+        <Field icon={Mail} style={{ marginTop: u(10) }} type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" />
+        <PasswordField style={{ marginTop: u(10) }} required autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" />
+        <button type="submit" disabled={loading} className="au-btn" style={{ marginTop: u(10.5) }}>
+          {loading ? "Creating account…" : "Create Account"} <ArrowRight aria-hidden="true" />
         </button>
       </form>
-      <div className="flex items-center gap-3 my-4">
-        <div className="flex-1 h-px bg-slate-200" />
-        <span className="text-[11px] text-slate-400">or</span>
-        <div className="flex-1 h-px bg-slate-200" />
-      </div>
-      <button 
-        type="button" 
-        onClick={handleGoogleSignIn}
-        disabled={loading}
-        className="w-full py-2.5 rounded-lg border border-slate-200 flex items-center justify-center gap-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors bg-white"
-      >
-        <svg className="w-4 h-4" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-        </svg>
-        Sign up with Google
-      </button>
-      <p className="text-center text-[11px] leading-relaxed text-slate-500 mt-3">
-        By creating an account, you agree to our{" "}
-        <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#1c1c1f] underline underline-offset-2">Terms of Service</a>{" "}
-        and{" "}
-        <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#1c1c1f] underline underline-offset-2">Privacy Policy</a>.
-      </p>
-      <p className="text-center text-xs text-slate-500 mt-4">
+      <SocialButtons gaps={[15.5, 12, 9]} onGoogle={handleGoogleSignIn} onApple={handleAppleSignIn} disabled={loading} />
+      <p className="au-foot" style={{ marginTop: u(30) }}>
         Already have an account?{" "}
-        <button 
-          type="button" 
-          onClick={() => navigateScreen("signin")} 
-          className="text-[#1c1c1f] font-semibold hover:underline"
-        >
-          Sign in
-        </button>
+        <button type="button" onClick={() => navigateScreen("signin")} className="au-link">Sign in</button>
       </p>
     </AuthPageLayout>
   );
 
-  // ─── FORGOT PASSWORD ────────────────────────────────────────────────────────
-  if (screen === "forgot") return (
-    <AuthPageLayout>
-      <div className="text-center mb-5">
-        <h1 className="text-[24px] font-bold text-slate-900 mb-1.5">Forgot password?</h1>
-        <p className="text-xs text-slate-500">No worries. Enter your email and we'll send you a reset link.</p>
-      </div>
+  // ─── SIGN IN ────────────────────────────────────────────────────────────────
+  return (
+    <AuthPageLayout image={signInArt} width={744} imageWidth={382} padX={44}>
+      <AuthHeading title="Sign in to your account">Enter your email and password to continue</AuthHeading>
       <ErrorBanner msg={errorMsg} />
-      <form onSubmit={handleForgotPassword} className="space-y-3">
-        <div>
-          <div className="relative">
-            <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input 
-              type="email" 
-              required 
-              value={email} 
-              onChange={e => setEmail(e.target.value)} 
-              placeholder="Email address"
-              className="w-full glass rounded-lg pl-10 pr-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-[#1c1c1f] focus:ring-1 focus:ring-[#1c1c1f]/20 transition-all"
-            />
-          </div>
+      <form onSubmit={handleSignIn} className="au-form">
+        <Field icon={Mail} style={{ marginTop: u(23.5) }} type="email" required autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" />
+        <PasswordField style={{ marginTop: u(11.5) }} required autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" />
+        <div className="au-row" style={{ marginTop: u(16) }}>
+          <label><input type="checkbox" />Remember me</label>
+          <button type="button" onClick={() => navigate("/forgot-password")} className="au-link">Forgot password?</button>
         </div>
-        <button type="submit" className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors shadow-md shadow-[#1c1c1f]/20">
-          Send Reset Link
+        <button type="submit" disabled={loading} className="au-btn" style={{ marginTop: u(17.5) }}>
+          {loading ? "Signing in…" : "Sign In"} <ArrowRight aria-hidden="true" />
         </button>
       </form>
-      <button type="button" onClick={() => navigateScreen("signin")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mt-8">
-        <ArrowLeft className="w-4 h-4" /> Back to sign in
-      </button>
+      <SocialButtons lines gaps={[18, 16, 11.5]} onGoogle={handleGoogleSignIn} onApple={handleAppleSignIn} disabled={loading} />
+      <p className="au-foot" style={{ marginTop: u(28) }}>
+        Don't have an account?{" "}
+        <button type="button" onClick={() => navigateScreen("signup")} className="au-link">Sign up</button>
+      </p>
     </AuthPageLayout>
   );
-
-  // ─── RESET PASSWORD ─────────────────────────────────────────────────────────
-  if (screen === "reset") return (
-    <AuthPageLayout>
-      <div className="text-center mb-5">
-        <h1 className="text-[24px] font-bold text-slate-900 mb-1.5">Reset your password</h1>
-        <p className="text-xs text-slate-500">Enter your new password below.</p>
-      </div>
-      <ErrorBanner msg={errorMsg} />
-      <form onSubmit={handleResetPassword} className="space-y-3">
-        <PasswordInput label="New password" placeholder="Enter new password" value={newPassword} onChange={e => setNewPassword(e.target.value)} name="newPassword" />
-        <PasswordInput label="Confirm new password" placeholder="Confirm new password" value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} name="confirmNewPassword" />
-        <div className="space-y-2 py-1">
-          {[
-            { ok: checks.length, label: "At least 8 characters" },
-            { ok: checks.number, label: "Includes a number" },
-            { ok: checks.uppercase, label: "Includes an uppercase letter" },
-          ].map(({ ok, label }) => (
-            <div key={label} className="flex items-center gap-2 text-xs">
-              <CheckCircle2 className={`w-4 h-4 transition-colors ${ok ? "text-[#1c1c1f]" : "text-slate-300"}`} />
-              <span className={`transition-colors ${ok ? "text-[#1c1c1f]" : "text-slate-400"}`}>{label}</span>
-            </div>
-          ))}
-        </div>
-        <button type="submit" className="w-full py-2.5 rounded-lg bg-[#1c1c1f] text-white font-bold text-sm hover:bg-[#1c1c1f] transition-colors shadow-md shadow-[#1c1c1f]/20">
-          Reset Password
-        </button>
-      </form>
-      <button type="button" onClick={() => navigateScreen("signin")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mt-8">
-        <ArrowLeft className="w-4 h-4" /> Back to sign in
-      </button>
-    </AuthPageLayout>
-  );
-
-  // ─── EMAIL VERIFICATION ─────────────────────────────────────────────────────
-  if (screen === "verify") return (
-    <AuthPageLayout>
-      <div className="text-center mb-5">
-        <h1 className="text-[24px] font-bold text-slate-900 mb-1.5">Verify your email</h1>
-        <p className="text-xs text-slate-500">We've sent a verification link to your email.</p>
-      </div>
-      <ErrorBanner msg={errorMsg} />
-      <div className="flex flex-col items-center text-center py-8">
-        <div className="w-24 h-24 rounded-full bg-ink-50 flex items-center justify-center mb-8 relative shadow-xl shadow-ink-100">
-          <Mail className="w-10 h-10 text-[#1c1c1f]" />
-          <div className="absolute -top-1 -right-1 w-7 h-7 bg-[#1c1c1f] rounded-full flex items-center justify-center shadow-md">
-            <Check className="w-4 h-4 text-white" strokeWidth={3} />
-          </div>
-        </div>
-        <p className="text-sm text-slate-400 mb-1">Please check your inbox and click the link to verify your email address.</p>
-        <p className="text-sm font-bold text-slate-800 mb-4">{email || "you@company.com"}</p>
-        <p className="text-sm text-slate-500">
-          Didn't receive the email?{" "}
-          <button type="button" className="text-[#1c1c1f] font-semibold hover:underline">Resend verification email</button>
-        </p>
-      </div>
-      <button type="button" onClick={() => navigateScreen("signin")} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mx-auto mt-4">
-        <ArrowLeft className="w-4 h-4" /> Back to sign in
-      </button>
-    </AuthPageLayout>
-  );
-
-  return null;
 }
