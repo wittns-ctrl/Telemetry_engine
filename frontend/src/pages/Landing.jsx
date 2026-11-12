@@ -742,7 +742,6 @@ export default function Landing() {
               <span>Step-by-step guides inside the app</span>
             </div>
             <p>Every account includes a Help page that walks you through connecting your PC, reading your dashboard and understanding alerts.</p>
-            <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
           </aside>
           <div className="lp-faq-list">
             {FAQ.map((g) => (
