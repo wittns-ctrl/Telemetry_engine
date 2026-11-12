@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Mail, ArrowLeft, ArrowRight } from "lucide-react";
 import { AuthPageLayout, AuthHeading, Field, ErrorBanner, SuccessBanner, u } from "../components/AuthLayout";
 import { forgotPassword } from "../services/api";
-import art from "../assets/auth/forgot-password.png";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -35,7 +34,7 @@ export default function ForgotPassword() {
   };
 
   return (
-    <AuthPageLayout image={art} small width={504} imageWidth={230} padX={23.5}>
+    <AuthPageLayout art="forgot" small formWidth={274} padX={23.5}>
       <AuthHeading icon="mail" title="Reset your password">
         Enter your email address and we'll send<br />you a link to reset your password.
       </AuthHeading>

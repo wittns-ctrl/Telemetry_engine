@@ -9,8 +9,6 @@ import {
   GOOGLE_ERROR_MESSAGES,
 } from "../services/api";
 import { AuthPageLayout, AuthHeading, Field, PasswordField, ErrorBanner, GoogleIcon, AppleIcon, u } from "./AuthLayout";
-import signInArt from "../assets/auth/sign-in.png";
-import signUpArt from "../assets/auth/sign-up.png";
 
 // "Or continue with" and the two provider buttons. gaps = space above each of the three rows.
 function SocialButtons({ lines = false, gaps, onGoogle, onApple, disabled }) {
@@ -116,9 +114,8 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
   // ─── SIGN UP ────────────────────────────────────────────────────────────────
   if (screen === "signup") return (
     <AuthPageLayout
-      image={signUpArt}
-      width={744}
-      imageWidth={389}
+      art="signup"
+      formWidth={355}
       padX={41.5}
       footnote={
         <>
@@ -149,7 +146,7 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
 
   // ─── SIGN IN ────────────────────────────────────────────────────────────────
   return (
-    <AuthPageLayout image={signInArt} width={744} imageWidth={382} padX={44}>
+    <AuthPageLayout art="signin" formWidth={362} padX={44}>
       <AuthHeading title="Sign in to your account">Enter your email and password to continue</AuthHeading>
       <ErrorBanner msg={errorMsg} />
       <form onSubmit={handleSignIn} className="au-form">

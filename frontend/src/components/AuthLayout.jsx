@@ -1,27 +1,20 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { AuthArt } from "./AuthArt";
 import "./auth.css";
 
-// n pixels of the design mock-up, scaled with the card. See auth.css.
+// n pixels of the design mock-up, scaled with the form. See auth.css.
 export const u = (n) => `calc(${n} * var(--u))`;
 
-// ── Page: picture on the left, form panel on the right ───────────────────────
-// width, imageWidth, padTop and padX are in mock-up pixels.
-export function AuthPageLayout({ image, width, imageWidth, padX, padTop, small = false, footnote, children }) {
-  const vars = {
-    "--w": width,
-    "--l": imageWidth,
-    "--h": small ? 396 : 541,
-    "--pt": padTop ?? (small ? 46 : 40),
-    "--px": padX,
-  };
+// ── Page: artwork on the left half, form on the right half ───────────────────
+// formWidth and padX are in mock-up pixels; small = the three shorter forms.
+export function AuthPageLayout({ art, formWidth, padX, small = false, footnote, children }) {
+  const vars = { "--fw": formWidth, "--fh": small ? 396 : 541, "--px": padX };
   return (
-    <div className="au">
-      <div className="au-wrap">
-        <main className={`au-card${small ? " au-sm" : ""}`} style={vars}>
-          <div className="au-art"><img src={image} alt="" /></div>
-          <div className="au-panel">{children}</div>
-        </main>
+    <div className={`au${small ? " au-sm" : ""}`} style={vars}>
+      <AuthArt scene={art} />
+      <div className="au-side">
+        <main className="au-panel">{children}</main>
         {footnote && <p className="au-foot au-footnote">{footnote}</p>}
       </div>
     </div>

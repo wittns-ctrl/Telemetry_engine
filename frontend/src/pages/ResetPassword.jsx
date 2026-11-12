@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { AuthPageLayout, AuthHeading, PasswordField, ErrorBanner, SuccessBanner, u } from "../components/AuthLayout";
 import { resetPassword } from "../services/api";
-import art from "../assets/auth/reset-password.png";
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -45,7 +44,7 @@ export default function ResetPassword() {
   };
 
   return (
-    <AuthPageLayout image={art} small width={486} imageWidth={218} padX={25}>
+    <AuthPageLayout art="reset" small formWidth={268} padX={25}>
       <AuthHeading icon="lock" title="Create new password">Enter your new password below.</AuthHeading>
 
       <ErrorBanner msg={errorMsg} />

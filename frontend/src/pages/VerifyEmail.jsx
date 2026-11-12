@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Check } from "lucide-react";
 import { AuthPageLayout, ErrorBanner, SuccessBanner, u } from "../components/AuthLayout";
 import { verifyEmail, resendVerification } from "../services/api";
-import art from "../assets/auth/verify-email.png";
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -57,7 +56,7 @@ export default function VerifyEmail() {
   }
 
   return (
-    <AuthPageLayout image={art} small width={500} imageWidth={248} padX={25.5} padTop={56}>
+    <AuthPageLayout art="verify" small formWidth={252} padX={25.5}>
       <div className="au-halo"><span><Check aria-hidden="true" /></span></div>
       <h1 className="au-title" style={{ marginTop: u(15), fontSize: u(16.5) }}>{title}</h1>
       <p className="au-sub" style={{ marginTop: u(19.5), fontSize: u(10.7), lineHeight: u(16.5) }}>{body}</p>
