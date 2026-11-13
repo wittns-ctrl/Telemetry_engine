@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
+import './components/dashboard.css';
 
 // The signed-in screens (and the charts library they use) load only when opened,
 // so landing-page visitors don't download the whole dashboard up front.
 const named = (load, name) => lazy(() => load().then((m) => ({ default: m[name] })));
-const DonezoDashboard = named(() => import('./components/DonezoDashboard'), 'DonezoDashboard');
+const Dashboard = named(() => import('./components/Dashboard'), 'Dashboard');
 const MetricsStudioView = named(() => import('./components/MetricsStudioView'), 'MetricsStudioView');
 const LiveStreamView = named(() => import('./components/LiveStreamView'), 'LiveStreamView');
 const AnalyticsView = named(() => import('./components/AnalyticsView'), 'AnalyticsView');
@@ -33,12 +34,14 @@ import {
   ingestMetric,
   getAccessToken,
   AUTH_LOGOUT_EVENT,
+  BACKEND_DISABLED,
+  OFFLINE_USER,
 } from './services/api';
 
 function App() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAccessToken()));
+  const [user, setUser] = useState(() => (BACKEND_DISABLED ? OFFLINE_USER : null));
+  const [isAuthenticated, setIsAuthenticated] = useState(() => BACKEND_DISABLED || Boolean(getAccessToken()));
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
@@ -51,6 +54,11 @@ function App() {
 
   // Navigation state ('dashboard' default as shown in Donezo design)
   const [activeNav, setActiveNav] = useState('dashboard');
+
+  // Sidebar mode: every page load opens the full sidebar; the toggle slims it
+  // down to the icon rail for the rest of the visit.
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const toggleSidebar = useCallback(() => setSidebarExpanded((prev) => !prev), []);
 
   // Automated Simulator State
   const [isSimulating, setIsSimulating] = useState(false);
@@ -70,6 +78,10 @@ function App() {
 
   // Load initial metadata
   const loadInitialData = useCallback(async () => {
+    if (BACKEND_DISABLED) {
+      setUser(OFFLINE_USER);
+      return;
+    }
     if (!getAccessToken()) return;
     try {
       const [statsData, thresholdsData] = await Promise.all([
@@ -147,7 +159,7 @@ function App() {
 
   // Simulator interval worker
   useEffect(() => {
-    if (isSimulating) {
+    if (isSimulating && !BACKEND_DISABLED) {
       simTimerRef.current = setInterval(async () => {
         try {
           const payload = generateSimulatedPayload();
@@ -208,41 +220,25 @@ function App() {
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/" element={!isAuthenticated ? <Landing /> : (
-        <div className="app-shell flex min-h-screen text-slate-900 font-sans">
-          {/* Floating Donezo White Card Sidebar */}
+        <div className={`ld-frame${sidebarExpanded ? ' is-wide' : ''}`}>
           <Sidebar
             activeNav={activeNav}
             setActiveNav={setActiveNav}
             onLogout={() => setIsLogoutOpen(true)}
+            user={user}
+            expanded={sidebarExpanded}
+            onToggle={toggleSidebar}
           />
 
-          {/* Main Right Body */}
-          <div className="flex-1 flex flex-col min-w-0 py-2 px-4 md:px-6">
+          <div className="ld-content">
+            {activeNav !== 'dashboard' && (
+              <TopBar alertsCount={alerts.length} onOpenAlerts={() => setActiveNav('live')} />
+            )}
 
-            {/* Donezo Top Search & Profile Bar */}
-            <TopBar
-              user={user}
-              onOpenAuth={() => setIsAuthOpen(true)}
-              alertsCount={alerts.length}
-              activeItem={activeItem}
-            />
-
-            {/* Dynamic Route View Body */}
-            <main className="flex-1 p-2 md:p-4 overflow-y-auto">
+            <main className="ld-page" aria-label={activeItem.label}>
               <Suspense fallback={<div className="p-6 text-sm text-slate-400" role="status">Loading…</div>}>
 
-              {activeNav === 'dashboard' && (
-                <DonezoDashboard
-                  stats={stats}
-                  thresholds={thresholds}
-                  alerts={alerts}
-                  liveMetrics={liveMetrics}
-                  isSimulating={isSimulating}
-                  onIngestClick={() => setActiveNav('metrics')}
-                  onSimulateClick={toggleSimulation}
-                  onViewAlerts={() => setActiveNav('live')}
-                />
-              )}
+              {activeNav === 'dashboard' && <Dashboard alertsCount={alerts.length} onNavigate={setActiveNav} />}
 
               {activeNav === 'devices' && (
                 <DevicesView />

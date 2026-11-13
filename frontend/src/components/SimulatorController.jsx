@@ -11,7 +11,7 @@ export function SimulatorController({
   simStats,
 }) {
   return (
-    <div className="glass rounded-3xl p-6 shadow-2xs my-6 font-sans">
+    <div className="glass rounded-3xl p-6 shadow-2xs font-sans">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">

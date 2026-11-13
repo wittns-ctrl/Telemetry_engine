@@ -15,13 +15,9 @@ export function MetricsStudioView({ onRefreshStats }) {
         </p>
       </div>
 
-      <div className="glass rounded-3xl p-6 shadow-2xs">
-        <TelemetryIngestionStudio onMetricIngested={onRefreshStats} />
-      </div>
+      <TelemetryIngestionStudio onMetricIngested={onRefreshStats} />
 
-      <div className="glass rounded-3xl p-6 shadow-2xs">
-        <MetricsExplorer onRefreshStats={onRefreshStats} />
-      </div>
+      <MetricsExplorer onRefreshStats={onRefreshStats} />
     </div>
   );
 }

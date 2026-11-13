@@ -76,7 +76,7 @@ export function LiveCharts({ liveMetrics = [], thresholds }) {
   const netMaxThreshold = thresholds?.network?.max || 1000;
 
   return (
-    <div className="glass rounded-3xl p-6 shadow-2xs my-6 font-sans">
+    <div className="glass rounded-3xl p-6 shadow-2xs font-sans">
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
         <div>

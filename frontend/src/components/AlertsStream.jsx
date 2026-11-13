@@ -24,7 +24,7 @@ export function AlertsStream({ alerts = [], onClear, onDismiss }) {
   });
 
   return (
-    <div className="glass rounded-3xl p-6 shadow-2xs my-6 font-sans">
+    <div className="glass rounded-3xl p-6 shadow-2xs font-sans">
       {/* Stream Header */}
       <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100">
         <div className="flex items-center gap-3">
