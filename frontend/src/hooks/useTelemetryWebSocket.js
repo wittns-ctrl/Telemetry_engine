@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { WS_BASE, getAccessToken, refreshAccessToken } from "../services/api";
+import { WS_BASE, BACKEND_DISABLED, getAccessToken, refreshAccessToken } from "../services/api";
 import { playAlertSound } from "../utils/sound";
 
 export function useTelemetryWebSocket({
@@ -18,6 +18,12 @@ export function useTelemetryWebSocket({
 
   const connect = useCallback(() => {
     if (isUnmountingRef.current) return;
+
+    // Frontend-only mode: never open the socket.
+    if (BACKEND_DISABLED) {
+      setStatus("disconnected");
+      return;
+    }
 
     if (
       wsRef.current &&
