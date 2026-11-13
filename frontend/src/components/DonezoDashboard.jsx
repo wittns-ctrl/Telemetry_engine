@@ -100,7 +100,7 @@ export function DonezoDashboard({
               {totalMetrics}
             </div>
             <div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-medium bg-white/10 px-2.5 py-0.5 rounded-full border border-white/15">
-              <TrendingUp className="w-3 h-3 text-accent-400" />
+              <TrendingUp className="w-3 h-3 text-accent-350" />
               <span>Stored readings</span>
             </div>
           </div>

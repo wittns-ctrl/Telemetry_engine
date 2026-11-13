@@ -14,7 +14,21 @@
   font-family: Inter, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
-.au-side { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 24px; }
+.au-side { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 24px 24px; }
+
+/* Back to the landing page, pinned to the top-left of the form half. */
+.au-home {
+  position: absolute; top: 20px; left: 24px;
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 36px; padding: 0 14px 0 11px;
+  border: 1px solid #e9eceb; border-radius: 999px;
+  background: #fdfdfd; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  font-size: 13px; font-weight: 600; color: #0f1512; text-decoration: none;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.au-home svg { width: 16px; height: 16px; stroke-width: 2.2; transition: transform 0.2s; }
+.au-home:hover { background: #eaf5ec; border-color: #cfe8d4; color: #14511c; }
+.au-home:hover svg { transform: translateX(-2px); }
 .au-footnote { width: calc(var(--fw) * var(--u)); margin-top: calc(14 * var(--u)); padding: 0 calc(var(--px) * var(--u)); }
 .au-panel {
   width: calc(var(--fw) * var(--u));
@@ -138,7 +152,7 @@
 .au-back svg { width: calc(14 * var(--u)); height: calc(14 * var(--u)); stroke-width: 2.4; }
 
 .au-btn:focus-visible, .au-social:focus-visible, .au-soft:focus-visible, .au-link:focus-visible,
-.au-field button:focus-visible, .au-row input:focus-visible { outline: 2px solid #2f8f3a; outline-offset: 2px; }
+.au-field button:focus-visible, .au-row input:focus-visible, .au-home:focus-visible { outline: 2px solid #2f8f3a; outline-offset: 2px; }
 
 /* ---------- messages ---------- */
 .au-banner {
@@ -160,6 +174,7 @@
 @media (max-width: 800px) {
   .au { --u: 1.25px; grid-template-columns: 1fr; }
   .aa { display: none; }
-  .au-side { padding: 40px 16px; }
+  .au-side { padding: 72px 16px 40px; }
+  .au-home { left: 16px; top: 16px; }
   .au-panel, .au-footnote { width: 100%; max-width: calc(380 * var(--u)); padding-inline: calc(6 * var(--u)); }
 }

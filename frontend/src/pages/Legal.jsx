@@ -32,7 +32,7 @@ function LegalPage({ title, intro, children }) {
     <div className="lg">
       <header className="lg-top">
         <Link className="lg-brand" to="/" aria-label="Lectio home">
-          <span className="lg-brand-mark"><LectioMark size={18} /></span>
+          <span className="lg-brand-mark"><LectioMark size={24} /></span>
           Lectio
         </Link>
         <Link className="lg-back" to="/"><ArrowLeft size={15} /> Back to home</Link>

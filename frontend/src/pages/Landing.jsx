@@ -13,7 +13,7 @@ import './landing.css';
 /* Phone mock-ups used in the hero cards (illustrative sample data)    */
 /* ------------------------------------------------------------------ */
 const PHONE_TILES = [
-  { label: 'Temperature', icon: Thermometer, tone: 'lime' },
+  { label: 'Temperature', icon: Thermometer, tone: 'green' },
   { label: 'CPU load', icon: Cpu, tone: 'ink' },
   { label: 'GPU', icon: MonitorSmartphone, tone: 'white' },
   { label: 'Alerts', icon: AlertTriangle, tone: 'soft' },
@@ -66,7 +66,7 @@ function PhoneLive() {
 /* Static dashboard preview shown inside the tablet (sample data)      */
 /* ------------------------------------------------------------------ */
 const PREVIEW_BARS = [
-  { label: 'Temperature', pct: 44, tone: '#c2ea2e' },
+  { label: 'Temperature', pct: 44, tone: '#1c7a2e' },
   { label: 'CPU', pct: 33, tone: '#1c1c1f' },
   { label: 'Network', pct: 23, tone: '#a1a1aa' },
 ];
@@ -350,7 +350,7 @@ function LiquidNav() {
   return (
     <header className="lp-chrome" data-chrome>
       <a className="lp-brand" href="#home" onClick={() => go('home')} aria-label="Lectio home">
-        <span className="lp-brand-mark"><LectioMark size={20} /></span>
+        <span className="lp-brand-mark"><LectioMark size={28} /></span>
         <span className="lp-brand-name">Lectio</span>
       </a>
 

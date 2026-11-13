@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowLeft, Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { AuthArt } from "./AuthArt";
 import "./auth.css";
 
@@ -14,6 +15,7 @@ export function AuthPageLayout({ art, formWidth, padX, small = false, footnote, 
     <div className={`au${small ? " au-sm" : ""}`} style={vars}>
       <AuthArt scene={art} />
       <div className="au-side">
+        <Link to="/" className="au-home" aria-label="Back to home"><ArrowLeft aria-hidden="true" />Back</Link>
         <main className="au-panel">{children}</main>
         {footnote && <p className="au-foot au-footnote">{footnote}</p>}
       </div>

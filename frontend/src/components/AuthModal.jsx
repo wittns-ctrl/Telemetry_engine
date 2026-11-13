@@ -16,9 +16,7 @@ import { loginUser, signupUser, forgotPassword, startGoogleSignIn } from "../ser
 function Logo() {
   return (
     <div className="flex items-center gap-2 mb-6">
-      <div className="w-8 h-8 rounded-full bg-[#1c1c1f] flex items-center justify-center text-white">
-        <LectioMark size={18} />
-      </div>
+      <LectioMark size={24} />
       <span className="font-bold text-slate-900 text-base tracking-tight">Lectio</span>
     </div>
   );

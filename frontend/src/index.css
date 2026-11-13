@@ -16,11 +16,14 @@
   --color-ink-900: #1c1c1f;
   --color-ink-950: #0e0e10;
 
-  /* Lime accent. A fill colour only: always pair it with dark text, never use it as text on white. */
-  --color-accent-200: #ecfbb4;
-  --color-accent-300: #e1f98a;
-  --color-accent-400: #d4f55a;
-  --color-accent-500: #c2ea2e;
+  /* Green accent, the same green as the sign-in forms.
+     200/300 are soft fills behind dark text; 400/500 are solid fills that take
+     white text (5.4:1); 350 is the lighter green for text and icons on charcoal (7:1). */
+  --color-accent-200: #dcefe0;
+  --color-accent-300: #b5dfbe;
+  --color-accent-350: #5cc061;
+  --color-accent-400: #1c7a2e;
+  --color-accent-500: #176b22;
 }
 
 @layer base {
@@ -74,7 +77,7 @@
     linear-gradient(180deg, #fbfbfa 0%, #f1f1ef 100%);
 }
 
-::selection { background: #d4f55a; color: #0e0e10; }
+::selection { background: #b5dfbe; color: #0e0e10; }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
