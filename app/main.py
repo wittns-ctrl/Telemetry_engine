@@ -1,24 +1,24 @@
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone, timedelta
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, BackgroundTasks
+from datetime import datetime, timezone
+from fastapi import FastAPI, Depends, status, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordRequestForm
 from app.core.config import settings
-from app.core.security import get_password_hash, verify_password, create_access_token
 from app.db.session import init_db
 from app.models.metric import Metrics
-from app.models.user import User, UserCreate, UserResponse, Token
-from app.api.deps import get_current_user, get_current_user_optional
+from app.models.user import User
+from app.api.deps import get_current_user, get_current_user_ws
 from app.models.telemetry import TelemetryPayload
 from app.core.sockets import manager
 from app.services.alerting import evaluate_metric_alert, THRESHOLDS
 from app.services.notifications import send_email_alert, send_webhook_alert
 from app.api.v1 import auth as auth_router
+from app.api.v1 import google_auth as google_auth_router
 from app.api.v1 import websocket as websocket_router
 from app.api.v1 import devices as devices_router
 from app.api.v1 import metrics as metrics_router
 from app.api.v1 import alerts as alerts_router
 from app.api.v1 import diagnostics as diagnostics_router
+from app.api.v1 import ingest as ingest_router
 
 
 @asynccontextmanager
@@ -27,7 +27,7 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="Telemetry Engine API",
+    title="Lectio API",
     description="High-Throughput Real-Time Telemetry Ingestion, Alerting, and Analytics Engine",
     version="1.0.0",
     lifespan=lifespan
@@ -48,7 +48,7 @@ app.add_middleware(
 async def health_check():
     return {
         "status": "healthy",
-        "service": "Telemetry Engine",
+        "service": "Lectio",
         "active_websockets": len(manager.active_connections),
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
@@ -60,16 +60,23 @@ async def get_thresholds():
 # --- WEBSOCKET ENDPOINT ---
 
 @app.websocket("/ws/alerts")
-async def websocket_alerts_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+async def websocket_alerts_endpoint(
+    websocket: WebSocket,
+    current_user: User = Depends(get_current_user_ws),
+):
+    """Live metric/alert events for the signed-in user. Requires ?token=<access JWT>."""
+    user_id = str(current_user.id)
+    await manager.connect(websocket, user_id)
     try:
         # Keep socket connection open & handle incoming client messages if any
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        pass
     except Exception:
-        manager.disconnect(websocket)
+        pass
+    finally:
+        manager.disconnect(websocket, user_id)
 
 
 # --- TELEMETRY METRIC ENDPOINTS ---
@@ -82,7 +89,7 @@ async def websocket_alerts_endpoint(websocket: WebSocket):
 async def ingest_metric(
     payload: TelemetryPayload,
     background_tasks: BackgroundTasks,
-    current_user: User | None = Depends(get_current_user_optional)
+    current_user: User = Depends(get_current_user)
 ):
     # Dump payload model into a dictionary
     payload_dict = payload.model_dump()
@@ -93,7 +100,9 @@ async def ingest_metric(
     value = payload_dict.pop("value")
 
     # Persist in MongoDB via Beanie
+    user_id = str(current_user.id)
     metric = Metrics(
+        user_id=user_id,
         sensor_id=sensor_id,
         metric_type=metric_type,
         value=value,
@@ -104,7 +113,7 @@ async def ingest_metric(
     # Check for alerts
     alert_event = evaluate_metric_alert(payload)
 
-    # 1. Broadcast metric event to all connected WebSocket clients
+    # 1. Send the metric event to this user's WebSocket clients
     metric_event = {
         "event": "METRIC_RECORDED",
         "metric_id": str(metric.id),
@@ -115,20 +124,20 @@ async def ingest_metric(
         "timestamp": metric.timestamp.isoformat() if hasattr(metric.timestamp, "isoformat") else str(metric.timestamp),
         "alert_triggered": alert_event is not None
     }
-    await manager.broadcast(metric_event)
+    await manager.send_to_user(user_id, metric_event)
 
-    # 2. Broadcast threshold breach alert event if triggered
+    # 2. Send the threshold breach alert event if triggered
     if alert_event:
-        await manager.broadcast(alert_event)
-        recipient_email = current_user.email if current_user else "alerts@telemetry-engine.io"
-        background_tasks.add_task(
-            send_webhook_alert,
-            webhook_url="https://httpbin.org/post",
-            alert_payload=alert_event
-        )
+        await manager.send_to_user(user_id, alert_event)
+        if settings.ALERT_WEBHOOK_URL:
+            background_tasks.add_task(
+                send_webhook_alert,
+                webhook_url=settings.ALERT_WEBHOOK_URL,
+                alert_payload=alert_event
+            )
         background_tasks.add_task(
             send_email_alert,
-            recipient_email=recipient_email,
+            recipient_email=current_user.email,
             alert_payload=alert_event
         )
 
@@ -147,19 +156,17 @@ async def ingest_metric(
 async def get_metrics(
     limit: int = 50,
     metric_type: str | None = None,
-    sensor_id: str | None = None
+    sensor_id: str | None = None,
+    current_user: User = Depends(get_current_user)
 ):
-    query = {}
+    query = {"user_id": str(current_user.id)}
     if metric_type:
         query["metric_type"] = metric_type
     if sensor_id:
         query["sensor_id"] = sensor_id
 
     clamped_limit = max(1, min(limit, 200))
-    if query:
-        metrics = await Metrics.find(query).sort("-timestamp").limit(clamped_limit).to_list()
-    else:
-        metrics = await Metrics.find_all().sort("-timestamp").limit(clamped_limit).to_list()
+    metrics = await Metrics.find(query).sort("-timestamp").limit(clamped_limit).to_list()
 
     return [
         {
@@ -176,15 +183,17 @@ async def get_metrics(
 
 @app.get(
     "/api/v1/metrics/stats",
-    summary="Telemetry Engine Statistics"
+    summary="Lectio Statistics"
 )
-async def get_metrics_stats():
-    total_count = await Metrics.count()
-    temp_count = await Metrics.find(Metrics.metric_type == "temperature").count()
-    cpu_count = await Metrics.find(Metrics.metric_type == "cpu").count()
-    net_count = await Metrics.find(Metrics.metric_type == "network").count()
+async def get_metrics_stats(current_user: User = Depends(get_current_user)):
+    user_id = str(current_user.id)
+    owned = Metrics.user_id == user_id
+    total_count = await Metrics.find(owned).count()
+    temp_count = await Metrics.find(owned, Metrics.metric_type == "temperature").count()
+    cpu_count = await Metrics.find(owned, Metrics.metric_type == "cpu").count()
+    net_count = await Metrics.find(owned, Metrics.metric_type == "network").count()
 
-    recent = await Metrics.find_all().sort("-timestamp").limit(100).to_list()
+    recent = await Metrics.find(owned).sort("-timestamp").limit(100).to_list()
     sensors = list({m.sensor_id for m in recent})
 
     return {
@@ -196,13 +205,13 @@ async def get_metrics_stats():
         },
         "active_sensors_count": len(sensors),
         "recent_sensors": sensors,
-        "active_connections": len(manager.active_connections),
         "thresholds": THRESHOLDS
     }
 
 
 # --- AUTH ROUTES ---
 app.include_router(auth_router.router, prefix="/api/v1")
+app.include_router(google_auth_router.router, prefix="/api/v1")
 
 # --- WEBSOCKET ROUTES ---
 app.include_router(websocket_router.router, prefix="/api/v1")
@@ -219,14 +228,6 @@ app.include_router(alerts_router.router, prefix="/api/v1")
 # --- DIAGNOSTICS ROUTES ---
 app.include_router(diagnostics_router.router, prefix="/api/v1")
 
+# --- AGENT TELEMETRY INGEST ---
+app.include_router(ingest_router.router, prefix="/api/v1")
 
-# --- PROTECTED METRICS ROUTE ---
-
-@app.post("/api/v2/metrics", status_code=status.HTTP_201_CREATED)
-async def create_metric(
-    payload: dict,
-    current_user: User = Depends(get_current_user)  # Requires valid JWT
-):
-    metric = Metrics(**payload)
-    await metric.insert()
-    return metric

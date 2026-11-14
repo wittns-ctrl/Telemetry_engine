@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+import logging
 import secrets
 
 from app.models.user import (
@@ -18,6 +19,12 @@ from app.models.refresh_token import RefreshToken
 from app.models.email_verification import EmailVerification
 from app.models.password_reset import PasswordReset
 from app.models.audit_log import AuditLog, AuditEventType
+from app.models.telemetry import Device, TelemetrySnapshotDocument
+from app.models.alert import AnomalyAlertDocument
+from app.models.metric import Metrics
+from app.services.anomaly_engine import anomaly_engine
+from app.core.websocket_manager import manager as stream_manager
+from app.core.sockets import manager as alerts_socket_manager
 from app.core.security import (
     verify_password, get_password_hash, create_access_token,
     create_refresh_token, hash_token, verify_token_hash, generate_family_id,
@@ -30,6 +37,7 @@ from app.services.email import email_service
 from beanie import PydanticObjectId
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
 
 async def log_audit_event(
@@ -60,6 +68,36 @@ async def get_client_info(request: Request) -> tuple[Optional[str], Optional[str
     ip_address = request.client.host if request.client else None
     user_agent = request.headers.get("user-agent")
     return ip_address, user_agent
+
+
+REFRESH_COOKIE_NAME = "refresh_token"
+
+
+def set_refresh_cookie(response: Response, token: str, expires_at: datetime) -> None:
+    """Attach the refresh token as an HttpOnly cookie on the outgoing response."""
+    secure = settings.APP_ENV == "production"
+    response.set_cookie(
+        key=REFRESH_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=secure,
+        # Cross-site deployments (frontend and API on different sites) need SameSite=None,
+        # which browsers only accept together with Secure.
+        samesite="none" if secure else "lax",
+        expires=expires_at,
+        path="/api/v1/auth",
+    )
+
+
+def clear_refresh_cookie(response: Response) -> None:
+    secure = settings.APP_ENV == "production"
+    response.delete_cookie(
+        key=REFRESH_COOKIE_NAME,
+        path="/api/v1/auth",
+        secure=secure,
+        httponly=True,
+        samesite="none" if secure else "lax",
+    )
 
 
 def normalize_email(email: str) -> str:
@@ -133,14 +171,15 @@ async def register(
 
 @router.post("/login", response_model=Token)
 async def login(
+    request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    request: Request = None
 ):
     """Authenticate user with email and password."""
     normalized_email = normalize_email(form_data.username)
     
     user = await User.find_one(User.normalized_email == normalized_email)
-    ip_address, user_agent = await get_client_info(request) if request else (None, None)
+    ip_address, user_agent = await get_client_info(request)
     
     if not user or not verify_password(form_data.password, user.hashed_password or ""):
         await log_audit_event(
@@ -201,17 +240,8 @@ async def login(
         user_agent=user_agent
     )
     
-    # Set refresh token in HttpOnly cookie
-    response = Response()
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=settings.APP_ENV == "production",
-        samesite="lax",
-        expires=expires_at,
-        path="/"
-    )
+    # Set refresh token in HttpOnly cookie (on the injected response so it is actually sent)
+    set_refresh_cookie(response, refresh_token, expires_at)
     
     return Token(
         access_token=access_token,
@@ -221,9 +251,9 @@ async def login(
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh_token(request: Request):
+async def refresh_token(request: Request, response: Response):
     """Refresh access token using refresh token."""
-    refresh_token = request.cookies.get("refresh_token")
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
     if not refresh_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -233,13 +263,14 @@ async def refresh_token(request: Request):
     refresh_token_hash = hash_token(refresh_token)
     stored_token = await RefreshToken.find_one(RefreshToken.token_hash == refresh_token_hash)
     
-    if not stored_token or not stored_token.is_valid():
+    if not stored_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token"
         )
     
-    # Check for token reuse (potential compromise)
+    # Check for token reuse (potential compromise). Must run before the validity
+    # check, because is_valid() is False for revoked tokens.
     if stored_token.is_revoked:
         # Revoke all tokens in this family
         await RefreshToken.find_many(
@@ -257,6 +288,12 @@ async def refresh_token(request: Request):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token reuse detected. Please login again."
+        )
+    
+    if not stored_token.is_valid():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
         )
     
     user = await User.get(PydanticObjectId(stored_token.user_id))
@@ -285,16 +322,7 @@ async def refresh_token(request: Request):
     access_token = create_access_token(data={"sub": str(user.id)})
     
     # Set new refresh token in cookie
-    response = Response()
-    response.set_cookie(
-        key="refresh_token",
-        value=new_refresh_token,
-        httponly=True,
-        secure=settings.APP_ENV == "production",
-        samesite="lax",
-        expires=new_expires_at,
-        path="/"
-    )
+    set_refresh_cookie(response, new_refresh_token, new_expires_at)
     
     return Token(
         access_token=access_token,
@@ -305,12 +333,13 @@ async def refresh_token(request: Request):
 
 @router.post("/logout")
 async def logout(
+    request: Request,
+    response: Response,
     current_user: User = Depends(get_current_user),
-    request: Request = None
 ):
     """Logout user and revoke refresh token."""
-    refresh_token = request.cookies.get("refresh_token") if request else None
-    ip_address, user_agent = await get_client_info(request) if request else (None, None)
+    refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
+    ip_address, user_agent = await get_client_info(request)
     
     if refresh_token:
         refresh_token_hash = hash_token(refresh_token)
@@ -328,8 +357,7 @@ async def logout(
     )
     
     # Clear refresh token cookie
-    response = Response()
-    response.delete_cookie(key="refresh_token", path="/")
+    clear_refresh_cookie(response)
     
     return {"message": "Successfully logged out"}
 
@@ -413,31 +441,45 @@ async def change_password(
 
 @router.delete("/account")
 async def delete_account(
+    response: Response,
     current_user: User = Depends(get_current_user),
-    request: Request = None
 ):
-    """Deactivate/delete user account."""
-    # Soft delete - mark as inactive
-    current_user.is_active = False
-    current_user.updated_at = datetime.now(timezone.utc)
-    await current_user.save()
-    
-    # Revoke all refresh tokens
-    await RefreshToken.find_many(
-        RefreshToken.user_id == str(current_user.id)
-    ).update({"$set": {"is_revoked": True, "revoked_at": datetime.now(timezone.utc)}})
-    
-    # Log account deactivation
-    ip_address, user_agent = await get_client_info(request) if request else (None, None)
-    await log_audit_event(
-        user_id=str(current_user.id),
-        event_type=AuditEventType.ACCOUNT_DEACTIVATION,
-        success=True,
-        ip_address=ip_address,
-        user_agent=user_agent
+    """Permanently erase the account and everything stored for it.
+
+    Removes the user's devices, readings, alerts, legacy metrics, sign-in
+    sessions, email/password tokens and security logs, then the user record
+    itself. The user record goes last so a failure part-way can be retried
+    by calling this again. Nothing is kept, including the audit trail, so the
+    erasure promised in the privacy policy is complete.
+    """
+    user_oid = current_user.id
+    user_id = str(user_oid)
+
+    # Stop new sessions first, then cut live connections.
+    sessions = await RefreshToken.find(RefreshToken.user_id == user_id).delete()
+
+    devices = await Device.find(Device.user_id == user_oid).to_list()
+    for device in devices:
+        await anomaly_engine.clear_device_state(user_id, str(device.id))
+    await stream_manager.disconnect_user(user_id)
+    await alerts_socket_manager.disconnect_user(user_id)
+
+    readings = await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.user_id == user_oid).delete()
+    alerts = await AnomalyAlertDocument.find(AnomalyAlertDocument.user_id == user_oid).delete()
+    metrics = await Metrics.find(Metrics.user_id == user_id).delete()
+    await Device.find(Device.user_id == user_oid).delete()
+    await EmailVerification.find(EmailVerification.user_id == user_id).delete()
+    await PasswordReset.find(PasswordReset.user_id == user_id).delete()
+    await AuditLog.find(AuditLog.user_id == user_id).delete()
+    await current_user.delete()
+
+    logger.info(
+        "Account erased: %d devices, %d readings, %d alerts, %d metrics, %d sessions",
+        len(devices), *(getattr(r, "deleted_count", 0) for r in (readings, alerts, metrics, sessions)),
     )
-    
-    return {"message": "Account deactivated successfully"}
+
+    clear_refresh_cookie(response)
+    return {"message": "Account and all its data have been permanently deleted"}
 
 
 @router.post("/verify-email")

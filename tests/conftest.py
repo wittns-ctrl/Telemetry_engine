@@ -16,9 +16,42 @@ from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from beanie import init_beanie
 from motor.motor_asyncio import AsyncIOMotorClient
 from httpx import AsyncClient, ASGITransport
+import mongomock
 import mongomock_motor
 
 from app.main import app
+
+
+# Beanie 2.x calls list_collection_names(authorizedCollections=..., nameOnly=...),
+# which mongomock doesn't accept. Drop those server-only options.
+_list_collection_names = mongomock.database.Database.list_collection_names
+
+
+def _list_collection_names_compat(self, filter=None, session=None, **_server_opts):
+    return _list_collection_names(self, filter=filter, session=session)
+
+
+mongomock.database.Database.list_collection_names = _list_collection_names_compat
+
+
+# mongomock's create_indexes drops partialFilterExpression, which turns the
+# Device.ingest_key_hash partial unique index into a plain unique one.
+def _create_indexes_compat(self, indexes, session=None):
+    return [
+        self.create_index(
+            index.document["key"].items(),
+            session=session,
+            expireAfterSeconds=index.document.get("expireAfterSeconds"),
+            unique=index.document.get("unique", False),
+            sparse=index.document.get("sparse", False),
+            partialFilterExpression=index.document.get("partialFilterExpression"),
+            name=index.document.get("name"),
+        )
+        for index in indexes
+    ]
+
+
+mongomock.collection.Collection.create_indexes = _create_indexes_compat
 from app.core.config import settings
 from app.core.security import get_password_hash, create_access_token
 from app.models.user import User, UserRole
@@ -702,7 +735,7 @@ def mock_openai_client():
     Returns:
         MagicMock: Mocked AsyncOpenAI client
     """
-    with patch('openai.AsyncOpenAI') as mock_client_class:
+    with patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
         mock_client = AsyncMock()
         mock_response = MagicMock()
         mock_choice = MagicMock()
@@ -753,7 +786,7 @@ def mock_openai_timeout():
     Returns:
         MagicMock: Mocked AsyncOpenAI client that raises timeout
     """
-    with patch('openai.AsyncOpenAI') as mock_client_class:
+    with patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
         from openai import APIConnectionError
         
         mock_client = AsyncMock()

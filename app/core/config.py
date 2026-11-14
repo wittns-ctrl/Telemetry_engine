@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     SMTP_FROM_EMAIL: str | None = None
     SMTP_USE_TLS: bool = True
 
+    # Optional URL that receives a POST for every threshold-breach alert
+    ALERT_WEBHOOK_URL: str | None = None
+
     # Rate limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_PER_MINUTE: int = 60

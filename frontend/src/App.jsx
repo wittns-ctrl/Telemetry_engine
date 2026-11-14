@@ -1,29 +1,47 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
-import { DonezoDashboard } from './components/DonezoDashboard';
-import { LectioDashboard } from './components/LectioDashboard';
-import { MetricsStudioView } from './components/MetricsStudioView';
-import { LiveStreamView } from './components/LiveStreamView';
-import { AnalyticsView } from './components/AnalyticsView';
-import { TeamView } from './components/TeamView';
-import { SettingsView } from './components/SettingsView';
+import './components/dashboard.css';
+
+// The signed-in screens (and the charts library they use) load only when opened,
+// so landing-page visitors don't download the whole dashboard up front.
+const named = (load, name) => lazy(() => load().then((m) => ({ default: m[name] })));
+const Dashboard = named(() => import('./components/Dashboard'), 'Dashboard');
+const MetricsStudioView = named(() => import('./components/MetricsStudioView'), 'MetricsStudioView');
+const LiveStreamView = named(() => import('./components/LiveStreamView'), 'LiveStreamView');
+const AnalyticsView = named(() => import('./components/AnalyticsView'), 'AnalyticsView');
+const SensorsView = named(() => import('./components/SensorsView'), 'SensorsView');
+const HelpView = named(() => import('./components/HelpView'), 'HelpView');
+const SettingsView = named(() => import('./components/SettingsView'), 'SettingsView');
+const DevicesView = named(() => import('./components/DevicesView'), 'DevicesView');
 import { AuthPage } from './components/AuthPage';
 import { AuthModal } from './components/AuthModal';
 import { LogoutModal } from './components/LogoutModal';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
-import { LayoutGrid, CheckSquare, Calendar, BarChart3, Server, Settings, HelpCircle } from 'lucide-react';
+import Landing from './pages/Landing';
+import { PrivacyPage, TermsPage } from './pages/Legal';
+import { LayoutGrid, Database, Radio, BarChart3, Cpu, Server, Settings, HelpCircle } from 'lucide-react';
 
 import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
-import { fetchStats, fetchThresholds, fetchCurrentUser, logoutUser, ingestMetric } from './services/api';
+import {
+  fetchStats,
+  fetchThresholds,
+  fetchCurrentUser,
+  logoutUser,
+  ingestMetric,
+  getAccessToken,
+  AUTH_LOGOUT_EVENT,
+  BACKEND_DISABLED,
+  OFFLINE_USER,
+} from './services/api';
 
 function App() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(Boolean(localStorage.getItem("telemetry_jwt_token")));
+  const [user, setUser] = useState(() => (BACKEND_DISABLED ? OFFLINE_USER : null));
+  const [isAuthenticated, setIsAuthenticated] = useState(() => BACKEND_DISABLED || Boolean(getAccessToken()));
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
@@ -36,6 +54,11 @@ function App() {
 
   // Navigation state ('dashboard' default as shown in Donezo design)
   const [activeNav, setActiveNav] = useState('dashboard');
+
+  // Sidebar mode: every page load opens the full sidebar; the toggle slims it
+  // down to the icon rail for the rest of the visit.
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const toggleSidebar = useCallback(() => setSidebarExpanded((prev) => !prev), []);
 
   // Automated Simulator State
   const [isSimulating, setIsSimulating] = useState(false);
@@ -55,6 +78,11 @@ function App() {
 
   // Load initial metadata
   const loadInitialData = useCallback(async () => {
+    if (BACKEND_DISABLED) {
+      setUser(OFFLINE_USER);
+      return;
+    }
+    if (!getAccessToken()) return;
     try {
       const [statsData, thresholdsData] = await Promise.all([
         fetchStats().catch(() => null),
@@ -64,7 +92,14 @@ function App() {
       if (thresholdsData) setThresholds(thresholdsData);
 
       const currentUser = await fetchCurrentUser().catch(() => null);
-      if (currentUser) setUser(currentUser);
+      if (currentUser) {
+        setUser(currentUser);
+        setIsAuthenticated(true);
+      } else if (!getAccessToken()) {
+        // Token was rejected and could not be refreshed.
+        setUser(null);
+        setIsAuthenticated(false);
+      }
     } catch (err) {
       console.error('Error loading initial telemetry metadata:', err);
     }
@@ -73,6 +108,23 @@ function App() {
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
+
+  // api.js fires this when a refresh fails and the session is cleared.
+  useEffect(() => {
+    const onLoggedOut = () => {
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsSimulating(false);
+    };
+    window.addEventListener(AUTH_LOGOUT_EVENT, onLoggedOut);
+    return () => window.removeEventListener(AUTH_LOGOUT_EVENT, onLoggedOut);
+  }, []);
+
+  const handleAuthSuccess = useCallback(() => {
+    setIsAuthenticated(true);
+    loadInitialData();
+    navigate("/");
+  }, [loadInitialData, navigate]);
 
   // Automated Stream Simulator Generation Logic
   const generateSimulatedPayload = useCallback(() => {
@@ -107,7 +159,7 @@ function App() {
 
   // Simulator interval worker
   useEffect(() => {
-    if (isSimulating) {
+    if (isSimulating && !BACKEND_DISABLED) {
       simTimerRef.current = setInterval(async () => {
         try {
           const payload = generateSimulatedPayload();
@@ -135,6 +187,7 @@ function App() {
     setUser(null);
     setIsAuthenticated(false);
     setIsLogoutOpen(false);
+    setIsSimulating(false);
     navigate("/signin");
   };
 
@@ -145,67 +198,53 @@ function App() {
   // Define menu items for lookup
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
-    { id: "lectio", label: "Lectio Dashboard", icon: LayoutGrid },
-    { id: "tasks", label: "Tasks", icon: CheckSquare },
-    { id: "live", label: "Calendar", icon: Calendar },
+    { id: "devices", label: "My Devices", icon: Cpu },
+    { id: "metrics", label: "Metrics Studio", icon: Database },
+    { id: "live", label: "Live Stream", icon: Radio },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
-    { id: "team", label: "Sensors", icon: Server },
+    { id: "sensors", label: "Sensors", icon: Server },
     { id: "settings", label: "Settings", icon: Settings },
     { id: "help", label: "Help", icon: HelpCircle },
   ];
-
-  // Profile Image State
-  const [profileImage, setProfileImage] = useState("https://ui-avatars.com/api/?name=Roland+Donald&background=f1f5f9&color=0f172a&size=150");
 
   const activeItem = menuItems.find(item => item.id === activeNav) || menuItems[0];
 
   // Show full-page auth routes
   return (
     <Routes>
-      <Route path="/signin" element={<AuthPage onAuthSuccess={() => { loadInitialData(); navigate("/"); }} />} />
+      <Route path="/signin" element={isAuthenticated ? <Navigate to="/" replace /> : <AuthPage onAuthSuccess={handleAuthSuccess} />} />
+      <Route path="/signup" element={isAuthenticated ? <Navigate to="/" replace /> : <AuthPage key="signup" initialScreen="signup" onAuthSuccess={handleAuthSuccess} />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
-      <Route path="/" element={
-        <div className="flex min-h-screen bg-[#f3f5f7] text-slate-900 font-sans">
-          {/* Floating Donezo White Card Sidebar */}
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/" element={!isAuthenticated ? <Landing /> : (
+        <div className={`ld-frame${sidebarExpanded ? ' is-wide' : ''}`}>
           <Sidebar
             activeNav={activeNav}
             setActiveNav={setActiveNav}
             onLogout={() => setIsLogoutOpen(true)}
-            alertsCount={alerts.length || 12}
+            user={user}
+            expanded={sidebarExpanded}
+            onToggle={toggleSidebar}
           />
 
-          {/* Main Right Body */}
-          <div className="flex-1 flex flex-col min-w-0 bg-[#f3f5f7] py-2 px-4 md:px-6">
+          <div className="ld-content">
+            {activeNav !== 'dashboard' && (
+              <TopBar alertsCount={alerts.length} onOpenAlerts={() => setActiveNav('live')} />
+            )}
 
-            {/* Donezo Top Search & Profile Bar */}
-            <TopBar
-              user={user}
-              onOpenAuth={() => setIsAuthOpen(true)}
-              alertsCount={alerts.length}
-              activeItem={activeItem}
-              profileImage={profileImage}
-            />
+            <main className="ld-page" aria-label={activeItem.label}>
+              <Suspense fallback={<div className="p-6 text-sm text-slate-400" role="status">Loading…</div>}>
 
-            {/* Dynamic Route View Body */}
-            <main className="flex-1 p-2 md:p-4 overflow-y-auto">
+              {activeNav === 'dashboard' && <Dashboard alertsCount={alerts.length} onNavigate={setActiveNav} />}
 
-              {activeNav === 'dashboard' && (
-                <DonezoDashboard
-                  stats={stats}
-                  alerts={alerts}
-                  onIngestClick={() => setActiveNav('tasks')}
-                  onSimulateClick={toggleSimulation}
-                  onViewAlerts={() => setActiveNav('live')}
-                />
+              {activeNav === 'devices' && (
+                <DevicesView />
               )}
 
-              {activeNav === 'lectio' && (
-                <LectioDashboard activeNav={activeNav} setActiveNav={setActiveNav} />
-              )}
-
-              {activeNav === 'tasks' && (
+              {activeNav === 'metrics' && (
                 <MetricsStudioView onRefreshStats={loadInitialData} />
               )}
 
@@ -230,24 +269,22 @@ function App() {
                 <AnalyticsView stats={stats} />
               )}
 
-              {activeNav === 'team' && (
-                <TeamView stats={stats} />
+              {activeNav === 'sensors' && (
+                <SensorsView stats={stats} />
+              )}
+
+              {activeNav === 'help' && (
+                <HelpView onNavigate={setActiveNav} />
               )}
 
               {activeNav === 'settings' && (
                 <SettingsView
-                  thresholds={thresholds}
-                  onUpdateThresholds={(newLimits) => {
-                    setThresholds((prev) => ({
-                      ...prev,
-                      ...newLimits,
-                    }));
-                  }}
-                  onOpenAuth={() => setIsAuthOpen(true)}
-                  profileImage={profileImage}
-                  setProfileImage={setProfileImage}
+                  user={user}
+                  onUserUpdated={setUser}
+                  onSignedOut={handleConfirmSignOut}
                 />
               )}
+              </Suspense>
 
             </main>
 
@@ -258,6 +295,7 @@ function App() {
             isOpen={isAuthOpen}
             onClose={() => setIsAuthOpen(false)}
             onAuthSuccess={() => {
+              setIsAuthenticated(true);
               loadInitialData();
               setIsAuthOpen(false);
             }}
@@ -271,8 +309,8 @@ function App() {
           />
 
         </div>
-      } />
-      <Route path="*" element={<AuthPage onAuthSuccess={() => { loadInitialData(); navigate("/"); }} />} />
+      )} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

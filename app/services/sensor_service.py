@@ -30,6 +30,21 @@ from app.models.telemetry import (
 logger = logging.getLogger(__name__)
 
 
+def _wmi_client():
+    """
+    Open a WMI connection from the current thread.
+
+    WMI is COM-based and these collectors run in asyncio.to_thread workers, which
+    have no COM apartment by default, so every query failed with a "syntax error".
+    Raises ImportError when wmi/pywin32 are not installed (non-Windows hosts).
+    """
+    import pythoncom
+    import wmi
+
+    pythoncom.CoInitialize()  # safe to repeat on a reused pool thread
+    return wmi.WMI()
+
+
 class SensorService:
     """
     Asynchronous hardware telemetry collection service.
@@ -206,8 +221,7 @@ class SensorService:
     def _get_cpu_power_and_fan() -> tuple:
         """Get CPU power and fan using WMI (blocking)."""
         try:
-            import wmi
-            c = wmi.WMI()
+            c = _wmi_client()
             
             power_w = None
             fan_rpm = None
@@ -345,8 +359,7 @@ class SensorService:
     def _collect_wmi_gpu_metrics() -> GPUMetrics:
         """Collect GPU metrics using WMI fallback (blocking)."""
         try:
-            import wmi
-            c = wmi.WMI()
+            c = _wmi_client()
             
             gpu_name = None
             core_temp = None
@@ -597,8 +610,7 @@ class SensorService:
     def _get_wmi_power_vrm_metrics() -> PowerAndVRMMetrics:
         """Get power and VRM metrics using WMI (blocking)."""
         try:
-            import wmi
-            c = wmi.WMI()
+            c = _wmi_client()
             
             vrm_temp = None
             psu_voltage = None

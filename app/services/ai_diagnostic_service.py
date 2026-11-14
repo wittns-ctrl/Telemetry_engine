@@ -310,16 +310,16 @@ Provide a diagnostic report with root cause analysis, urgency assessment, and st
         
         summary_lines = []
         for snapshot in telemetry_context[:5]:  # Limit to 5 snapshots
-            if snapshot.telemetry:
-                lines = [
-                    f"Timestamp: {snapshot.timestamp.isoformat()}",
-                    f"CPU: {snapshot.telemetry.cpu.core_temperature_c if snapshot.telemetry.cpu else 'N/A'}°C, "
-                    f"{snapshot.telemetry.cpu.utilization_percent if snapshot.telemetry.cpu else 'N/A'}% utilization",
-                    f"GPU: {snapshot.telemetry.gpu.core_temperature_c if snapshot.telemetry.gpu else 'N/A'}°C, "
-                    f"{snapshot.telemetry.gpu.utilization_percent if snapshot.telemetry.gpu else 'N/A'}% utilization",
-                    f"RAM: {snapshot.telemetry.ram.usage_percent if snapshot.telemetry.ram else 'N/A'}% usage",
-                ]
-                summary_lines.append("\n".join(lines))
+            cpu, gpu, ram = snapshot.cpu, snapshot.gpu, snapshot.ram
+            lines = [
+                f"Timestamp: {snapshot.timestamp.isoformat()}",
+                f"CPU: {cpu.core_temperature_c if cpu else 'N/A'}°C, "
+                f"{cpu.utilization_percent if cpu else 'N/A'}% utilization",
+                f"GPU: {gpu.core_temperature_c if gpu else 'N/A'}°C, "
+                f"{gpu.utilization_percent if gpu else 'N/A'}% utilization",
+                f"RAM: {ram.usage_percent if ram else 'N/A'}% usage",
+            ]
+            summary_lines.append("\n".join(lines))
         
         return "\n---\n".join(summary_lines)
     
