@@ -18,8 +18,8 @@ const TOPICS = [
   {
     id: "live",
     title: "Watch readings live",
-    body: "Live Stream charts readings as they arrive and lists alerts in real time. The simulator on that page sends random test readings to your own account so you can try the charts and alerts without a device.",
-    action: "Open Live Stream",
+    body: "Live Monitor charts readings as they arrive and lists alerts in real time. The simulator on that page sends random test readings to your own account so you can try the charts and alerts without a device.",
+    action: "Open Live Monitor",
   },
   {
     id: "settings",
@@ -81,7 +81,7 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
         <p className="text-xs text-slate-600 leading-relaxed">
           A reading that goes over its limit raises an alert. The current limits are shown on the
           Dashboard cards. Alerts reach this app immediately while it is open; the Dashboard and
-          Live Stream lists only cover alerts received since you opened the page.
+          Live Monitor lists only cover alerts received since you opened the page.
         </p>
       </div>
     </div>

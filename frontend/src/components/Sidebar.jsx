@@ -10,7 +10,7 @@ const MAIN_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutGrid },
   { id: 'devices', label: 'My Devices', icon: Cpu },
   { id: 'metrics', label: 'Metrics Studio', icon: Database },
-  { id: 'live', label: 'Live Stream', icon: Radio },
+  { id: 'live', label: 'Live Monitor', icon: Radio },
   { id: 'analytics', label: 'Analytics', icon: ChartSpline },
   { id: 'sensors', label: 'Sensors', icon: Server },
 ];
@@ -59,7 +59,7 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout, user,
   if (!expanded) {
     return (
       <aside className="ld-rail">
-        <span className="ld-logo"><LectioMark size={20} /></span>
+        <span className="ld-logo"><LectioMark size={22} on="dark" /></span>
         <button type="button" className="ld-glass-toggle ld-rail-toggle" onClick={onToggle} aria-label="Expand sidebar" title="Expand sidebar">
           <ChevronRight strokeWidth={2.2} />
         </button>
@@ -88,7 +88,7 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout, user,
   return (
     <aside className="ld-rail is-expanded">
       <div className="ld-rail-brand">
-        <span className="ld-logo"><LectioMark size={20} /></span>
+        <span className="ld-logo"><LectioMark size={22} on="dark" /></span>
         <span className="ld-rail-brand-name">Lectio</span>
         <button type="button" className="ld-glass-toggle" onClick={onToggle} aria-label="Collapse sidebar" title="Collapse sidebar">
           <ChevronLeft strokeWidth={2.2} />

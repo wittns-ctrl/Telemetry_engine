@@ -45,7 +45,7 @@ function PhoneLive() {
           <div className="ph-island" />
           <div className="ph-bar">
             <span><ArrowLeft size="1em" /></span>
-            <b>Live Stream</b>
+            <b>Live Monitor</b>
             <span><MoreHorizontal size="1em" /></span>
           </div>
           <div className="ph-chart">
@@ -71,7 +71,7 @@ const PREVIEW_BARS = [
   { label: 'Network', pct: 23, tone: '#a1a1aa' },
 ];
 const PREVIEW_SENSORS = ['sensor_server_101', 'sensor_edge_node_4', 'sensor_db_cluster_a', 'sensor_gateway_01'];
-const PREVIEW_NAV = ['Dashboard', 'My Devices', 'Metrics Studio', 'Live Stream', 'Analytics', 'Sensors'];
+const PREVIEW_NAV = ['Dashboard', 'My Devices', 'Metrics Studio', 'Live Monitor', 'Analytics', 'Sensors'];
 
 function DashboardPreview() {
   return (
@@ -350,7 +350,7 @@ function LiquidNav() {
   return (
     <header className="lp-chrome" data-chrome>
       <a className="lp-brand" href="#home" onClick={() => go('home')} aria-label="Lectio home">
-        <span className="lp-brand-mark"><LectioMark size={28} /></span>
+        <span className="lp-brand-mark"><LectioMark size={28} on="dark" /></span>
         <span className="lp-brand-name">Lectio</span>
       </a>
 
@@ -454,7 +454,7 @@ const FAQ = [
   {
     group: 'Alerts and your data',
     items: [
-      { q: 'How do alerts work?', a: 'Every reading is checked against a safe limit, such as 90°C for a CPU. When a reading crosses it, an alert appears in your live stream and on your dashboard straight away.' },
+      { q: 'How do alerts work?', a: 'Every reading is checked against a safe limit, such as 90°C for a CPU. When a reading crosses it, an alert appears in your live monitor and on your dashboard straight away.' },
       { q: 'What is an AI diagnosis?', a: 'Open an alert under My Devices and press Diagnose. Lectio looks at the alert and your PC\'s readings from the few minutes around it, then explains the likely cause, how urgent it is, and what to do, step by step. It is written by AI (OpenAI) and can be wrong, so check it before acting. If the AI is unavailable, you get Lectio\'s standard steps for that kind of alert instead, labelled as such.' },
       { q: 'Who can see my data?', a: 'Only you. Each account sees its own PCs, readings and alerts, and nothing from anyone else. We never sell your data.' },
       { q: 'How long is my data kept?', a: 'Until you remove the PC or delete your account. Deleting either one permanently erases its readings and alerts.' },

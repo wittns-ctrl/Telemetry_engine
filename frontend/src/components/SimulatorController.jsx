@@ -46,7 +46,7 @@ export function SimulatorController({
           ) : (
             <>
               <Play className="w-4 h-4 fill-current" />
-              <span>Start Automated Live Stream</span>
+              <span>Start Automated Live Monitor</span>
             </>
           )}
         </button>

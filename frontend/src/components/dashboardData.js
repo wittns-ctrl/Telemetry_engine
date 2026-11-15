@@ -2,93 +2,106 @@
 // template; the content is Lectio's own (PC hardware health). Nothing here
 // comes from the API yet: these get replaced when the backend is reconnected.
 
-export const HERO = {
-  title: ["Intelligent", "PC Health"],
-  subtitle: "Real-time hardware monitoring for every PC you own.",
-  load: { label: ["CPU", "Load"], value: 64, unit: "%", from: "Idle", to: "Max" },
-  temp: { label: ["CPU", "Temperature"], value: 72, unit: "°C" },
-  kpis: [
-    { value: "185", unit: "W", label: "Power draw" },
-    { value: "98.4", unit: "%", label: "System health" },
-  ],
+export const WELCOME = {
+  subtitle: "Here's what's happening with your PC today.",
+  device: { name: "My Windows PC", detail: "Windows 11 • Desktop", status: "Connected" },
+  searchHint: "Search devices, metrics, sensors, alerts...",
 };
 
-// Two interleaved waves for the temperature card: CPU (green) and GPU (charcoal).
-export const TEMP_WAVES = {
-  cpu: [[0, 14], [12, 14], [22, 6], [34, 6], [44, 14], [56, 14], [66, 6], [78, 6], [88, 14], [100, 14]],
-  gpu: [[0, 9], [14, 9], [24, 17], [36, 17], [46, 9], [58, 9], [68, 17], [80, 17], [90, 9], [100, 9]],
-};
-
-export const STATS = [
-  { icon: "temp", value: "61.4", unit: "°C", change: "-4.6%", good: true, label: "Avg CPU Temp" },
-  { icon: "gpu", value: "85.4", unit: "%", change: "+9.2%", good: false, label: "GPU Load" },
-  { icon: "readings", value: "4,500", unit: "", change: "+4.5%", good: true, label: "Readings Today" },
+// What the banner search understands: a query matching any word opens that page.
+export const SEARCH_TARGETS = [
+  { id: "devices", words: ["device", "devices", "pc", "computer", "system", "windows", "storage", "disk", "drive"] },
+  { id: "sensors", words: ["sensor", "sensors", "temperature", "temp", "cpu", "gpu", "fan", "thermal", "heat"] },
+  { id: "live", words: ["alert", "alerts", "live", "monitor", "stream", "notification", "notifications", "power"] },
+  { id: "analytics", words: ["analytics", "trend", "trends", "history", "report", "ram", "memory", "usage"] },
+  { id: "metrics", words: ["metric", "metrics", "studio", "reading", "readings"] },
+  { id: "settings", words: ["setting", "settings", "account", "profile", "password"] },
+  { id: "help", words: ["help", "support", "faq", "guide"] },
 ];
 
-// Readings received per day; the dot colour says how the day went.
-export const DAY_STATUS = {
-  peak: { label: "Peak", color: "#5cc061" },
-  steady: { label: "Steady", color: "#1c1c1f" },
-  alerts: { label: "Alerts", color: "#ec003f" },
-  offline: { label: "Offline", color: "#b9b9bf" },
-};
-export const READINGS = {
-  Week: [
-    { day: "Mo", value: 1520, status: "alerts" },
-    { day: "Tu", value: 1880, status: "steady" },
-    { day: "We", value: 2345, status: "peak" },
-    { day: "Th", value: 820, status: "offline" },
-    { day: "Fr", value: 1390, status: "alerts" },
-    { day: "Sa", value: 1740, status: "steady" },
-    { day: "Su", value: 1440, status: "alerts" },
+// System Information: two columns of three rows. `icon` keys map to icons in Dashboard.jsx.
+export const SYSTEM_INFO = [
+  [
+    { icon: "os", label: "Operating System", value: "Windows 11" },
+    { icon: "cpu", label: "Processor", value: "AMD Ryzen 5 7600X" },
+    { icon: "gpu", label: "Graphics", value: "NVIDIA GeForce RTX 3070" },
   ],
-  "Last week": [
-    { day: "Mo", value: 1610, status: "steady" },
-    { day: "Tu", value: 1430, status: "alerts" },
-    { day: "We", value: 1720, status: "steady" },
-    { day: "Th", value: 1980, status: "steady" },
-    { day: "Fr", value: 2210, status: "peak" },
-    { day: "Sa", value: 960, status: "offline" },
-    { day: "Su", value: 1150, status: "alerts" },
+  [
+    { icon: "ram", label: "Installed RAM", value: "32 GB DDR5" },
+    { icon: "storage", label: "Storage", value: "ST2000DM008 2 TB" },
+    { icon: "updated", label: "Last Updated", value: "2026-11-14T09:24:00" },
   ],
-};
-
-// Tags at the ends of the leader lines, in the illustration's 150 × 108 units.
-export const HEALTH_TAGS = [
-  { label: "CPU", x: 40, y: 16, align: "above" },
-  { label: "GPU", x: 128, y: 58, align: "below" },
-  { label: "Power Supply", x: 22, y: 74, align: "below" },
 ];
 
-export const THERMAL = [
-  { device: "Gaming PC", part: "CPU Package", level: "High heat", percent: 89, hot: ["cpu", "gpu"] },
-  { device: "Work Laptop", part: "CPU Package", level: "Normal", percent: 54, hot: ["cpu", "ram"] },
-  { device: "Home Server", part: "Drives", level: "Warm", percent: 67, hot: ["ssd", "chipset", "psu"] },
+// Gauge cards. The arc fills to value / max, and the badge turns to its warning
+// text (and the arc to orange) once the value reaches `warnAt`. `colors` runs
+// along the lit ticks and `rest` along the unlit ones; `more` is the page that
+// "View more" opens. The CPU reading is also the banner's temperature chip.
+const UNLIT = ["#3d3d43", "#2f2f34"]; // dim ticks on the dark glass cards
+export const WARN_COLORS = { colors: ["#fb8a10", "#efa58c"], rest: UNLIT };
+export const GAUGES = [
+  {
+    id: "cpu", title: "CPU", subtitle: "Ryzen 5 7600X", more: "sensors",
+    value: 45, max: 100, unit: "°C", unitRaised: true, label: "Temperature",
+    warnAt: 80, okText: "Normal", warnText: "Hot",
+    colors: ["#19d873", "#1fe384"], rest: UNLIT,
+  },
+  {
+    id: "gpu", title: "GPU", subtitle: "RTX 3070", more: "sensors",
+    value: 32, max: 100, unit: "°C", unitRaised: true, label: "Temperature",
+    warnAt: 80, okText: "Normal", warnText: "Hot",
+    colors: ["#0bc6b5", "#10d695"], rest: UNLIT,
+  },
+  {
+    id: "ram", title: "RAM", subtitle: "32 GB DDR5", more: "analytics",
+    value: 92, max: 100, unit: "%", label: "Utilization",
+    warnAt: 85, okText: "Normal", warnText: "High Usage",
+    colors: ["#19d873", "#1fe384"], rest: UNLIT,
+  },
+  {
+    id: "storage", title: "Storage", subtitle: "ST2000DM008\u20112F R102", more: "devices",
+    value: 83, max: 100, unit: "%", label: "Utilization",
+    warnAt: 90, okText: "Healthy", warnText: "Almost Full",
+    colors: ["#a6d612", "#c6e02e"], rest: UNLIT,
+  },
+  {
+    id: "power", title: "Power", subtitle: "System Power Draw", more: "live",
+    value: 185, max: 400, unit: "W", label: "Power Draw",
+    warnAt: 350, okText: "Normal", warnText: "High Draw",
+    colors: ["#19d37a", "#22e08a"], rest: UNLIT,
+  },
 ];
 
-// Average daily use, as bar heights in the reference's pixels: [CPU, Memory, Disk].
-export const USAGE_SERIES = [
-  { key: "cpu", label: "CPU", color: "#1c1c1f" },
-  { key: "mem", label: "Memory", color: "#5cc061" },
-  { key: "disk", label: "Disk", color: "#e2e2df" },
+// Statistics chart history (placeholder). Each series is a smooth wave that
+// ends exactly on the gauge's current reading, so "Now" always matches the
+// card above it. Periods: 24 hourly points, 7 daily, 30 daily.
+export const STAT_PERIODS = [
+  { id: "24h", label: "24h", points: 24 },
+  { id: "7d", label: "7d", points: 7 },
+  { id: "30d", label: "30d", points: 30 },
 ];
-export const USAGE = {
-  Week: [
-    { day: "Mo", cpu: 17.5, mem: 22, disk: 21.5 },
-    { day: "Tu", cpu: 22.5, mem: 34, disk: 21.5 },
-    { day: "We", cpu: 14, mem: 16, disk: 17 },
-    { day: "Th", cpu: 13.5, mem: 19, disk: 17 },
-    { day: "Fr", cpu: 23, mem: 21, disk: 21 },
-    { day: "Sa", cpu: 15.5, mem: 15, disk: 16 },
-    { day: "Su", cpu: 10.5, mem: 29, disk: 18 },
-  ],
-  "Last week": [
-    { day: "Mo", cpu: 19, mem: 25, disk: 18 },
-    { day: "Tu", cpu: 16, mem: 22, disk: 20 },
-    { day: "We", cpu: 21, mem: 30, disk: 19 },
-    { day: "Th", cpu: 12, mem: 18, disk: 16 },
-    { day: "Fr", cpu: 18, mem: 24, disk: 22 },
-    { day: "Sa", cpu: 9, mem: 14, disk: 15 },
-    { day: "Su", cpu: 11, mem: 20, disk: 17 },
-  ],
+
+const CHART_SHAPES = {
+  cpu: { base: 50, amp: 8, colour: "#2fd27a" },
+  gpu: { base: 40, amp: 9, colour: "#1fc9b8" },
+  ram: { base: 76, amp: 8, colour: "#f59a3c" },
+  storage: { base: 81, amp: 0.8, colour: "#b4dc2a" },
+  power: { base: 205, amp: 45, colour: "#22e08a" },
 };
+
+function wave(points, base, amp, seed, end, max) {
+  const raw = Array.from({ length: points }, (_, i) =>
+    base + amp * Math.sin(i * 0.55 + seed) + amp * 0.45 * Math.sin(i * 1.7 + seed * 2));
+  const drift = end - raw[points - 1];
+  return raw.map((v, i) => {
+    const shifted = v + drift * (i / Math.max(1, points - 1));
+    return Math.round(Math.min(max, Math.max(0, shifted)));
+  });
+}
+
+export const CHART_COLOURS = Object.fromEntries(Object.entries(CHART_SHAPES).map(([id, s]) => [id, s.colour]));
+export const STAT_SERIES = Object.fromEntries(GAUGES.map((g, gi) => {
+  const { base, amp } = CHART_SHAPES[g.id];
+  return [g.id, Object.fromEntries(STAT_PERIODS.map((p, pi) =>
+    [p.id, wave(p.points, base, amp, gi * 1.3 + pi * 0.9 + 0.4, g.value, g.max)]))];
+}));

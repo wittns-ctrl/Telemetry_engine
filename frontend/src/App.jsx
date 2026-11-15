@@ -200,7 +200,7 @@ function App() {
     { id: "dashboard", label: "Dashboard", icon: LayoutGrid },
     { id: "devices", label: "My Devices", icon: Cpu },
     { id: "metrics", label: "Metrics Studio", icon: Database },
-    { id: "live", label: "Live Stream", icon: Radio },
+    { id: "live", label: "Live Monitor", icon: Radio },
     { id: "analytics", label: "Analytics", icon: BarChart3 },
     { id: "sensors", label: "Sensors", icon: Server },
     { id: "settings", label: "Settings", icon: Settings },
@@ -238,7 +238,7 @@ function App() {
             <main className="ld-page" aria-label={activeItem.label}>
               <Suspense fallback={<div className="p-6 text-sm text-slate-400" role="status">Loading…</div>}>
 
-              {activeNav === 'dashboard' && <Dashboard alertsCount={alerts.length} onNavigate={setActiveNav} />}
+              {activeNav === 'dashboard' && <Dashboard user={user} alertsCount={alerts.length} onNavigate={setActiveNav} />}
 
               {activeNav === 'devices' && (
                 <DevicesView />

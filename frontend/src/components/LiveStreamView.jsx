@@ -21,7 +21,7 @@ export function LiveStreamView({
     <div className="space-y-6 font-sans">
       <div>
         <h1 className="text-3xl font-black text-slate-900 tracking-tight">
-          Live Stream & Real-Time Alerts
+          Live Monitor & Real-Time Alerts
         </h1>
         <p className="text-xs text-slate-500 font-medium mt-1">
           Monitor incoming WebSocket telemetry events and active threshold

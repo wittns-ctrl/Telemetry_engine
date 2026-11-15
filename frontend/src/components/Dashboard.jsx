@@ -1,285 +1,312 @@
 import React, { useState } from "react";
-import { ArrowUpRight, ChevronRight, LayoutGrid, Thermometer, Gauge, Activity } from "lucide-react";
-import { TopBar } from "./TopBar";
-import { HeroScene, HealthScene, ThermalBoard } from "./DashboardArt";
 import {
-  HERO,
-  TEMP_WAVES,
-  STATS,
-  DAY_STATUS,
-  READINGS,
-  HEALTH_TAGS,
-  THERMAL,
-  USAGE_SERIES,
-  USAGE,
-} from "./dashboardData";
+  ChevronRight, LayoutGrid, Thermometer, Calendar, Search, Bell,
+  Info, ArrowRight, Cpu, Gpu, MemoryStick, Database, Clock, Zap,
+} from "lucide-react";
+import { WelcomeBackdrop, WelcomeScene } from "./DashboardArt";
+import { StatsChart } from "./StatsChart";
+import { WELCOME, SEARCH_TARGETS, SYSTEM_INFO, GAUGES, WARN_COLORS } from "./dashboardData";
 
-const PERIODS = ["Week", "Last week"];
-const nextOf = (list, current) => list[(list.indexOf(current) + 1) % list.length];
+const CPU = GAUGES.find((g) => g.id === "cpu");
 
-function PeriodPill({ value, onChange }) {
+// --------------------------------------------------------------- welcome
+
+function greetingFor(date) {
+  const h = date.getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+
+function WindowsLogo() {
   return (
-    <button type="button" className="ld-pill" onClick={() => onChange(nextOf(PERIODS, value))} title="Switch period">
-      {value}
-      <ChevronRight strokeWidth={2} aria-hidden="true" />
-    </button>
+    <svg viewBox="0 0 44 44" aria-hidden="true">
+      <rect x="0" y="0" width="20" height="20" rx="3.5" />
+      <rect x="24" y="0" width="20" height="20" rx="3.5" />
+      <rect x="0" y="24" width="20" height="20" rx="3.5" />
+      <rect x="24" y="24" width="20" height="20" rx="3.5" />
+    </svg>
   );
 }
 
-function Legend({ items }) {
-  return (
-    <div className="ld-legend">
-      {items.map((it) => (
-        <span key={it.label}><i style={{ background: it.color }} />{it.label}</span>
-      ))}
-    </div>
-  );
+/** The page a search query points at, or null: any query word that starts a target word counts. */
+function searchTarget(query) {
+  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (!words.length) return null;
+  const hit = SEARCH_TARGETS.find((t) => words.some((w) => t.words.some((tw) => tw.startsWith(w))));
+  return hit ? hit.id : null;
 }
 
-// ------------------------------------------------------------------ hero
+function Welcome({ user, alertsCount, onNavigate }) {
+  const now = new Date();
+  const [query, setQuery] = useState("");
+  const [missed, setMissed] = useState("");
+  // The offline placeholder account has no real name, so it gets a plain greeting.
+  const firstName = user?.id === "offline-user" ? "" : (user?.full_name || "").trim().split(/\s+/)[0];
+  const { device } = WELCOME;
+  const today = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
-function Hero({ alertsCount, onOpenAlerts, onOpen }) {
-  const { load, temp } = HERO;
-  const wave = (pts) => pts.map(([x, y]) => `${x},${y}`).join(" ");
   return (
-    <section className="ld-hero" aria-label="Overview">
-      <div className="ld-crumb"><LayoutGrid strokeWidth={1.8} aria-hidden="true" />Dashboard</div>
-      <h1>{HERO.title[0].toUpperCase()}<br />{HERO.title[1].toUpperCase()}</h1>
-      <div className="ld-hero-sub">{HERO.subtitle}</div>
+    <section className="ld-welcome" aria-label="Welcome">
+      <WelcomeBackdrop />
+      <div className="lw-scene-wrap"><WelcomeScene /></div>
 
-      <div className="ld-hero-cards">
-        <div className="ld-glass ld-hero-card is-first">
-          <div className="ld-hero-card-label">{load.label[0]}<br />{load.label[1]}</div>
-          <button type="button" className="ld-arrow-btn" onClick={() => onOpen("devices")} aria-label="Open My Devices">
-            <ArrowUpRight strokeWidth={2} />
-          </button>
-          <div className="ld-hero-card-value">{load.value}<small> {load.unit}</small></div>
-          <div className="ld-meter">
-            <div className="ld-meter-labels"><span>{load.from}</span><span>{load.to}</span></div>
-            <div className="ld-meter-track" role="meter" aria-valuenow={load.value} aria-valuemin={0} aria-valuemax={100} aria-label="CPU load">
-              <div className="ld-meter-fill" style={{ width: `${Math.max(18, load.value * 0.55)}%` }} />
-            </div>
-          </div>
-        </div>
+      <nav className="lw-crumb" aria-label="Breadcrumb">
+        <LayoutGrid strokeWidth={1.6} aria-hidden="true" />
+        <ChevronRight strokeWidth={1.8} aria-hidden="true" />
+        <span>Dashboard</span>
+      </nav>
 
-        <div className="ld-glass ld-hero-card is-second">
-          <div className="ld-hero-card-label">{temp.label[0]}<br />{temp.label[1]}</div>
-          <button type="button" className="ld-arrow-btn" onClick={() => onOpen("live")} aria-label="Open Live Stream">
-            <ArrowUpRight strokeWidth={2} />
-          </button>
-          <div className="ld-hero-card-value">{temp.value}<small>{temp.unit}</small></div>
-          <svg className="ld-hero-wave" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
-            <polyline points={wave(TEMP_WAVES.gpu)} fill="none" stroke="#1c1c1f" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-            <polyline points={wave(TEMP_WAVES.cpu)} fill="none" stroke="#5cc061" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+      <h1 className="lw-title">
+        {greetingFor(now)}{firstName ? `, ${firstName}` : ""}!
+        <span className="lw-wave" aria-hidden="true">
+          👋
+          <svg viewBox="0 0 80 80">
+            <path d="M54 4l5 7M62 1l6 9" />
+            <path d="M4 54l7 5M1 62l9 6" />
           </svg>
-        </div>
+        </span>
+      </h1>
+      <p className="lw-sub">{WELCOME.subtitle}</p>
+
+      <div className="lw-glass lw-device">
+        <span className="lw-device-icon"><WindowsLogo /></span>
+        <span className="lw-device-text">
+          <b>{device.name}</b>
+          <span>{device.detail}</span>
+        </span>
+        <i className="lw-divider" aria-hidden="true" />
+        <span className="lw-status"><i aria-hidden="true" />{device.status}</span>
       </div>
 
-      <div className="ld-hero-art"><HeroScene /></div>
+      <div className="lw-glass lw-date">
+        <Calendar strokeWidth={1.7} aria-hidden="true" />
+        <time dateTime={now.toISOString().slice(0, 10)}>{today}</time>
+      </div>
 
-      <TopBar alertsCount={alertsCount} onOpenAlerts={onOpenAlerts} />
+      <form
+        className="lw-glass lw-search"
+        role="search"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const target = searchTarget(query);
+          if (target) {
+            setMissed("");
+            onNavigate?.(target);
+          } else {
+            setMissed(query.trim());
+          }
+        }}
+      >
+        <Search strokeWidth={2} aria-hidden="true" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setMissed(""); }}
+          placeholder={WELCOME.searchHint}
+          aria-label="Search pages"
+          aria-describedby={missed ? "lw-search-miss" : undefined}
+        />
+        {missed && (
+          <span id="lw-search-miss" className="lw-search-miss" role="status">
+            Nothing matches “{missed}”. Try CPU, alerts or devices.
+          </span>
+        )}
+      </form>
+      <button
+        type="button"
+        className="lw-glass lw-bell"
+        onClick={() => onNavigate?.("live")}
+        aria-label={alertsCount ? `Alerts (${alertsCount})` : "Alerts"}
+        title="Alerts"
+      >
+        <Bell strokeWidth={1.9} />
+        {alertsCount > 0 && <i aria-hidden="true" />}
+      </button>
 
-      <div className="ld-glass ld-hero-kpis">
-        {HERO.kpis.map((k) => (
-          <div key={k.label}>
-            <b>{k.value}<small>{k.unit}</small></b>
-            <span>{k.label}</span>
-          </div>
+      <button type="button" className="lw-glass lw-chip-bars" onClick={() => onNavigate?.("analytics")} aria-label="Open Analytics" title="Analytics">
+        <i /><i /><i />
+      </button>
+      <button
+        type="button"
+        className="lw-glass lw-chip-temp"
+        onClick={() => onNavigate?.("sensors")}
+        aria-label={`CPU temperature ${CPU.value}${CPU.unit}. Open Sensors`}
+        title="CPU temperature"
+      >
+        <Thermometer strokeWidth={1.8} aria-hidden="true" />
+        <b>{CPU.value}<small>{CPU.unit}</small></b>
+      </button>
+    </section>
+  );
+}
+
+// ------------------------------------------------------ system information
+
+const SYS_ICONS = { cpu: Cpu, gpu: Gpu, ram: MemoryStick, storage: Database, updated: Clock };
+
+function formatUpdated(iso) {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  return `${date} · ${time}`;
+}
+
+function SystemInfo({ onOpenDevices }) {
+  return (
+    <section className="ld-sys" aria-labelledby="ld-sys-title">
+      <header className="ls-head">
+        <Info strokeWidth={2} aria-hidden="true" />
+        <h2 id="ld-sys-title">System Information</h2>
+        <button type="button" className="ls-link" onClick={onOpenDevices}>
+          View device details
+          <ArrowRight strokeWidth={2} aria-hidden="true" />
+        </button>
+      </header>
+      <div className="ls-panels">
+        {SYSTEM_INFO.map((rows, i) => (
+          <dl key={i} className={`ls-panel ${i ? "is-right" : "is-left"}`}>
+            {rows.map((row) => {
+              const Icon = SYS_ICONS[row.icon];
+              return (
+                <div key={row.label} className="ls-row">
+                  <span className="ls-icon" aria-hidden="true">
+                    {Icon ? <Icon strokeWidth={2} /> : <WindowsLogo />}
+                  </span>
+                  <dt>{row.label}</dt>
+                  <dd>
+                    {row.icon === "updated"
+                      ? <time dateTime={row.value}>{formatUpdated(row.value)}</time>
+                      : row.value}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
         ))}
       </div>
     </section>
   );
 }
 
-// ----------------------------------------------------------- stat cards
+// ---------------------------------------------------------- gauge cards
 
-const STAT_ICONS = { temp: Thermometer, gpu: Gauge, readings: Activity };
-
-function StatCards() {
+function GpuIcon() {
   return (
-    <section className="ld-stats" aria-label="Key figures">
-      {STATS.map((s) => {
-        const Icon = STAT_ICONS[s.icon];
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8M12 17v4" />
+      <path d="M5.5 13.5l3.5-3.5 3 2 5.5-5.5V13.5Z" fill="currentColor" strokeWidth="1.2" />
+    </svg>
+  );
+}
+
+const GAUGE_ICONS = { cpu: Cpu, ram: MemoryStick, storage: Database };
+
+function GaugeIcon({ id }) {
+  if (id === "gpu") return <GpuIcon />;
+  if (id === "power") return <Zap fill="currentColor" strokeWidth={1.5} aria-hidden="true" />;
+  const Icon = GAUGE_ICONS[id];
+  return <Icon strokeWidth={2} aria-hidden="true" />;
+}
+
+const TICKS = 30;
+const SWEEP_FROM = 176; // degrees: the left end of the arc, a touch above level
+const SWEEP_TO = 4;
+
+const mix = (a, b, t) => {
+  const ch = (hex, i) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
+  return `rgb(${[0, 1, 2].map((i) => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * t)).join(",")})`;
+};
+
+/** Semicircle of 30 ticks; the first `fill` share (0–1) is lit in the card's colours. */
+function GaugeArc({ fill, colors, rest }) {
+  const cx = 75.5;
+  const cy = 108;
+  const lit = Math.round(Math.min(1, Math.max(0, fill)) * TICKS);
+  return (
+    <svg className="lg-arc" viewBox="0 0 151 120" aria-hidden="true">
+      {Array.from({ length: TICKS }, (_, i) => {
+        const a = ((SWEEP_FROM - (i * (SWEEP_FROM - SWEEP_TO)) / (TICKS - 1)) * Math.PI) / 180;
+        const on = i < lit;
+        const t = on ? i / Math.max(1, lit - 1) : (i - lit) / Math.max(1, TICKS - lit - 1);
+        const [c0, c1] = on ? colors : rest;
         return (
-          <div key={s.label} className="ld-card ld-stat">
-            <span className="ld-stat-icon"><Icon strokeWidth={1.6} aria-hidden="true" /></span>
-            <div>
-              <div className="ld-stat-value">
-                {s.value}
-                {s.unit && <sup>{s.unit}</sup>}
-                <span className={`ld-badge ${s.good ? "is-up" : "is-down"}`}>{s.change}</span>
-              </div>
-              <div className="ld-stat-label">{s.label}</div>
-            </div>
-          </div>
+          <line
+            key={i}
+            x1={cx + 49.5 * Math.cos(a)} y1={cy - 49.5 * Math.sin(a)}
+            x2={cx + 60.5 * Math.cos(a)} y2={cy - 60.5 * Math.sin(a)}
+            stroke={mix(c0, c1, t)}
+          />
         );
       })}
-    </section>
+    </svg>
   );
 }
 
-// ------------------------------------------------- readings lollipop chart
-
-const MAX_READINGS = 3000;
-const PLOT_H = 123; // reference px from 0 to the top gridline
-const Y_LABELS = [[3000, "Qty"], [2000, "2k"], [1000, "1k"], [0, "0"]];
-
-function ReadingsChart() {
-  const [period, setPeriod] = useState("Week");
-  const data = READINGS[period];
-  const peakIndex = data.reduce((best, d, i) => (d.value > data[best].value ? i : best), 0);
-  const [hover, setHover] = useState(null);
-  const active = hover ?? peakIndex;
-  const top = (v) => PLOT_H - (v / MAX_READINGS) * PLOT_H;
-
+function StatusBadge({ tone, text }) {
   return (
-    <section className="ld-card ld-readings" aria-label="Readings received">
-      <div className="ld-readings-head">
-        <h2 className="ld-card-title">Readings Received</h2>
-        <PeriodPill value={period} onChange={(p) => { setPeriod(p); setHover(null); }} />
-      </div>
-      <p>Daily overview of hardware readings received from all your PCs.</p>
-      <Legend items={Object.values(DAY_STATUS)} />
-
-      <div className="ld-lolli">
-        <div className="ld-lolli-grid">
-          {[0, 500, 1000, 1500, 2000, 2500, 3000].map((v) => (
-            <i key={v} style={{ top: `calc(${top(v)} * var(--u))` }} />
-          ))}
-        </div>
-        {Y_LABELS.map(([v, label]) => (
-          <span key={v} className="ld-lolli-y" style={{ top: `calc(${top(v)} * var(--u))` }}>{label}</span>
-        ))}
-        <span className="ld-lolli-date">Date</span>
-        <div className="ld-lolli-cols" onMouseLeave={() => setHover(null)}>
-          {data.map((d, i) => {
-            const isActive = i === active;
-            const y = top(d.value);
-            return (
-              <div
-                key={d.day}
-                className={`ld-lolli-col${isActive ? " is-active" : ""}`}
-                onMouseEnter={() => setHover(i)}
-                title={`${d.day}: ${d.value.toLocaleString()} readings (${DAY_STATUS[d.status].label})`}
-              >
-                <span className="ld-lolli-glow" style={{ top: `calc(${y - 5} * var(--u))` }} />
-                <span className="ld-lolli-stem" style={{ height: `calc(${PLOT_H - y} * var(--u))` }} />
-                <span className="ld-lolli-dot" style={{ top: `calc(${y} * var(--u))`, background: isActive ? "#5cc061" : DAY_STATUS[d.status].color }} />
-                {isActive && (
-                  <span className="ld-lolli-tip" style={{ top: `calc(${y} * var(--u))` }}>{d.value.toLocaleString()}</span>
-                )}
-                <span className="ld-lolli-day">{d.day}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
+    <span className={`lg-badge is-${tone}`}>
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="8" />
+        {tone === "warn"
+          ? <path d="M8 4.2v4.6M8 11.2v.4" />
+          : <path d="M4.6 8.2l2.2 2.2 4.4-4.6" />}
+      </svg>
+      {text}
+    </span>
   );
 }
 
-// ----------------------------------------------- device health + thermal
-
-function DeviceHealth() {
+function GaugeCard({ gauge, onMore }) {
+  const { id, title, subtitle, value, max, unit, unitRaised, label, warnAt, okText, warnText } = gauge;
+  const warn = value >= warnAt;
+  const { colors, rest } = warn ? WARN_COLORS : gauge;
+  const status = warn ? warnText : okText;
   return (
-    <section className="ld-card" aria-label="Device health">
-      <div className="ld-card-head">
-        <h3 className="ld-card-title">Device Health</h3>
-        <button type="button" className="ld-more" aria-label="Device health options"><span /><span /><span /></button>
+    <article className={`lg-card is-${id}`} aria-labelledby={`lg-${id}-title`}>
+      <span className="lg-icon"><GaugeIcon id={id} /></span>
+      <h3 className="lg-title" id={`lg-${id}-title`}>{title}</h3>
+      <p className="lg-sub">{subtitle}</p>
+      <StatusBadge tone={warn ? "warn" : "ok"} text={status} />
+      <GaugeArc fill={value / max} colors={colors} rest={rest} />
+      <div
+        className="lg-value"
+        role="meter"
+        aria-valuenow={value}
+        aria-valuemin={0}
+        aria-valuemax={max}
+        aria-label={label}
+        aria-valuetext={`${value} ${unit}, ${status}`}
+      >
+        {value}
+        <span className={unitRaised ? "is-raised" : undefined}>{unit}</span>
       </div>
-      <div className="ld-health-art">
-        <HealthScene />
-        {HEALTH_TAGS.map((t) => (
-          <span
-            key={t.label}
-            className="ld-tag"
-            style={{
-              left: `${(t.x / 150) * 100}%`,
-              top: `${(t.y / 108) * 100}%`,
-              transform: t.align === "above" ? "translate(-50%, -100%)" : "translate(-50%, 0)",
-            }}
-          >
-            {t.label}
-          </span>
-        ))}
-      </div>
-      <div className="ld-health-status">
-        Status
-        <b>Active <i aria-hidden="true" /></b>
-      </div>
-    </section>
+      <div className="lg-label" aria-hidden="true">{label}</div>
+      <button type="button" className="lg-more" onClick={onMore} aria-label={`View more about ${title}`}>
+        View more <ArrowRight strokeWidth={2} aria-hidden="true" />
+      </button>
+    </article>
   );
 }
 
-function ThermalMap() {
-  const [index, setIndex] = useState(0);
-  const t = THERMAL[index];
+function GaugeCards({ onNavigate }) {
   return (
-    <section className="ld-card" aria-label="Thermal map">
-      <div className="ld-card-head">
-        <h3 className="ld-card-title">Thermal Map</h3>
-        <button type="button" className="ld-pill" onClick={() => setIndex((index + 1) % THERMAL.length)} title="Next device">
-          {t.device}
-          <ChevronRight strokeWidth={2} aria-hidden="true" />
-        </button>
-      </div>
-      <div className="ld-thermal">
-        <ThermalBoard hot={t.hot} />
-        <div className="ld-thermal-tip">
-          <div>
-            <b>{t.part}</b>
-            <span>{t.level}</span>
-          </div>
-          <strong>{t.percent}%</strong>
-        </div>
-        <button type="button" className="ld-help-dot" aria-label="Brighter parts are running hotter" title="Brighter parts are running hotter">?</button>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------- usage bars
-
-function ResourceUsage() {
-  const [period, setPeriod] = useState("Week");
-  return (
-    <section className="ld-card ld-usage" aria-label="Resource usage">
-      <div className="ld-card-head">
-        <h3 className="ld-card-title">Resource Usage</h3>
-        <PeriodPill value={period} onChange={setPeriod} />
-      </div>
-      <Legend items={USAGE_SERIES} />
-      <div className="ld-bars">
-        {USAGE[period].map((d) => (
-          <div key={d.day} className="ld-bar" title={USAGE_SERIES.map((s) => `${s.label} ${Math.round(d[s.key] * 2)}%`).join(" · ")}>
-            {[...USAGE_SERIES].reverse().map((s) => (
-              <i key={s.key} style={{ height: `calc(${d[s.key]} * var(--u))`, background: s.color }} />
-            ))}
-            <span>{d.day}</span>
-          </div>
-        ))}
-      </div>
+    <section className="ld-gauges" aria-label="Hardware at a glance">
+      {GAUGES.map((g) => (
+        <GaugeCard key={g.id} gauge={g} onMore={() => onNavigate?.(g.more)} />
+      ))}
     </section>
   );
 }
 
 // -------------------------------------------------------------- the view
 
-export function Dashboard({ alertsCount = 0, onNavigate }) {
+export function Dashboard({ user, alertsCount = 0, onNavigate }) {
   return (
     <div className="ld-dash">
-      <Hero alertsCount={alertsCount} onOpenAlerts={() => onNavigate?.("live")} onOpen={(id) => onNavigate?.(id)} />
-      <div className="ld-col">
-        <StatCards />
-        <ReadingsChart />
-      </div>
-      <div className="ld-col">
-        <div className="ld-pair">
-          <DeviceHealth />
-          <ThermalMap />
-        </div>
-        <ResourceUsage />
-      </div>
+      <Welcome user={user} alertsCount={alertsCount} onNavigate={onNavigate} />
+      <GaugeCards onNavigate={onNavigate} />
+      <StatsChart />
+      <SystemInfo onOpenDevices={() => onNavigate?.("devices")} />
     </div>
   );
 }

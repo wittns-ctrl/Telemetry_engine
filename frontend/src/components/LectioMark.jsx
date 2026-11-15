@@ -1,25 +1,26 @@
-import { useId } from "react";
-
-const TONES = {
-  green: ["#5cc061", "#13651f"],
-  // Pink-to-violet, the accent of the dark dashboard.
-  violet: ["#d77be0", "#8a62e8"],
+// Lectio's logo: a bold "L" with a green bookmark ribbon in its corner, drawn to
+// the pixel from the brand artwork. It comes in two versions, picked by the
+// background the mark sits on, so it always stands out:
+//   on="light"  charcoal L, for white and pale surfaces (the default)
+//   on="dark"   pale L and a brighter ribbon, for charcoal, ink and dark glass
+// `size` is the mark's height (a number of pixels or any CSS length); the width
+// follows from its 32.5 x 45 shape.
+const COLOURS = {
+  light: { letter: "#414142", ribbon: "#2e8b37" },
+  dark: { letter: "#d9d9d9", ribbon: "#3a9542" },
 };
 
-// Lectio's logo: a four-pointed star, the same one as on the sign-in pages.
-// It carries its own colours, so it sits on any background without a badge.
-export function LectioMark({ size = 18, className = "", tone = "green" }) {
-  const id = useId();
-  const [from, to] = TONES[tone] || TONES.green;
+export function LectioMark({ size = 18, className = "", on = "light" }) {
+  const { letter, ribbon } = COLOURS[on] || COLOURS.light;
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden="true">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={from} />
-          <stop offset="1" stopColor={to} />
-        </linearGradient>
-      </defs>
-      <path fill={`url(#${id})`} d="M12 0C12.9 7.2 16.8 11.1 24 12 16.8 12.9 12.9 16.8 12 24 11.1 16.8 7.2 12.9 0 12 7.2 11.1 11.1 7.2 12 0Z" />
+    <svg
+      viewBox="0 0 32.5 45"
+      className={className}
+      style={{ display: "block", height: size, width: "auto", aspectRatio: "32.5 / 45" }}
+      aria-hidden="true"
+    >
+      <path fill={letter} d="M0 0H13V32.5H32.5V45H0Z" />
+      <path fill={ribbon} d="M19 0H32.5V25.4L25.75 20.4L19 25.4Z" />
     </svg>
   );
 }
