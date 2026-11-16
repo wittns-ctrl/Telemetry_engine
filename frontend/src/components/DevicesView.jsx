@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Cpu, MonitorSmartphone, RefreshCw, AlertTriangle, HardDrive, Zap, MemoryStick, Wifi, WifiOff, Stethoscope, ChevronUp } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { Monitor, Plus, RefreshCw, TriangleAlert, Info, HardDrive, ChartLine, Bell, Sparkles, ChevronUp, Terminal } from "lucide-react";
 import {
   API_BASE,
+  BACKEND_DISABLED,
   fetchDevices,
   fetchLatestTelemetry,
   fetchDeviceAlerts,
@@ -10,51 +10,72 @@ import {
   refreshAccessToken,
   requestDiagnosis,
 } from "../services/api";
+import { SAMPLE_DEVICES, SAMPLE_DEVICE_ALERTS, SAMPLE_REPORT, sampleSnapshot, sampleWave } from "./sampleData";
 import { DiagnosisPanel } from "./DiagnosisPanel";
+import { Card, Head, Chip, Ico, Empty, LineGraph } from "./ui";
+import { cx, fmt, timeAgo } from "./format";
 
 const MAX_POINTS = 60;
+const LINES = [
+  { key: "cpu", name: "CPU", colour: "#1c7a2e" },
+  { key: "gpu", name: "GPU", colour: "#0e0e10" },
+  { key: "ram", name: "RAM", colour: "#5cc061" },
+];
 
-function fmt(value, digits = 1, suffix = "") {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
-  return `${Number(value).toFixed(digits)}${suffix}`;
+const timeLabel = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const pointOf = (snap) => ({
+  t: timeLabel(snap.timestamp),
+  cpu: snap.cpu?.utilization_percent ?? null,
+  ram: snap.ram?.usage_percent ?? null,
+  gpu: snap.gpu?.utilization_percent ?? null,
+});
+
+/** A device counts as online when it reported within the last two minutes. */
+const isOnline = (device) => Boolean(device.last_seen) && Date.now() - new Date(device.last_seen).getTime() < 120000;
+
+/** Frontend-only mode: a minute of history for the sample PC, ending on its snapshot. */
+function sampleHistory(snap) {
+  const waves = Object.fromEntries(LINES.map(({ key }, k) => [key, sampleWave(30, pointOf(snap)[key], { seed: k * 2.1, max: 100, digits: 1 })]));
+  return Array.from({ length: 30 }, (_, i) => ({
+    t: timeLabel(Date.now() - (29 - i) * 2000),
+    cpu: waves.cpu[i],
+    gpu: waves.gpu[i],
+    ram: waves.ram[i],
+  }));
 }
 
-function timeAgo(iso) {
-  if (!iso) return "never";
-  const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-  if (seconds < 60) return `${seconds}s ago`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
-  return `${Math.round(seconds / 86400)}d ago`;
-}
-
-const SEVERITY_STYLES = {
-  CRITICAL: "bg-red-50 text-red-700 border-red-200",
-  WARNING: "bg-amber-50 text-amber-700 border-amber-200",
-  INFO: "bg-sky-50 text-sky-700 border-sky-200",
-};
-
-function StatTile({ icon: Icon, label, value, sub }) {
+/** How to connect a PC: the agent command, shown when there are no devices or on "Add a device". */
+function AddDevice({ onRefresh }) {
   return (
-    <div className="glass rounded-2xl p-4">
-      <div className="flex items-center gap-2 text-slate-500 text-xs font-medium uppercase tracking-wide">
-        <Icon size={14} /> {label}
+    <Card className="pad col dk">
+      <Head icon={Terminal} title="Connect a PC" />
+      <p className="txt">
+        Run the telemetry agent on the computer you want to monitor. It signs in once, registers the
+        machine to your account, then sends hardware readings every few seconds.
+      </p>
+      <pre className="code">{`# from a copy of the telemetry_engine repo on that machine
+uv sync --extra agent
+uv run python -m agent.telemetry_agent --api ${API_BASE}`}</pre>
+      <div>
+        <button type="button" className="bk gr" onClick={onRefresh}>
+          <RefreshCw strokeWidth={1.9} aria-hidden="true" /> I've started the agent, refresh
+        </button>
       </div>
-      <div className="mt-2 text-2xl font-semibold text-slate-900 tabular-nums">{value}</div>
-      {sub && <div className="mt-1 text-xs text-slate-500">{sub}</div>}
-    </div>
+    </Card>
   );
 }
 
 /**
- * Live view of the user's registered machines. Telemetry is pushed by the
- * host agent (agent/telemetry_agent.py) and streamed here over WebSocket.
+ * The user's registered machines: the list on the left, the selected one's
+ * live readings on the right. Telemetry is pushed by the host agent
+ * (agent/telemetry_agent.py) and streamed here over WebSocket.
  */
 export function DevicesView() {
   const [devices, setDevices] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(true);
   const [error, setError] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
 
   const [snapshot, setSnapshot] = useState(null);
   const [history, setHistory] = useState([]);
@@ -73,10 +94,9 @@ export function DevicesView() {
     setLoadingDevices(true);
     setError(null);
     try {
-      const data = await fetchDevices();
-      const list = data?.devices || [];
+      const list = BACKEND_DISABLED ? SAMPLE_DEVICES : (await fetchDevices())?.devices || [];
       setDevices(list);
-      setSelectedId((current) => current && list.some((d) => d.id === current) ? current : list[0]?.id || null);
+      setSelectedId((current) => (current && list.some((d) => d.id === current) ? current : list[0]?.id || null));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -90,20 +110,12 @@ export function DevicesView() {
 
   const pushPoint = useCallback((snap) => {
     if (!snap) return;
-    setHistory((prev) => [
-      ...prev.slice(-(MAX_POINTS - 1)),
-      {
-        t: new Date(snap.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-        cpu: snap.cpu?.utilization_percent ?? null,
-        ram: snap.ram?.usage_percent ?? null,
-        gpu: snap.gpu?.utilization_percent ?? null,
-      },
-    ]);
+    setHistory((prev) => [...prev.slice(-(MAX_POINTS - 1)), pointOf(snap)]);
   }, []);
 
   // Load the last stored snapshot and active alerts whenever the device changes.
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId) return undefined;
     let cancelled = false;
     setSnapshot(null);
     setHistory([]);
@@ -111,6 +123,31 @@ export function DevicesView() {
     setDiagnoses({});
     setOpenDiagnoses({});
     selectedIdRef.current = selectedId;
+
+    if (BACKEND_DISABLED) {
+      // Sample PC: show its snapshot and let the three load figures drift every two seconds.
+      const sample = sampleSnapshot(selectedId);
+      setSnapshot(sample);
+      setAlerts(SAMPLE_DEVICE_ALERTS.filter((a) => a.device_id === selectedId));
+      setSocketState(sample ? "live" : "offline");
+      if (!sample) return undefined;
+      setHistory(sampleHistory(sample));
+      const drift = (v, lo, hi) => Math.round(Math.min(hi, Math.max(lo, v + (Math.random() - 0.5) * 6)) * 10) / 10;
+      const timer = setInterval(() => {
+        setSnapshot((prev) => {
+          const next = {
+            ...prev,
+            timestamp: new Date().toISOString(),
+            cpu: { ...prev.cpu, utilization_percent: drift(prev.cpu.utilization_percent, 12, 70) },
+            gpu: { ...prev.gpu, utilization_percent: drift(prev.gpu.utilization_percent, 4, 40) },
+            ram: { ...prev.ram, usage_percent: drift(prev.ram.usage_percent, 86, 95) },
+          };
+          pushPoint(next);
+          return next;
+        });
+      }, 2000);
+      return () => clearInterval(timer);
+    }
 
     fetchLatestTelemetry(selectedId)
       .then((snap) => {
@@ -135,7 +172,7 @@ export function DevicesView() {
 
   // Live socket for the selected device.
   useEffect(() => {
-    if (!selectedId) return undefined;
+    if (!selectedId || BACKEND_DISABLED) return undefined;
     let disposed = false;
 
     const connect = () => {
@@ -194,9 +231,9 @@ export function DevicesView() {
     setDiagnoses((prev) => ({ ...prev, [alertId]: { status: "loading" } }));
     let next;
     try {
-      next = { status: "ready", report: await requestDiagnosis(alertId, deviceId) };
-    } catch (error) {
-      next = { status: "error", error };
+      next = { status: "ready", report: BACKEND_DISABLED ? SAMPLE_REPORT : await requestDiagnosis(alertId, deviceId) };
+    } catch (err) {
+      next = { status: "error", error: err };
     }
     // Drop the answer if the user has switched to another device meanwhile.
     if (selectedIdRef.current === deviceId) {
@@ -216,42 +253,23 @@ export function DevicesView() {
 
   const selected = devices.find((d) => d.id === selectedId);
 
-  if (loadingDevices) {
-    return <div className="p-6 text-slate-500">Loading devices…</div>;
+  if (loadingDevices && !devices.length) {
+    return <div className="page"><Card className="pad f1 col"><Empty title="Loading devices…" /></Card></div>;
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 p-4">{error}</div>
-        <button onClick={loadDevices} className="mt-4 text-sm font-medium text-ink-700">Try again</button>
+      <div className="page">
+        <Card className="pad col">
+          <p className="note w" role="alert">{error}</p>
+          <div><button type="button" className="bk" onClick={loadDevices}>Try again</button></div>
+        </Card>
       </div>
     );
   }
 
   if (!devices.length) {
-    return (
-      <div className="max-w-2xl glass rounded-2xl p-6">
-        <div className="flex items-center gap-2 text-slate-900 font-semibold text-lg">
-          <MonitorSmartphone size={20} /> Connect your first machine
-        </div>
-        <p className="mt-2 text-slate-600 text-sm">
-          Run the telemetry agent on the computer you want to monitor. It signs in once, registers the
-          machine to your account, then sends hardware readings every few seconds.
-        </p>
-        <pre className="mt-4 bg-slate-900 text-slate-100 text-xs rounded-xl p-4 overflow-x-auto">
-{`# from a copy of the telemetry_engine repo on that machine
-uv sync --extra agent
-uv run python -m agent.telemetry_agent --api ${API_BASE}`}
-        </pre>
-        <button
-          onClick={loadDevices}
-          className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-ink-700"
-        >
-          <RefreshCw size={14} /> I've started the agent — refresh
-        </button>
-      </div>
-    );
+    return <div className="page"><AddDevice onRefresh={loadDevices} /></div>;
   }
 
   const cpu = snapshot?.cpu || {};
@@ -259,127 +277,150 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}
   const ram = snapshot?.ram || {};
   const power = snapshot?.power_vrm || {};
   const storage = snapshot?.storage || [];
+  const live = socketState === "live";
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {devices.map((d) => (
-          <button
-            key={d.id}
-            onClick={() => setSelectedId(d.id)}
-            className={`px-3 py-2 rounded-xl text-sm border transition-colors ${
-              d.id === selectedId
-                ? "bg-ink-50 border-ink-200 text-ink-800 font-medium"
-                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {d.device_name}
+    <div className="page">
+      <div className="row stack-sm" style={{ flex: 1 }}>
+        <div className="col dev-list">
+          {devices.map((d) => {
+            const on = d.id === selectedId;
+            const online = on ? live || isOnline(d) : isOnline(d);
+            return (
+              <button key={d.id} type="button" className={cx("dev", on && "on")} aria-pressed={on} onClick={() => setSelectedId(d.id)}>
+                <span className="row ac" style={{ gap: "calc(6 * var(--u))" }}>
+                  <Ico icon={Monitor} tone={on ? "d" : undefined} />
+                  <span className="f1">
+                    <b className="t7 cut">{d.device_name}</b>
+                    <span className="sub cut" style={{ display: "block" }}>{d.os_info || "Unknown system"}</span>
+                  </span>
+                </span>
+                <span className="row ac" style={{ marginTop: "calc(8 * var(--u))" }}>
+                  <Chip tone={online ? undefined : "n"}>{online ? "Online" : "Offline"}</Chip>
+                  <span className="sub r">{timeAgo(on && snapshot ? snapshot.timestamp : d.last_seen)}</span>
+                </span>
+              </button>
+            );
+          })}
+          <button type="button" className="dash" aria-expanded={showAdd} onClick={() => setShowAdd((v) => !v)}>
+            <Plus strokeWidth={2} aria-hidden="true" />
+            Add a device
           </button>
-        ))}
-        <button onClick={loadDevices} className="ml-auto p-2 rounded-xl text-slate-500 hover:bg-slate-100" title="Refresh devices">
-          <RefreshCw size={16} />
-        </button>
-      </div>
-
-      {selected && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
-          <span className="font-medium text-slate-800">{selected.device_name}</span>
-          {selected.os_info && <span>{selected.os_info}</span>}
-          <span>Last seen {timeAgo(snapshot?.timestamp || selected.last_seen)}</span>
-          <span className={`inline-flex items-center gap-1 ${socketState === "live" ? "text-ink-600" : "text-slate-400"}`}>
-            {socketState === "live" ? <Wifi size={14} /> : <WifiOff size={14} />}
-            {socketState === "live" ? "Live" : socketState === "connecting" ? "Connecting…" : "Offline"}
-          </span>
+          {BACKEND_DISABLED && <Chip tone="o">Sample data</Chip>}
         </div>
-      )}
 
-      {!snapshot ? (
-        <div className="glass rounded-2xl p-6 text-slate-500 text-sm">
-          No telemetry yet. Start the agent on this machine and readings will appear here.
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <StatTile icon={Cpu} label="CPU" value={fmt(cpu.utilization_percent, 0, "%")} sub={`${fmt(cpu.package_temperature_c ?? cpu.core_temperature_c, 0, "°C")} · ${fmt(cpu.clock_speed_ghz, 2, " GHz")}`} />
-            <StatTile icon={MonitorSmartphone} label="GPU" value={fmt(gpu.utilization_percent, 0, "%")} sub={`${fmt(gpu.core_temperature_c, 0, "°C")}${gpu.gpu_name ? ` · ${gpu.gpu_name}` : ""}`} />
-            <StatTile icon={MemoryStick} label="Memory" value={fmt(ram.usage_percent, 0, "%")} sub={`${fmt(ram.used_gb, 1)} / ${fmt(ram.total_gb, 1, " GB")}`} />
-            <StatTile icon={Zap} label="PSU 12V" value={fmt(power.psu_12v_voltage, 2, " V")} sub={`VRM ${fmt(power.vrm_temperature_c, 0, "°C")}`} />
-          </div>
-
-          <div className="glass rounded-2xl p-4">
-            <div className="text-sm font-medium text-slate-700 mb-2">Utilization (last {MAX_POINTS} readings)</div>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={history} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid stroke="#f1f5f9" vertical={false} />
-                  <XAxis dataKey="t" tick={{ fontSize: 11, fill: "#94a3b8" }} minTickGap={40} />
-                  <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: "#94a3b8" }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="cpu" name="CPU %" stroke="#45454c" dot={false} isAnimationActive={false} connectNulls />
-                  <Line type="monotone" dataKey="ram" name="RAM %" stroke="#6366f1" dot={false} isAnimationActive={false} connectNulls />
-                  <Line type="monotone" dataKey="gpu" name="GPU %" stroke="#f59e0b" dot={false} isAnimationActive={false} connectNulls />
-                </LineChart>
-              </ResponsiveContainer>
+        <div className="col f1">
+          {selected && (
+            <div className="row ac wrap">
+              <b className="t9">{selected.device_name}</b>
+              <Chip tone={live ? undefined : "n"}>{live ? "Live" : socketState === "connecting" ? "Connecting…" : "Offline"}</Chip>
+              <span className="sub">
+                {selected.os_info ? `${selected.os_info} · ` : ""}
+                {live && snapshot ? "reporting now" : `last seen ${timeAgo(snapshot?.timestamp || selected.last_seen)}`}
+              </span>
+              <button type="button" className="vd r" onClick={loadDevices} disabled={loadingDevices}>Refresh</button>
             </div>
-          </div>
+          )}
 
-          {storage.length > 0 && (
-            <div className="glass rounded-2xl p-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3"><HardDrive size={14} /> Storage</div>
-              <div className="space-y-2">
+          {showAdd && <AddDevice onRefresh={loadDevices} />}
+
+          {!snapshot ? (
+            <Card className="pad col">
+              <Empty title="No telemetry yet">
+                <span>Start the agent on this machine and its readings will appear here.</span>
+              </Empty>
+            </Card>
+          ) : (
+            <>
+              <div className="g4" style={{ gap: "calc(6 * var(--u))" }}>
+                <div className="card mini gd"><span>CPU</span><b>{fmt(cpu.utilization_percent, 0, "%")}</b><small>{fmt(cpu.package_temperature_c ?? cpu.core_temperature_c, 0, "°C")} · {fmt(cpu.clock_speed_ghz, 2, " GHz")}</small></div>
+                <div className="card mini dk"><span>GPU</span><b>{fmt(gpu.utilization_percent, 0, "%")}</b><small className="cut">{fmt(gpu.core_temperature_c, 0, "°C")}{gpu.gpu_name ? ` · ${gpu.gpu_name}` : ""}</small></div>
+                <div className="card mini gs"><span>Memory</span><b>{fmt(ram.usage_percent, 0, "%")}</b><small>{fmt(ram.used_gb, 1)} / {fmt(ram.total_gb, 1, " GB")}</small></div>
+                <div className="card mini"><span>PSU 12V</span><b>{fmt(power.psu_12v_voltage, 2, " V")}</b><small>VRM {fmt(power.vrm_temperature_c, 0, "°C")}</small></div>
+              </div>
+
+              <Card className="chart" style={{ flex: 1, minHeight: "calc(104 * var(--u))" }}>
+                <Head icon={ChartLine} title="Live readings">
+                  <span className="sub">Last {history.length} readings</span>
+                  {live && <Chip>Live</Chip>}
+                </Head>
+                <div className="ch-bar">
+                  <div className="tabs" aria-hidden="true">
+                    {LINES.map((l) => <span key={l.key}><i style={{ background: l.colour }} />{l.name} %</span>)}
+                  </div>
+                </div>
+                <LineGraph
+                  series={LINES.map((l) => ({ name: l.name, colour: l.colour, values: history.map((p) => p[l.key]) }))}
+                  labels={history.map((p) => p.t)}
+                  unit="%"
+                  summary={`CPU, GPU and RAM use over the last ${history.length} readings`}
+                />
+              </Card>
+            </>
+          )}
+
+          <div className="row stack-sm">
+            {storage.length > 0 && (
+              <Card className="pad col f1">
+                <Head icon={HardDrive} title="Storage" />
                 {storage.map((drive, i) => {
                   const total = drive.total_capacity_gb;
                   const free = drive.available_capacity_gb;
                   const usedPct = total ? Math.round(((total - (free ?? 0)) / total) * 100) : null;
                   return (
-                    <div key={`${drive.device_name}-${i}`} className="text-sm">
-                      <div className="flex justify-between text-slate-600">
-                        <span>{drive.device_name || `Drive ${i + 1}`}</span>
-                        <span className="tabular-nums">{fmt(free, 0)} GB free of {fmt(total, 0, " GB")}{drive.smart_health_percent != null ? ` · health ${drive.smart_health_percent}%` : ""}</span>
+                    <div key={`${drive.device_name}-${i}`}>
+                      <div className="row ac" style={{ marginBottom: "calc(3 * var(--u))" }}>
+                        <span className="cut f1" style={{ fontWeight: 500 }}>{drive.device_name || `Drive ${i + 1}`}</span>
+                        {usedPct !== null && <span className="sub">{usedPct}% used</span>}
                       </div>
                       {usedPct !== null && (
-                        <div className="mt-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                          <div className="h-full bg-ink-500" style={{ width: `${usedPct}%` }} />
-                        </div>
+                        <div className={cx("bar", usedPct >= 90 && "w")} aria-hidden="true"><i style={{ width: `${usedPct}%` }} /></div>
                       )}
+                      <span className="sub" style={{ display: "block", marginTop: "calc(2.5 * var(--u))" }}>
+                        {fmt(free, 0)} GB free of {fmt(total, 0, " GB")}
+                        {drive.smart_health_percent != null ? ` · health ${drive.smart_health_percent}%` : ""}
+                      </span>
                     </div>
                   );
                 })}
-              </div>
-            </div>
-          )}
-        </>
-      )}
+              </Card>
+            )}
 
-      <div className="glass rounded-2xl p-4">
-        <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-3"><AlertTriangle size={14} /> Active alerts</div>
-        {alerts.length === 0 ? (
-          <div className="text-sm text-slate-500">No active alerts for this device.</div>
-        ) : (
-          <ul className="space-y-2">
-            {alerts.map((a) => (
-              <li key={a.id} className={`border rounded-xl px-3 py-2 text-sm ${SEVERITY_STYLES[a.severity] || SEVERITY_STYLES.INFO}`}>
-                <div className="flex flex-wrap items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium">{a.message}</div>
-                    <div className="text-xs opacity-80">{a.severity} · {a.rule_name} · {new Date(a.created_at).toLocaleString()}</div>
-                  </div>
-                  <button
-                    onClick={() => toggleDiagnosis(a.id)}
-                    aria-expanded={!!openDiagnoses[a.id]}
-                    className="flex-none inline-flex items-center gap-1 rounded-lg bg-white/80 border border-current/20 px-2 py-1 text-xs font-medium hover:bg-white"
-                  >
-                    {openDiagnoses[a.id] ? <ChevronUp size={12} /> : <Stethoscope size={12} />}
-                    {openDiagnoses[a.id] ? "Hide diagnosis" : "Diagnose"}
-                  </button>
-                </div>
-                {openDiagnoses[a.id] && (
-                  <DiagnosisPanel state={diagnoses[a.id]} onRetry={() => loadDiagnosis(a.id, selectedId)} />
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+            <Card className="pad" style={{ flex: 1.5, minWidth: 0 }}>
+              <Head icon={Bell} title="Active alerts">
+                {alerts.length > 0 && <Chip tone="w">{alerts.length} open</Chip>}
+              </Head>
+              {alerts.length === 0 ? (
+                <p className="txt" style={{ marginTop: "calc(5 * var(--u))" }}>No active alerts for this device.</p>
+              ) : (
+                <ul style={{ listStyle: "none", marginTop: "calc(3 * var(--u))" }}>
+                  {alerts.map((a) => {
+                    const open = !!openDiagnoses[a.id];
+                    const calm = a.severity === "INFO";
+                    return (
+                      <li key={a.id} className="alert">
+                        <div className="row ac">
+                          <Ico icon={calm ? Info : TriangleAlert} tone={calm ? "g" : "w"} />
+                          <span className="f1" style={{ fontWeight: 500 }}>
+                            {a.message}
+                            <span className="sub" style={{ display: "block", marginTop: "calc(1.5 * var(--u))" }}>
+                              {a.severity} · {a.rule_name} · <time dateTime={a.created_at} title={new Date(a.created_at).toLocaleString()}>{timeAgo(a.created_at)}</time>
+                            </span>
+                          </span>
+                          <button type="button" className={cx("bk", open ? "ol" : "gr")} onClick={() => toggleDiagnosis(a.id)} aria-expanded={open}>
+                            {open ? <ChevronUp strokeWidth={2} aria-hidden="true" /> : <Sparkles strokeWidth={1.9} aria-hidden="true" />}
+                            {open ? "Hide diagnosis" : "Diagnose"}
+                          </button>
+                        </div>
+                        {open && <DiagnosisPanel state={diagnoses[a.id]} onRetry={() => loadDiagnosis(a.id, selectedId)} />}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

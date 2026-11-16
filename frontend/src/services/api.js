@@ -11,6 +11,10 @@ export const OFFLINE_USER = {
   full_name: "Offline User",
   email: "offline@example.com",
   is_verified: true,
+  email_verified: true,
+  role: "owner",
+  created_at: "2026-03-12T08:30:00Z",
+  last_login_at: new Date().toISOString(),
 };
 
 const BACKEND_DISABLED_MESSAGE = "The backend is disabled (frontend-only mode).";
@@ -286,6 +290,13 @@ export async function fetchLatestTelemetry(deviceId) {
     {},
     "Failed to load latest telemetry",
   );
+}
+
+/** Stored snapshots for a device, newest first (the API caps one request at 1000). */
+export async function fetchTelemetryHistory(deviceId, { start = null, limit = 1000 } = {}) {
+  const params = new URLSearchParams({ device_id: deviceId, limit: String(limit) });
+  if (start) params.append("start_time", start.toISOString());
+  return apiJson(`/api/v1/metrics/history?${params.toString()}`, {}, "Failed to load telemetry history");
 }
 
 export async function fetchDeviceAlerts(deviceId, { activeOnly = false, limit = 50 } = {}) {
