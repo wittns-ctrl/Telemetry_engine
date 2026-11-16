@@ -36,7 +36,7 @@
   display: flow-root; /* keeps the floating nav's top margin inside the page */
   background: var(--paper);
   color: var(--fg);
-  font-family: 'Inter Tight', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
   font-weight: 400;
   overflow-x: clip;
 }
@@ -345,7 +345,7 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 /* The mock dashboard scales with the tablet: 1em = 1.6% of the screen width. */
 .pv {
   font-size: 1.6cqw; height: 100%; display: flex; text-align: left;
-  font-family: 'Poppins', sans-serif; color: #0f172a;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif; color: #0f172a;
   background:
     radial-gradient(40em 26em at 10% 0%, rgba(28, 28, 31, 0.16), transparent 62%),
     radial-gradient(34em 24em at 100% 30%, rgba(95, 95, 104, 0.16), transparent 60%),

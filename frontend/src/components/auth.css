@@ -11,7 +11,7 @@
   grid-template-columns: 1fr 1fr;
   background: #fdfdfd;
   color: #0f1512;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 .au-side { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 24px 24px; }
