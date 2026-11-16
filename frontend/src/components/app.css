@@ -501,6 +501,13 @@
   .key { width: calc(5 * var(--u)); height: calc(5 * var(--u)); flex: none; border-radius: calc(2 * var(--u)); }
   .live-bar { gap: calc(10 * var(--u)); padding: calc(8 * var(--u)) calc(12 * var(--u)); border-radius: 999px; }
   .live-bar .inp { height: calc(15 * var(--u)); min-height: 26px; border-color: var(--ink-600); background: var(--ink-800); color: #fff; }
+  /* On / off switch (alert emails in Settings) */
+  .switch-row { display: flex; align-items: center; gap: calc(12 * var(--u)); padding-top: calc(10 * var(--u)); border-top: 1px solid var(--line); }
+  .switch { position: relative; flex: none; width: max(36px, calc(17 * var(--u))); height: max(22px, calc(10 * var(--u))); border-radius: 999px; background: var(--ink-300); transition: background-color 0.2s; }
+  .switch i { position: absolute; top: 50%; left: max(3px, calc(1.4 * var(--u))); width: max(16px, calc(7.2 * var(--u))); height: max(16px, calc(7.2 * var(--u))); border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(14, 14, 16, 0.3); transform: translateY(-50%); transition: left 0.2s; }
+  .switch.on { background: var(--green-dark); }
+  .switch.on i { left: calc(100% - max(16px, calc(7.2 * var(--u))) - max(3px, calc(1.4 * var(--u)))); }
+  .switch:disabled { opacity: 0.6; }
   .scroll-y { overflow-y: auto; }
 }
 

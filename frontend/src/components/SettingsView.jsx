@@ -45,6 +45,27 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
   const [verificationStatus, setVerificationStatus] = useState(null);
   const [sendingVerification, setSendingVerification] = useState(false);
 
+  // Alert emails: saved the moment the switch is flipped. Accounts made before
+  // the setting existed have no value yet, which means on.
+  const emailAlerts = user?.email_alerts !== false;
+  const [savingAlerts, setSavingAlerts] = useState(false);
+  const [alertsStatus, setAlertsStatus] = useState(null);
+
+  const handleToggleAlerts = async () => {
+    const next = !emailAlerts;
+    setSavingAlerts(true);
+    setAlertsStatus(null);
+    try {
+      const updated = await updateProfile({ emailAlerts: next });
+      onUserUpdated?.({ ...user, ...updated });
+      setAlertsStatus({ type: "success", message: next ? "Alert emails are on." : "Alert emails are off." });
+    } catch (err) {
+      setAlertsStatus({ type: "error", message: err.message });
+    } finally {
+      setSavingAlerts(false);
+    }
+  };
+
   // Pick up the name once the user loads, or after it changes elsewhere.
   useEffect(() => {
     setFullName(savedName);
@@ -63,7 +84,7 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
     setProfileStatus(null);
     try {
       const updated = await updateProfile({ fullName: trimmed });
-      onUserUpdated?.(updated);
+      onUserUpdated?.({ ...user, ...updated });
       setProfileStatus({ type: "success", message: "Your name has been saved." });
     } catch (err) {
       setProfileStatus({ type: "error", message: err.message });
@@ -208,6 +229,32 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
               </div>
             )}
             <StatusMessage status={verificationStatus} />
+
+            <div className="switch-row">
+              <span className="f1">
+                <b id="alert-emails-label" className="t7">Email me about alerts</b>
+                <span id="alert-emails-desc" className="txt" style={{ display: "block" }}>
+                  When one of your PCs raises a warning or critical alert, we email {user.email}.
+                  You won't get more than one email for the same kind of alert in a short time.
+                </span>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={emailAlerts}
+                aria-labelledby="alert-emails-label"
+                aria-describedby="alert-emails-desc"
+                className={cx("switch", emailAlerts && "on")}
+                onClick={handleToggleAlerts}
+                disabled={savingAlerts}
+              >
+                <i aria-hidden="true" />
+              </button>
+            </div>
+            {emailAlerts && !user.email_verified && (
+              <p className="note w">Alert emails are only sent to a verified address. Verify your email to start getting them.</p>
+            )}
+            <StatusMessage status={alertsStatus} />
             <StatusMessage status={profileStatus} />
 
             <div className="row mt">

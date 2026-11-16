@@ -12,6 +12,7 @@ export const OFFLINE_USER = {
   email: "offline@example.com",
   is_verified: true,
   email_verified: true,
+  email_alerts: true,
   role: "owner",
   created_at: "2026-03-12T08:30:00Z",
   last_login_at: new Date().toISOString(),
@@ -212,10 +213,15 @@ export async function logoutUser() {
   }
 }
 
-export async function updateProfile({ fullName }) {
+/** Change the name and/or the alert-email setting. Resolves to the changed user fields. */
+export async function updateProfile({ fullName, emailAlerts }) {
+  const changes = {};
+  if (fullName !== undefined) changes.full_name = fullName;
+  if (emailAlerts !== undefined) changes.email_alerts = emailAlerts;
+  if (BACKEND_DISABLED) return { ...OFFLINE_USER, ...changes };
   return apiJson(
     "/api/v1/auth/profile",
-    { method: "PATCH", body: JSON.stringify({ full_name: fullName }) },
+    { method: "PATCH", body: JSON.stringify(changes) },
     "Failed to update profile",
   );
 }
