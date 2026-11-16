@@ -165,7 +165,8 @@ async def register(
         role=user.role,
         is_active=user.is_active,
         created_at=user.created_at,
-        last_login_at=user.last_login_at
+        last_login_at=user.last_login_at,
+        email_alerts=user.email_alerts
     )
 
 
@@ -375,7 +376,8 @@ async def get_current_user_endpoint(
         role=current_user.role,
         is_active=current_user.is_active,
         created_at=current_user.created_at,
-        last_login_at=current_user.last_login_at
+        last_login_at=current_user.last_login_at,
+        email_alerts=current_user.email_alerts
     )
 
 
@@ -388,6 +390,10 @@ async def update_profile(
     if profile_update.full_name is not None:
         current_user.full_name = profile_update.full_name
         current_user.updated_at = datetime.now(timezone.utc)
+
+    if profile_update.email_alerts is not None:
+        current_user.email_alerts = profile_update.email_alerts
+        current_user.updated_at = datetime.now(timezone.utc)
     
     await current_user.save()
     
@@ -399,7 +405,8 @@ async def update_profile(
         role=current_user.role,
         is_active=current_user.is_active,
         created_at=current_user.created_at,
-        last_login_at=current_user.last_login_at
+        last_login_at=current_user.last_login_at,
+        email_alerts=current_user.email_alerts
     )
 
 

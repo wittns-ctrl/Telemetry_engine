@@ -828,3 +828,13 @@ async def cleanup_telemetry(mock_mongo_client):
     """
     yield
     await TelemetrySnapshotDocument.delete_all()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_notifications(monkeypatch):
+    """
+    Keep every test from sending real alert emails or webhooks, whatever the
+    developer's .env says. Tests that exercise notifications switch them back on.
+    """
+    monkeypatch.setattr(settings, "ALERT_EMAILS_ENABLED", False)
+    monkeypatch.setattr(settings, "ALERT_WEBHOOK_URL", None)

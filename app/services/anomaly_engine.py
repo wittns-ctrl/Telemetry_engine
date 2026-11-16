@@ -24,6 +24,7 @@ from app.core.anomaly_rules import (
     evaluate_rule,
     get_rule_by_name
 )
+from app.services.alert_notifier import alert_notifier
 from app.models.alert import AnomalyAlertDocument, AlertSeverity
 from app.models.telemetry import TelemetrySnapshot
 from app.core.config import settings
@@ -328,6 +329,9 @@ class AnomalyEngine:
             )
             
             await alert.insert()
+
+            # Email / webhook the owner. Runs in the background and never raises.
+            alert_notifier.dispatch(alert)
             
             # Update breach state
             breach_state.is_triggered = True

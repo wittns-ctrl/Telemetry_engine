@@ -32,6 +32,8 @@ class User(Document):
         default_factory =lambda: datetime.now(timezone.utc)
     )
     last_login_at: Optional[datetime] = None
+    # Email me when one of my devices raises a warning or critical alert.
+    email_alerts: bool = True
     
     class settings:
         name = "users"
@@ -90,10 +92,12 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
     last_login_at: Optional[datetime] = None
+    email_alerts: bool = True
 
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
+    email_alerts: Optional[bool] = None
 
 
 class Token(BaseModel):

@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     # Optional URL that receives a POST for every threshold-breach alert
     ALERT_WEBHOOK_URL: str | None = None
 
+    # Alert emails: sent to the device owner when a new alert is raised
+    ALERT_EMAILS_ENABLED: bool = True
+    ALERT_EMAIL_MIN_SEVERITY: str = "WARNING"  # INFO, WARNING or CRITICAL
+    ALERT_EMAIL_COOLDOWN_MINUTES: int = 30  # at most one email per device and rule in this time
+
     # Rate limiting
     RATE_LIMIT_ENABLED: bool = True
     RATE_LIMIT_PER_MINUTE: int = 60
