@@ -67,9 +67,58 @@
     color: var(--ink-200);
   }
   .brand { display: flex; align-items: center; gap: calc(6 * var(--u)); padding-left: calc(5 * var(--u)); font-size: calc(10.5 * var(--u)); font-weight: 700; letter-spacing: -0.01em; color: #fff; }
-  .rail-toggle { display: grid; place-items: center; width: calc(16 * var(--u)); height: calc(16 * var(--u)); margin-left: auto; border-radius: calc(5 * var(--u)); background: var(--ink-800); color: var(--ink-200); }
-  .rail-toggle:hover { background: var(--ink-600); color: #fff; }
-  .rail-toggle svg { width: calc(9 * var(--u)); height: calc(9 * var(--u)); }
+  /* The sidebar toggle is a round liquid-glass button: a sheen over a tint, a
+     blurred and saturated backdrop and a bright upper rim. */
+  .rail-toggle {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: calc(16 * var(--u));
+    height: calc(16 * var(--u));
+    margin-left: auto;
+    padding: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    color: #fff;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.07) 48%, rgba(255, 255, 255, 0) 52%),
+      rgba(58, 58, 64, 0.5);
+    -webkit-backdrop-filter: blur(12px) saturate(190%) brightness(1.05);
+    backdrop-filter: blur(12px) saturate(190%) brightness(1.05);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.42),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+      inset 0 0 10px rgba(255, 255, 255, 0.07),
+      0 6px 14px -6px rgba(14, 14, 16, 0.6),
+      0 1px 3px rgba(14, 14, 16, 0.25);
+    transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.5, 1), box-shadow 0.2s;
+  }
+  /* the specular glint in the upper left */
+  .rail-toggle::before {
+    content: "";
+    position: absolute;
+    left: 14%;
+    top: 8%;
+    width: 46%;
+    height: 34%;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
+    pointer-events: none;
+  }
+  .rail-toggle svg { position: relative; width: calc(9 * var(--u)); height: calc(9 * var(--u)); }
+  .rail-toggle:hover {
+    transform: scale(1.08);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.14),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.2),
+      inset 0 0 12px rgba(255, 255, 255, 0.1),
+      0 8px 18px -6px rgba(14, 14, 16, 0.65),
+      0 1px 3px rgba(14, 14, 16, 0.25);
+  }
+  .rail-toggle:active { transform: scale(0.95); }
   .cap { margin: calc(20 * var(--u)) 0 calc(7 * var(--u)) calc(5 * var(--u)); font-size: max(9px, calc(4.2 * var(--u))); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-400); }
   .nav { display: flex; flex-direction: column; gap: calc(3 * var(--u)); }
   .nav button { display: flex; align-items: center; gap: calc(7 * var(--u)); width: 100%; height: calc(22 * var(--u)); padding: 0 calc(5 * var(--u)); border-radius: calc(8 * var(--u)); font-size: max(11.5px, calc(6.2 * var(--u))); font-weight: 500; text-align: left; white-space: nowrap; color: var(--ink-200); transition: background-color 0.15s, color 0.15s; }
@@ -93,7 +142,7 @@
 
   .rail.is-slim { width: calc(40 * var(--u)); padding: calc(18 * var(--u)) calc(6 * var(--u)) calc(12 * var(--u)); align-items: center; }
   .rail.is-slim .brand { padding: 0; }
-  .rail.is-slim .rail-toggle { margin: calc(10 * var(--u)) 0 0; }
+  .rail.is-slim .rail-toggle { width: calc(19 * var(--u)); height: calc(19 * var(--u)); margin: calc(12 * var(--u)) 0 0; }
   .rail.is-slim .nav { margin-top: calc(14 * var(--u)); }
   .rail.is-slim .nav + .nav { margin-top: calc(10 * var(--u)); padding-top: calc(10 * var(--u)); border-top: 1px solid var(--ink-800); }
   .rail.is-slim .nav button { justify-content: center; width: calc(24 * var(--u)); padding: 0; }
@@ -303,6 +352,9 @@
   .plot-x span.is-first { transform: none; }
   .plot-x span.is-last { transform: translateX(-100%); }
   .plot.bare { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(calc(30 * var(--u)), 1fr); min-height: calc(34 * var(--u)); }
+  .plot.has-tags { padding-right: calc(46 * var(--u)); }
+  .endtag { position: absolute; left: 100%; z-index: 1; margin-left: calc(6 * var(--u)); padding: calc(1.8 * var(--u)) calc(5 * var(--u)); border-radius: calc(4 * var(--u)); font-size: var(--fs-1); font-weight: 700; line-height: 1.3; white-space: nowrap; pointer-events: none; transform: translateY(-50%); }
+  .tabs i.swatch { width: calc(9 * var(--u)); height: calc(2.4 * var(--u)); border-radius: 999px; }
   .plot.bare .plot-y, .plot.bare .plot-x { display: none; }
 
   /* ------------------------------------------------- pills and the ring */
@@ -389,6 +441,8 @@
   .card.mini.dk { background: var(--ink); }
   .card.mini.gd { background: var(--green-deep); }
   .card.mini.gs { background: var(--green-soft); }
+  .card.mini.gy { background: var(--ink-200); }
+  .gy.mini > span, .gy.mini > small { color: var(--ink-600); }
   .dk.stat h3, .dk .delta, .dk .foot, .dk .rows em, .dk .val small, .dk .big small, .dk.mini > span, .dk.mini > small { color: var(--ink-300); }
   .gd.stat h3, .gd .delta, .gd .foot, .gd .rows em, .gd .val small, .gd .big small, .gd .sub, .gd .txt, .gd.mini > span, .gd.mini > small { color: var(--green-soft); }
   .gs.stat h3, .gs .delta, .gs .foot, .gs .rows em, .gs .sub, .gs .val small, .gs .big small, .gs.mini > span, .gs.mini > small { color: var(--ink-600); }
@@ -421,8 +475,24 @@
   .places i { flex: none; width: calc(4 * var(--u)); height: calc(4 * var(--u)); border-radius: 50%; }
   .places em { margin-left: auto; font-style: normal; font-weight: 400; color: var(--ink-500); }
   .geo { position: absolute; left: calc(114 * var(--u)); right: calc(6 * var(--u)); top: calc(8 * var(--u)); bottom: calc(8 * var(--u)); }
-  .geo svg { display: block; width: 100%; height: 100%; }
-  .geo text { font-family: inherit; }
+  .geo { overflow: hidden; border-radius: calc(6 * var(--u)); background: #fff; }
+  .geo-map { position: absolute; inset: 0; }
+  .geo-note { position: absolute; inset: 0; pointer-events: none; }
+  .geo-lost { z-index: 3; background: rgba(255, 255, 255, 0.92); pointer-events: auto; }
+  .geo .maplibregl-map { font-family: inherit; }
+  .geo .maplibregl-ctrl-group { border-radius: calc(6 * var(--u)); box-shadow: 0 0 0 1px var(--ink-200); }
+  .geo .maplibregl-ctrl-group button { width: 22px; height: 22px; }
+  .geo .maplibregl-ctrl-attrib { font-size: 10px; }
+  .map-pin { width: 14px; height: 14px; border-radius: 50%; background: color-mix(in srgb, var(--pin) 40%, transparent); cursor: pointer; }
+  .map-pin::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--ink); }
+  .map-pin.on { width: 18px; height: 18px; }
+  .map-pin.on::after { inset: 5px; }
+  .map-reset { position: absolute; left: 8px; top: 8px; z-index: 2; padding: 4px 9px; border-radius: 6px; background: #fff; box-shadow: 0 0 0 1px var(--ink-200); font-size: 11px; font-weight: 600; color: var(--ink); }
+  .map-reset:hover { background: var(--ink); color: #fff; }
+  .map-tip { display: flex; align-items: center; gap: 14px; padding: 6px 10px; border-radius: 8px; background: var(--ink); color: #fff; pointer-events: none; white-space: nowrap; }
+  .map-tip b { display: block; font-size: 12px; font-weight: 600; }
+  .map-tip small { display: block; margin-top: 1px; font-size: 10px; color: var(--ink-300); }
+  .map-tip em { font-style: normal; font-size: 13px; font-weight: 700; }
   .mapcard > .row { margin-top: auto; }
 
   /* ---------------------------------- analytics breakdown, live status */

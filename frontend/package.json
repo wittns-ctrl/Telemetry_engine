@@ -12,6 +12,7 @@
   "dependencies": {
     "d3-geo": "^3.1.2",
     "lucide-react": "^1.31.0",
+    "maplibre-gl": "^6.18.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",

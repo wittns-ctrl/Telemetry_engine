@@ -224,14 +224,32 @@ export function Pill({ tone = "white", ring, title, sub, children }) {
   );
 }
 
-/** Half-donut gauge. `share` is 0 to 1. */
+/**
+ * Half-donut gauge. `share` is 0 to 1. Where the coloured part meets the black
+ * track, the coloured part ends in a rounded edge rather than a straight cut.
+ */
 export function Gauge({ share, warn }) {
+  const clipId = useId();
   const length = Math.PI * 34;
   const filled = Math.min(1, Math.max(0, Number.isFinite(share) ? share : 0));
+  const colour = warn ? "#ec003f" : "#5cc061";
+  // The rounded edge is a circle as wide as the arc, centred on the arc's end.
+  // Everything is clipped at the baseline, so near 0% it can't poke out below.
+  const angle = Math.PI * (1 - filled);
+  const endX = 42 + 34 * Math.cos(angle);
+  const endY = 42 - 34 * Math.sin(angle);
   return (
     <svg className="gauge" viewBox="0 0 84 44" aria-hidden="true">
+      <defs>
+        <clipPath id={clipId}><rect x="0" y="0" width="84" height="42" /></clipPath>
+      </defs>
       <path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke="#0e0e10" strokeWidth="13" />
-      <path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke={warn ? "#ec003f" : "#5cc061"} strokeWidth="13" strokeDasharray={`${length * filled} ${length}`} />
+      {filled > 0 && (
+        <g clipPath={`url(#${clipId})`}>
+          <path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke={colour} strokeWidth="13" strokeDasharray={`${length * filled} ${length}`} />
+          {filled < 1 && <circle cx={endX} cy={endY} r="6.5" fill={colour} />}
+        </g>
+      )}
     </svg>
   );
 }
@@ -251,11 +269,13 @@ function labelledPoints(count) {
 }
 
 /**
- * Line graph on a white card. `series` is [{ name, colour, values }], every
- * `values` array as long as `labels`; missing readings are null. The first
- * series gets a soft fill. Hover or the arrow keys read out single points.
+ * Line graph on a white card. `series` is [{ name, colour, values, tagText }],
+ * every `values` array as long as `labels`; missing readings are null. A single
+ * series gets a soft fill. With `endTags`, each line ends in a dot and a label
+ * filled in its colour showing its latest value (`tagBg` and `tagText` override the
+ * label colours). Hover or the arrow keys read out single points.
  */
-export function LineGraph({ series, labels = [], min = 0, max = 100, unit = "", digits = 0, limit, bare, emptyText = "No readings yet", summary }) {
+export function LineGraph({ series, labels = [], min = 0, max = 100, unit = "", digits = 0, limit, bare, endTags, emptyText = "No readings yet", summary }) {
   const [focus, setFocus] = useState(null);
   const fillId = useId();
   const count = labels.length;
@@ -284,8 +304,23 @@ export function LineGraph({ series, labels = [], min = 0, max = 100, unit = "", 
   const left = focus === null || count < 2 ? 50 : (focus / (count - 1)) * 100;
   const focused = focus === null ? [] : series.filter((s) => s.values[focus] !== null && s.values[focus] !== undefined);
 
+  // End labels: each series' latest value, nudged apart so labels never overlap.
+  const tags = !endTags || !hasData ? [] : series
+    .map((s) => {
+      const i = s.values.findLastIndex((v) => v !== null && v !== undefined);
+      return i < 0 ? null : { s, value: s.values[i], at: (i / Math.max(1, count - 1)) * 100, top: (1 - share(s.values[i])) * 100 };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.top - b.top);
+  const GAP = 13; // the least room between two labels, in percent of the plot's height
+  tags.forEach((t, i) => { t.labelTop = i ? Math.max(t.top, tags[i - 1].labelTop + GAP) : t.top; });
+  for (let i = tags.length - 1; i >= 0; i -= 1) {
+    const room = i === tags.length - 1 ? 100 : tags[i + 1].labelTop - GAP;
+    if (tags[i].labelTop > room) tags[i].labelTop = room;
+  }
+
   return (
-    <div className={cx("plot", bare && "bare")}>
+    <div className={cx("plot", bare && "bare", tags.length > 0 && "has-tags")}>
       <div className="plot-y" aria-hidden="true">
         <span>{widest}</span>
         {steps.map((s) => <span key={s} className="at" style={{ top: `${(1 - s) * 100}%` }}>{tickText(s)}</span>)}
@@ -318,10 +353,10 @@ export function LineGraph({ series, labels = [], min = 0, max = 100, unit = "", 
               const line = pts.map(([px, py]) => `${px.toFixed(1)},${py.toFixed(1)}`).join(" ");
               return (
                 <g key={s.name}>
-                  {k === 0 && pts.length > 1 && (
+                  {k === 0 && series.length === 1 && pts.length > 1 && (
                     <path d={`M${pts[0][0].toFixed(1)},${H} L${line.split(" ").join(" L")} L${pts[pts.length - 1][0].toFixed(1)},${H} Z`} fill={`url(#${fillId})`} />
                   )}
-                  <polyline points={line} fill="none" stroke={s.colour} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                  <polyline points={line} fill="none" stroke={s.colour} strokeWidth={series.length > 1 ? 2.5 : 2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
                 </g>
               );
             })}
@@ -334,6 +369,14 @@ export function LineGraph({ series, labels = [], min = 0, max = 100, unit = "", 
             <span>Limit {Number.isInteger(limit) ? fmt(limit, 0, unit) : show(limit)}</span>
           </i>
         )}
+        {tags.map((t) => (
+          <React.Fragment key={t.s.name}>
+            <i className="pt" style={{ left: `${t.at}%`, top: `${t.top}%`, borderColor: t.s.colour }} aria-hidden="true" />
+            <span className="endtag" style={{ top: `${t.labelTop}%`, background: t.s.tagBg || t.s.colour, color: t.s.tagText || "#fff" }} aria-hidden="true">
+              {t.s.name} {show(t.value)}
+            </span>
+          </React.Fragment>
+        ))}
         {focused.length > 0 && (
           <>
             <i className="guide" style={{ left: `${left}%` }} aria-hidden="true" />

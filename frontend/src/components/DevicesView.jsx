@@ -16,10 +16,12 @@ import { Card, Head, Chip, Ico, Empty, LineGraph } from "./ui";
 import { cx, fmt, timeAgo } from "./format";
 
 const MAX_POINTS = 60;
+// Three colours far apart in lightness, so the lines stay distinct. The reading
+// tiles above the graph use the same colours: CPU black, GPU grey, Memory green.
 const LINES = [
-  { key: "cpu", name: "CPU", colour: "#1c7a2e" },
-  { key: "gpu", name: "GPU", colour: "#0e0e10" },
-  { key: "ram", name: "RAM", colour: "#5cc061" },
+  { key: "ram", name: "RAM", colour: "#1c7a2e" },
+  { key: "cpu", name: "CPU", colour: "#0e0e10" },
+  { key: "gpu", name: "GPU", colour: "#8e8e96", tagText: "#0e0e10", tagBg: "#d9d9dc" },
 ];
 
 const timeLabel = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -333,9 +335,9 @@ export function DevicesView() {
           ) : (
             <>
               <div className="g4" style={{ gap: "calc(6 * var(--u))" }}>
-                <div className="card mini gd"><span>CPU</span><b>{fmt(cpu.utilization_percent, 0, "%")}</b><small>{fmt(cpu.package_temperature_c ?? cpu.core_temperature_c, 0, "°C")} · {fmt(cpu.clock_speed_ghz, 2, " GHz")}</small></div>
-                <div className="card mini dk"><span>GPU</span><b>{fmt(gpu.utilization_percent, 0, "%")}</b><small className="cut">{fmt(gpu.core_temperature_c, 0, "°C")}{gpu.gpu_name ? ` · ${gpu.gpu_name}` : ""}</small></div>
-                <div className="card mini gs"><span>Memory</span><b>{fmt(ram.usage_percent, 0, "%")}</b><small>{fmt(ram.used_gb, 1)} / {fmt(ram.total_gb, 1, " GB")}</small></div>
+                <div className="card mini dk"><span>CPU</span><b>{fmt(cpu.utilization_percent, 0, "%")}</b><small>{fmt(cpu.package_temperature_c ?? cpu.core_temperature_c, 0, "°C")} · {fmt(cpu.clock_speed_ghz, 2, " GHz")}</small></div>
+                <div className="card mini gy"><span>GPU</span><b>{fmt(gpu.utilization_percent, 0, "%")}</b><small className="cut">{fmt(gpu.core_temperature_c, 0, "°C")}{gpu.gpu_name ? ` · ${gpu.gpu_name}` : ""}</small></div>
+                <div className="card mini gd"><span>Memory</span><b>{fmt(ram.usage_percent, 0, "%")}</b><small>{fmt(ram.used_gb, 1)} / {fmt(ram.total_gb, 1, " GB")}</small></div>
                 <div className="card mini"><span>PSU 12V</span><b>{fmt(power.psu_12v_voltage, 2, " V")}</b><small>VRM {fmt(power.vrm_temperature_c, 0, "°C")}</small></div>
               </div>
 
@@ -346,11 +348,12 @@ export function DevicesView() {
                 </Head>
                 <div className="ch-bar">
                   <div className="tabs" aria-hidden="true">
-                    {LINES.map((l) => <span key={l.key}><i style={{ background: l.colour }} />{l.name} %</span>)}
+                    {LINES.map((l) => <span key={l.key}><i className="swatch" style={{ background: l.colour }} />{l.name} %</span>)}
                   </div>
                 </div>
                 <LineGraph
-                  series={LINES.map((l) => ({ name: l.name, colour: l.colour, values: history.map((p) => p[l.key]) }))}
+                  endTags
+                  series={LINES.map((l) => ({ name: l.name, colour: l.colour, tagText: l.tagText, tagBg: l.tagBg, values: history.map((p) => p[l.key]) }))}
                   labels={history.map((p) => p.t)}
                   unit="%"
                   summary={`CPU, GPU and RAM use over the last ${history.length} readings`}

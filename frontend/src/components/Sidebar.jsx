@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import { LectioMark } from './LectioMark';
 import { initialsFor } from './format';
 import { MAIN_ITEMS, OTHER_ITEMS } from './navItems';
@@ -31,7 +31,7 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout, user,
   const item = (it) => (
     <NavButton key={it.id} item={it} active={activeNav === it.id} onSelect={setActiveNav} expanded={expanded} />
   );
-  const Toggle = expanded ? PanelLeftClose : PanelLeftOpen;
+  const Toggle = expanded ? ChevronLeft : ChevronRight;
 
   return (
     <aside className={`rail${expanded ? '' : ' is-slim'}`}>
@@ -40,13 +40,13 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout, user,
         {expanded && <span>Lectio</span>}
         {expanded && (
           <button type="button" className="rail-toggle" onClick={onToggle} aria-label="Collapse sidebar" title="Collapse sidebar">
-            <Toggle strokeWidth={1.9} aria-hidden="true" />
+            <Toggle strokeWidth={2.2} aria-hidden="true" />
           </button>
         )}
       </div>
       {!expanded && (
         <button type="button" className="rail-toggle" onClick={onToggle} aria-label="Expand sidebar" title="Expand sidebar">
-          <Toggle strokeWidth={1.9} aria-hidden="true" />
+          <Toggle strokeWidth={2.2} aria-hidden="true" />
         </button>
       )}
 
