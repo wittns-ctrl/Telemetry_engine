@@ -108,6 +108,19 @@ function App() {
     loadInitialData();
   }, [loadInitialData]);
 
+  // Keep the stored-reading totals current: refetch them when a page that
+  // shows them opens and whenever a new reading arrives over the socket.
+  const latestMetricId = socket.latestMetric?.id;
+  useEffect(() => {
+    if (BACKEND_DISABLED || !getAccessToken()) return;
+    if (!['metrics', 'analytics', 'sensors'].includes(activeNav)) return;
+    let cancelled = false;
+    fetchStats()
+      .then((data) => { if (!cancelled && data) setStats(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeNav, latestMetricId]);
+
   // api.js fires this when a refresh fails and the session is cleared.
   useEffect(() => {
     const onLoggedOut = () => {

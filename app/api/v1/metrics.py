@@ -19,14 +19,8 @@ from app.models.user import User
 from app.models.telemetry import TelemetrySnapshotDocument
 from app.services.storage_service import StorageService
 from app.schemas.api import (
-    TelemetryHistoryRequest,
     TelemetryHistoryResponse,
     TelemetrySnapshotResponse,
-    CPUMetricsResponse,
-    GPUMetricsResponse,
-    StorageMetricsResponse,
-    RAMMetricsResponse,
-    PowerAndVRMMetricsResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -96,78 +90,7 @@ async def get_historical_metrics(
             limit=limit
         )
         
-        # Convert to response models
-        snapshot_responses = []
-        for snapshot in snapshots:
-            cpu_response = None
-            if snapshot.telemetry and snapshot.telemetry.cpu:
-                cpu_response = CPUMetricsResponse(
-                    utilization_percent=snapshot.telemetry.cpu.utilization_percent,
-                    core_temperature_c=snapshot.telemetry.cpu.core_temperature_c,
-                    package_temperature_c=snapshot.telemetry.cpu.package_temperature_c,
-                    clock_speed_mhz=snapshot.telemetry.cpu.clock_speed_mhz,
-                    core_count=snapshot.telemetry.cpu.core_count
-                )
-            
-            gpu_response = None
-            if snapshot.telemetry and snapshot.telemetry.gpu:
-                gpu_response = GPUMetricsResponse(
-                    utilization_percent=snapshot.telemetry.gpu.utilization_percent,
-                    core_temperature_c=snapshot.telemetry.gpu.core_temperature_c,
-                    hotspot_temperature_c=snapshot.telemetry.gpu.hotspot_temperature_c,
-                    memory_clock_mhz=snapshot.telemetry.gpu.memory_clock_mhz,
-                    core_clock_mhz=snapshot.telemetry.gpu.core_clock_mhz,
-                    fan_speed_percent=snapshot.telemetry.gpu.fan_speed_percent,
-                    power_draw_watts=snapshot.telemetry.gpu.power_draw_watts
-                )
-            
-            storage_responses = []
-            if snapshot.telemetry and snapshot.telemetry.storage:
-                for storage in snapshot.telemetry.storage:
-                    storage_responses.append(StorageMetricsResponse(
-                        device_id=storage.device_id,
-                        model=storage.model,
-                        serial_number=storage.serial_number,
-                        health_percent=storage.health_percent,
-                        temperature_c=storage.temperature_c,
-                        used_gb=storage.used_gb,
-                        total_gb=storage.total_gb,
-                        read_speed_mb_s=storage.read_speed_mb_s,
-                        write_speed_mb_s=storage.write_speed_mb_s
-                    ))
-            
-            ram_response = None
-            if snapshot.telemetry and snapshot.telemetry.ram:
-                ram_response = RAMMetricsResponse(
-                    usage_percent=snapshot.telemetry.ram.usage_percent,
-                    used_gb=snapshot.telemetry.ram.used_gb,
-                    total_gb=snapshot.telemetry.ram.total_gb,
-                    clock_speed_mhz=snapshot.telemetry.ram.clock_speed_mhz
-                )
-            
-            power_response = None
-            if snapshot.telemetry and snapshot.telemetry.power_vrm:
-                power_response = PowerAndVRMMetricsResponse(
-                    vrm_temperature_c=snapshot.telemetry.power_vrm.vrm_temperature_c,
-                    psu_12v_voltage=snapshot.telemetry.power_vrm.psu_12v_voltage,
-                    psu_5v_voltage=snapshot.telemetry.power_vrm.psu_5v_voltage,
-                    psu_3v3_voltage=snapshot.telemetry.power_vrm.psu_3v3_voltage,
-                    cpu_package_power_w=snapshot.telemetry.power_vrm.cpu_package_power_w,
-                    gpu_package_power_w=snapshot.telemetry.power_vrm.gpu_package_power_w
-                )
-            
-            snapshot_responses.append(TelemetrySnapshotResponse(
-                id=str(snapshot.id),
-                device_id=str(snapshot.device_id),
-                timestamp=snapshot.timestamp,
-                sensor_id=snapshot.sensor_id,
-                cpu=cpu_response,
-                gpu=gpu_response,
-                storage=storage_responses if storage_responses else None,
-                ram=ram_response,
-                power_vrm=power_response,
-                collection_duration_ms=snapshot.collection_duration_ms
-            ))
+        snapshot_responses = [TelemetrySnapshotResponse.from_document(doc) for doc in snapshots]
         
         # Build time range info
         time_range = None
@@ -242,15 +165,10 @@ async def get_latest_metrics(
                 detail="Device does not belong to user"
             )
         
-        # Query latest telemetry (limit=1, sorted by timestamp descending)
-        # Use a default time range of last 24 hours
-        end_time = datetime.now(timezone.utc)
-        start_time = end_time - timedelta(hours=24)
+        # The newest stored snapshot, however old it is.
         snapshots = await StorageService.get_historical_telemetry(
             user_id=user_id,
             device_id=device_id,
-            start_time=start_time,
-            end_time=end_time,
             limit=1
         )
         
@@ -260,78 +178,7 @@ async def get_latest_metrics(
                 detail="No telemetry data available for this device"
             )
         
-        snapshot = snapshots[0]
-        
-        # Convert to response model
-        cpu_response = None
-        if snapshot.cpu:
-            cpu_response = CPUMetricsResponse(
-                utilization_percent=snapshot.cpu.utilization_percent,
-                core_temperature_c=snapshot.cpu.core_temperature_c,
-                package_temperature_c=snapshot.cpu.package_temperature_c,
-                clock_speed_mhz=snapshot.cpu.clock_speed_ghz * 1000 if snapshot.cpu.clock_speed_ghz else None,
-                core_count=None
-            )
-        
-        gpu_response = None
-        if snapshot.gpu:
-            gpu_response = GPUMetricsResponse(
-                utilization_percent=snapshot.gpu.utilization_percent,
-                core_temperature_c=snapshot.gpu.core_temperature_c,
-                hotspot_temperature_c=snapshot.gpu.hotspot_temperature_c,
-                memory_clock_mhz=None,
-                core_clock_mhz=None,
-                fan_speed_percent=snapshot.gpu.fan_speed_percent,
-                power_draw_watts=snapshot.gpu.board_power_w
-            )
-        
-        storage_responses = []
-        if snapshot.storage:
-            for storage in snapshot.storage:
-                storage_responses.append(StorageMetricsResponse(
-                    device_id=storage.device_name or "unknown",
-                    model=None,
-                    serial_number=None,
-                    health_percent=storage.smart_health_percent,
-                    temperature_c=storage.temperature_c,
-                    used_gb=storage.total_capacity_gb - storage.available_capacity_gb if storage.total_capacity_gb and storage.available_capacity_gb else None,
-                    total_gb=storage.total_capacity_gb,
-                    read_speed_mb_s=None,
-                    write_speed_mb_s=None
-                ))
-        
-        ram_response = None
-        if snapshot.ram:
-            ram_response = RAMMetricsResponse(
-                usage_percent=snapshot.ram.usage_percent,
-                used_gb=snapshot.ram.used_gb,
-                total_gb=snapshot.ram.total_gb,
-                clock_speed_mhz=None
-            )
-        
-        power_response = None
-        if snapshot.power_vrm:
-            power_response = PowerAndVRMMetricsResponse(
-                vrm_temperature_c=snapshot.power_vrm.vrm_temperature_c,
-                psu_12v_voltage=snapshot.power_vrm.psu_12v_voltage,
-                psu_5v_voltage=None,
-                psu_3v3_voltage=None,
-                cpu_package_power_w=None,
-                gpu_package_power_w=None
-            )
-        
-        return TelemetrySnapshotResponse(
-            id=str(snapshot.id),
-            device_id=str(snapshot.device_id),
-            timestamp=snapshot.timestamp,
-            sensor_id=snapshot.sensor_id,
-            cpu=cpu_response,
-            gpu=gpu_response,
-            storage=storage_responses if storage_responses else None,
-            ram=ram_response,
-            power_vrm=power_response,
-            collection_duration_ms=snapshot.collection_duration_ms
-        )
+        return TelemetrySnapshotResponse.from_document(snapshots[0])
     
     except HTTPException:
         raise
@@ -415,13 +262,13 @@ async def get_metrics_summary(
         ram_usage = []
         
         for snapshot in snapshots:
-            if snapshot.telemetry:
-                if snapshot.telemetry.cpu:
-                    cpu_temps.append(snapshot.telemetry.cpu.core_temperature_c)
-                if snapshot.telemetry.gpu:
-                    gpu_temps.append(snapshot.telemetry.gpu.core_temperature_c)
-                if snapshot.telemetry.ram:
-                    ram_usage.append(snapshot.telemetry.ram.usage_percent)
+            # Skip readings the PC didn't report so they don't break the maths.
+            if snapshot.cpu.core_temperature_c is not None:
+                cpu_temps.append(snapshot.cpu.core_temperature_c)
+            if snapshot.gpu.core_temperature_c is not None:
+                gpu_temps.append(snapshot.gpu.core_temperature_c)
+            if snapshot.ram.usage_percent is not None:
+                ram_usage.append(snapshot.ram.usage_percent)
         
         summary = {
             "device_id": device_id,

@@ -4,7 +4,7 @@
 // no sockets. You land straight in the dashboard as a placeholder user, and
 // sign-in / sign-up just let you through. Set it to false to reconnect.
 // ---------------------------------------------------------------------------
-export const BACKEND_DISABLED = true;
+export const BACKEND_DISABLED = false;
 
 export const OFFLINE_USER = {
   id: "offline-user",

@@ -13,6 +13,15 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
 from beanie import PydanticObjectId
 
+from app.models.telemetry import (
+    CPUMetrics,
+    GPUMetrics,
+    PowerAndVRMMetrics,
+    RAMMetrics,
+    StorageMetrics,
+    TelemetrySnapshotDocument,
+)
+
 
 # --- Device Schemas ---
 
@@ -62,62 +71,6 @@ class TelemetryIngestResponse(BaseModel):
 
 # --- Telemetry Schemas ---
 
-class CPUMetricsResponse(BaseModel):
-    """Response model for CPU metrics."""
-    
-    utilization_percent: Optional[float] = None
-    core_temperature_c: Optional[float] = None
-    package_temperature_c: Optional[float] = None
-    clock_speed_mhz: Optional[float] = None
-    core_count: Optional[int] = None
-
-
-class GPUMetricsResponse(BaseModel):
-    """Response model for GPU metrics."""
-    
-    utilization_percent: Optional[float] = None
-    core_temperature_c: Optional[float] = None
-    hotspot_temperature_c: Optional[float] = None
-    memory_clock_mhz: Optional[float] = None
-    core_clock_mhz: Optional[float] = None
-    fan_speed_percent: Optional[float] = None
-    power_draw_watts: Optional[float] = None
-
-
-class StorageMetricsResponse(BaseModel):
-    """Response model for storage metrics."""
-    
-    device_id: str
-    model: Optional[str] = None
-    serial_number: Optional[str] = None
-    health_percent: Optional[float] = None
-    temperature_c: Optional[float] = None
-    used_gb: Optional[float] = None
-    total_gb: Optional[float] = None
-    read_speed_mb_s: Optional[float] = None
-    write_speed_mb_s: Optional[float] = None
-
-
-class RAMMetricsResponse(BaseModel):
-    """Response model for RAM metrics."""
-    
-    usage_percent: Optional[float] = None
-    used_gb: Optional[float] = None
-    total_gb: Optional[float] = None
-    clock_speed_mhz: Optional[float] = None
-
-
-class PowerAndVRMMetricsResponse(BaseModel):
-    """Response model for Power and VRM metrics."""
-    
-    vrm_temperature_c: Optional[float] = None
-    psu_12v_voltage: Optional[float] = None
-    psu_5v_voltage: Optional[float] = None
-    psu_3v3_voltage: Optional[float] = None
-    cpu_package_power_w: Optional[float] = None
-    gpu_package_power_w: Optional[float] = None
-
-
 class TelemetrySnapshotResponse(BaseModel):
     """Response model for telemetry snapshot."""
     
@@ -125,14 +78,31 @@ class TelemetrySnapshotResponse(BaseModel):
     device_id: str = Field(..., description="Device ID")
     timestamp: datetime = Field(..., description="Snapshot timestamp")
     sensor_id: str = Field(..., description="Sensor identifier")
-    cpu: Optional[CPUMetricsResponse] = None
-    gpu: Optional[GPUMetricsResponse] = None
-    storage: Optional[List[StorageMetricsResponse]] = None
-    ram: Optional[RAMMetricsResponse] = None
-    power_vrm: Optional[PowerAndVRMMetricsResponse] = None
+    # Same shapes the agent sends and the live WebSocket relays, so every
+    # reading reaches the client under one set of field names.
+    cpu: CPUMetrics = Field(default_factory=CPUMetrics)
+    gpu: GPUMetrics = Field(default_factory=GPUMetrics)
+    storage: List[StorageMetrics] = Field(default_factory=list)
+    ram: RAMMetrics = Field(default_factory=RAMMetrics)
+    power_vrm: PowerAndVRMMetrics = Field(default_factory=PowerAndVRMMetrics)
     collection_duration_ms: Optional[float] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_document(cls, doc: TelemetrySnapshotDocument) -> "TelemetrySnapshotResponse":
+        return cls(
+            id=str(doc.id),
+            device_id=str(doc.device_id),
+            timestamp=doc.timestamp,
+            sensor_id=doc.sensor_id,
+            cpu=doc.cpu,
+            gpu=doc.gpu,
+            storage=doc.storage,
+            ram=doc.ram,
+            power_vrm=doc.power_vrm,
+            collection_duration_ms=doc.collection_duration_ms,
+        )
 
 
 class TelemetryHistoryRequest(BaseModel):
