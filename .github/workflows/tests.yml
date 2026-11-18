@@ -53,7 +53,7 @@ jobs:
           PYTHONUNBUFFERED: "1"  # so the log keeps every line even if the step is killed
         run: |
           set -o pipefail
-          uv run --no-sync pytest -v -o faulthandler_timeout=120 --durations=15 2>&1 | tee pytest.log
+          uv run --no-sync pytest -v -rfE -o faulthandler_timeout=120 --durations=15 2>&1 | tee pytest.log
 
       # Job logs need a GitHub sign-in to read; the run summary and annotations
       # don't. On a failure or timeout, put where pytest stopped in both.
@@ -69,3 +69,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           last=$(grep -E '^(tests/|test_)[^ ]*::' pytest.log 2>/dev/null | tail -n 1)
           echo "::error title=Last test pytest reached::${last:-none}"
+          # One annotation per failed or erroring test, from pytest's -rfE
+          # short summary ("FAILED tests/x.py::test_y - message").
+          # GitHub shows up to 10 error annotations per step.
+          grep -E '^(FAILED|ERROR) ' pytest.log 2>/dev/null | head -n 9 | while IFS= read -r line; do
+            echo "::error title=${line%% *}::${line#* }"
+          done
