@@ -18,6 +18,7 @@ from app.api.deps import get_current_user
 from app.models.user import User, UserRole
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument
+from app.models.fix import FixRequest
 from app.services.anomaly_engine import anomaly_engine
 from app.core.websocket_manager import manager as stream_manager
 from app.services.storage_service import StorageService
@@ -44,6 +45,8 @@ def _to_response(device: Device) -> DeviceResponse:
         os_info=device.os_info,
         country=device.country,
         last_seen=device.last_seen,
+        agent_version=device.agent_version,
+        agent_last_seen=device.agent_last_seen,
         is_active=device.is_active,
         created_at=device.created_at,
     )
@@ -307,6 +310,10 @@ async def delete_device(
         alerts = await AnomalyAlertDocument.find(
             AnomalyAlertDocument.device_id == device_oid,
             AnomalyAlertDocument.user_id == current_user.id,
+        ).delete()
+        await FixRequest.find(
+            FixRequest.device_id == device_oid,
+            FixRequest.user_id == current_user.id,
         ).delete()
         await device.delete()
 

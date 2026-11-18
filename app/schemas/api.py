@@ -35,6 +35,8 @@ class DeviceResponse(BaseModel):
     os_info: Optional[str] = Field(None, description="Operating system information")
     country: Optional[str] = Field(None, description="Country the device is in, as the map spells it")
     last_seen: Optional[datetime] = Field(None, description="Last telemetry timestamp")
+    agent_version: Optional[str] = Field(None, description="Version of the Lectio agent on this PC")
+    agent_last_seen: Optional[datetime] = Field(None, description="When the agent last checked in for fixes")
     is_active: bool = Field(True, description="Whether device is actively reporting")
     created_at: datetime = Field(..., description="Device registration timestamp")
     

@@ -14,6 +14,7 @@ from app.models.telemetry import (
     telemetry_retention_seconds,
 )
 from app.models.alert import AnomalyAlertDocument
+from app.models.fix import FixRequest
 
 
 # Every Beanie document the app uses. The test suite's in-memory database
@@ -28,6 +29,7 @@ DOCUMENT_MODELS = [
     Device,
     TelemetrySnapshotDocument,
     AnomalyAlertDocument,
+    FixRequest,
 ]
 
 

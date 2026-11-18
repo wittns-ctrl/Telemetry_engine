@@ -99,6 +99,12 @@ class TestClassify:
         assert a[0] != b[0]
         assert "key-a" not in a[0]  # the raw key is not kept in memory
 
+    def test_agent_fix_check_ins_are_limited_per_device_key(self, limits):
+        a = classify(_scope("/api/v1/agent/fixes/next", "GET", {"X-Device-Key": "key-a" * 5}))
+        ingest = classify(_scope("/api/v1/telemetry/ingest", "POST", {"X-Device-Key": "key-a" * 5}))
+        assert a[0].startswith("agent:") and a[1] == 4
+        assert a[0] != ingest[0]  # check-ins don't use up the upload budget
+
     def test_signed_in_requests_are_limited_per_user(self, limits):
         token = create_access_token(data={"sub": "user123", "type": "access"})
         key, limit = classify(_scope("/api/v1/devices", headers={"Authorization": f"Bearer {token}"}))

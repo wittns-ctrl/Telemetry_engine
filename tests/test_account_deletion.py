@@ -10,17 +10,18 @@ from beanie import init_beanie
 from app.core.security import create_access_token, get_password_hash
 from app.models.alert import AlertSeverity, AnomalyAlertDocument
 from app.models.audit_log import AuditEventType, AuditLog
+from app.db.session import DOCUMENT_MODELS
 from app.models.email_verification import EmailVerification
+from app.models.fix import FixRequest, FixStatus
 from app.models.metric import Metrics
 from app.models.password_reset import PasswordReset
 from app.models.refresh_token import RefreshToken
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.user import User, UserRole
 
-ALL_MODELS = [
-    User, Device, TelemetrySnapshotDocument, AnomalyAlertDocument, Metrics,
-    RefreshToken, EmailVerification, PasswordReset, AuditLog,
-]
+# Every collection the app has, so a new one that holds user data can't be
+# forgotten here (counts_for must then cover it too).
+ALL_MODELS = DOCUMENT_MODELS
 
 
 @pytest.fixture
@@ -59,6 +60,7 @@ async def make_user_with_data(email: str) -> User:
     await EmailVerification(user_id=uid, token_hash=uuid.uuid4().hex, email=email, expires_at=now + timedelta(days=1)).insert()
     await PasswordReset(user_id=uid, token_hash=uuid.uuid4().hex, email=email, expires_at=now + timedelta(hours=1)).insert()
     await AuditLog(user_id=uid, event_type=AuditEventType.LOGIN_SUCCESS, ip_address="203.0.113.7").insert()
+    await FixRequest(user_id=user.id, device_id=device.id, fix_id="cool_down", status=FixStatus.SUCCEEDED).insert()
     return user
 
 
@@ -74,6 +76,7 @@ async def counts_for(user: User) -> dict:
         "email_tokens": await EmailVerification.find(EmailVerification.user_id == uid).count(),
         "reset_tokens": await PasswordReset.find(PasswordReset.user_id == uid).count(),
         "audit_logs": await AuditLog.find(AuditLog.user_id == uid).count(),
+        "fixes": await FixRequest.find(FixRequest.user_id == oid).count(),
     }
 
 
@@ -116,6 +119,7 @@ async def test_delete_device_removes_its_readings_and_alerts_only(full_db, async
     assert await Device.get(doomed.id) is None
     assert await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.device_id == doomed.id).count() == 0
     assert await AnomalyAlertDocument.find(AnomalyAlertDocument.device_id == doomed.id).count() == 0
+    assert await FixRequest.find(FixRequest.device_id == doomed.id).count() == 0
     # The other machine on this account, and the account itself, are untouched.
     assert await Device.get(kept.id) is not None
     assert await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.device_id == kept.id).count() == 1

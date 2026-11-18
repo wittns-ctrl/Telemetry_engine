@@ -141,6 +141,9 @@ class Device(Document):
     is_active: bool = Field(default=True, description="Device active status")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Device registration timestamp")
     last_seen: Optional[datetime] = Field(None, description="Last telemetry collection timestamp")
+    # Updated each time the agent checks for fixes (GET /agent/fixes/next).
+    agent_version: Optional[str] = Field(None, max_length=32, description="Version of the Lectio agent on this PC")
+    agent_last_seen: Optional[datetime] = Field(None, description="When the agent last checked in")
     # SHA-256 of the agent's device key. The plaintext key is shown once at registration.
     ingest_key_hash: Optional[str] = Field(None, description="Hash of the device ingest key")
     

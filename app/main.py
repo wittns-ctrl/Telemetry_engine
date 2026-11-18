@@ -15,6 +15,7 @@ from app.api.v1 import alerts as alerts_router
 from app.api.v1 import diagnostics as diagnostics_router
 from app.api.v1 import ingest as ingest_router
 from app.api.v1 import sensor_metrics as sensor_metrics_router
+from app.api.v1 import fixes as fixes_router
 
 
 @asynccontextmanager
@@ -77,4 +78,7 @@ app.include_router(diagnostics_router.router, prefix="/api/v1")
 
 # --- AGENT TELEMETRY INGEST ---
 app.include_router(ingest_router.router, prefix="/api/v1")
+
+# --- FIXES (website asks, the PC's agent runs them) ---
+app.include_router(fixes_router.router, prefix="/api/v1")
 

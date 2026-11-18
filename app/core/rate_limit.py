@@ -51,6 +51,7 @@ AUTH_PATHS = frozenset({
 })
 
 INGEST_PATH = "/api/v1/telemetry/ingest"
+AGENT_PREFIX = "/api/v1/agent/"
 
 # Idle buckets are dropped once refilled; sweep at most this often.
 SWEEP_INTERVAL_SECONDS = 60.0
@@ -157,12 +158,14 @@ def classify(scope) -> tuple[str, int] | None:
     if path in AUTH_PATHS:
         return f"auth:{_client_ip(scope)}", settings.RATE_LIMIT_AUTH_PER_MINUTE
 
-    if path == INGEST_PATH:
+    if path == INGEST_PATH or path.startswith(AGENT_PREFIX):
+        # Agent traffic: telemetry uploads and fix check-ins, each budget per device key.
+        kind = "ingest" if path == INGEST_PATH else "agent"
         device_key = _header(scope, b"x-device-key")
         if device_key:
             digest = hashlib.sha256(device_key.encode()).hexdigest()
-            return f"ingest:{digest}", settings.RATE_LIMIT_INGEST_PER_MINUTE
-        return f"ingest-ip:{_client_ip(scope)}", settings.RATE_LIMIT_INGEST_PER_MINUTE
+            return f"{kind}:{digest}", settings.RATE_LIMIT_INGEST_PER_MINUTE
+        return f"{kind}-ip:{_client_ip(scope)}", settings.RATE_LIMIT_INGEST_PER_MINUTE
 
     user_id = _user_id(scope)
     if user_id:

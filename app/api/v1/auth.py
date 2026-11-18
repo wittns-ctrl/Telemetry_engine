@@ -21,6 +21,7 @@ from app.models.password_reset import PasswordReset
 from app.models.audit_log import AuditLog, AuditEventType
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument
+from app.models.fix import FixRequest
 from app.models.metric import Metrics
 from app.services.anomaly_engine import anomaly_engine
 from app.core.websocket_manager import manager as stream_manager
@@ -473,6 +474,7 @@ async def delete_account(
 
     readings = await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.user_id == user_oid).delete()
     alerts = await AnomalyAlertDocument.find(AnomalyAlertDocument.user_id == user_oid).delete()
+    await FixRequest.find(FixRequest.user_id == user_oid).delete()
     metrics = await Metrics.find(Metrics.user_id == user_id).delete()
     await Device.find(Device.user_id == user_oid).delete()
     await EmailVerification.find(EmailVerification.user_id == user_id).delete()

@@ -93,6 +93,23 @@ def no_real_database(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def no_real_wmi(monkeypatch):
+    """Tests never read real hardware through WMI, as on Linux CI.
+
+    Real WMI uses COM objects created in worker threads; when they are garbage
+    collected from another thread, Windows crashes the test process (access
+    violation). Without WMI the sensor service takes its no-WMI path. Tests
+    that need WMI data use the mock_wmi fixture, which replaces this.
+    """
+    from app.services import sensor_service
+
+    def unavailable():
+        raise ImportError("WMI is not used in tests")
+
+    monkeypatch.setattr(sensor_service, "_wmi_client", unavailable)
+
+
+@pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Start every test with full rate-limit buckets so tests can't throttle each other."""
     limiter.reset()
