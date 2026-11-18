@@ -15,6 +15,8 @@ Each fix has:
   helps_with        alert rule names (app/core/anomaly_rules.py) it can help with
   manual            True for advice the user carries out themselves; the agent
                     never runs these
+  how_to            plain steps to do it by hand, for people who chose
+                    "Only suggest" (manual fixes use their summary)
 """
 
 from __future__ import annotations
@@ -94,6 +96,7 @@ class Fix:
     params: dict[str, Param] = field(default_factory=dict)
     helps_with: tuple[str, ...] = ()
     manual: bool = False
+    how_to: str = ""
 
     @property
     def needs_pc_approval(self) -> bool:
@@ -134,41 +137,49 @@ FIXES: dict[str, Fix] = {f.id: f for f in [
         params={"minutes": Param(_minutes, required=False, default=60),
                 "max_percent": Param(_percent, required=False, default=80)},
         helps_with=HEAT + LOAD,
+        how_to='Open Control Panel, then Power Options, Change plan settings, Change advanced power settings. Under Processor power management, set Maximum processor state to 80%.'
     ),
     Fix(
         "balanced_power", "Switch to the Balanced power plan",
         "Stop the PC running at full power all the time. Saves heat and electricity.",
         SMALL, undoable=True, helps_with=HEAT + GPU_HEAT + LOAD,
+        how_to='Open Control Panel, then Power Options, and choose Balanced.'
     ),
     Fix(
         "clear_temp_files", "Clear temporary files",
         "Delete leftover temporary files more than a day old to free up disk space.",
         SMALL, undoable=False, helps_with=DISK,
+        how_to='Press Windows + R, type %temp% and press Enter. Select everything and delete it, skipping any files that are in use.'
     ),
     Fix(
         "close_app", "Close the app using the most power",
         "Close a program that's working the PC hard. Save your work in it first.",
         BIG, undoable=False, params={"process": Param(_process)}, helps_with=HEAT + GPU_HEAT + LOAD,
+        how_to='Save your work, press Ctrl + Shift + Esc, select the app using the most CPU, and click End task.'
     ),
     Fix(
         "disable_startup_app", "Stop an app starting with Windows",
         "Keep a program from opening by itself every time the PC starts. You can turn it back on.",
         BIG, undoable=True, params={"name": Param(_startup)}, helps_with=LOAD,
+        how_to='Press Ctrl + Shift + Esc, open Startup apps, select the app and click Disable.'
     ),
     Fix(
         "restart_service", "Restart a stuck Windows service",
         "Turn a Windows background service off and on again.",
         BIG, undoable=False, params={"service": Param(_service)}, helps_with=ERRORS,
+        how_to='Press Windows + R, type services.msc and press Enter. Right-click the service and choose Restart.'
     ),
     Fix(
         "repair_system_files", "Repair Windows system files",
         "Run Windows' own check that finds and repairs damaged system files. Takes 10 to 20 minutes.",
         BIG, undoable=False, helps_with=ERRORS,
+        how_to='Search the Start menu for Command Prompt and choose Run as administrator. Type sfc /scannow and press Enter.'
     ),
     Fix(
         "check_disk", "Check the drive for errors",
         "Run Windows' own drive check. It only looks, it doesn't change anything.",
         BIG, undoable=False, helps_with=DISK + ERRORS,
+        how_to='Open File Explorer, right-click drive C:, choose Properties, then Tools, then Check.'
     ),
     # Advice only: things software can't do. The agent never runs these.
     Fix(

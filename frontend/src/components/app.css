@@ -416,6 +416,37 @@
   .dev.on .sub { color: var(--ink-300); }
   .alert { padding: calc(6 * var(--u)) 0; border-top: 1px solid var(--line); }
   .alert:first-child { border-top: 0; }
+  /* The message keeps a readable width; on small screens the buttons wrap below it. */
+  .alert > .row > .f1 { flex: 1 1 calc(110 * var(--u)); min-width: 0; }
+
+  /* Fixes (fixes.jsx): options in an alert, its status line, the Fixes tab. */
+  .fx-box { display: flex; flex-direction: column; gap: calc(5 * var(--u)); margin-top: calc(6 * var(--u)); padding: calc(7 * var(--u)); border-radius: calc(6 * var(--u)); background: var(--tile); }
+  .fx-pad { margin-top: calc(5 * var(--u)); }
+  .fx-ai { display: flex; align-items: center; gap: calc(3 * var(--u)); }
+  .fx-ai svg { width: calc(6.5 * var(--u)); height: calc(6.5 * var(--u)); color: var(--green-dark); }
+  .fx-opts { display: grid; gap: calc(4 * var(--u)); }
+  .fx-opt { display: flex; align-items: flex-start; gap: calc(5 * var(--u)); padding: calc(5 * var(--u)) calc(6 * var(--u)); border: 1.5px solid var(--ink-100); border-radius: calc(5 * var(--u)); background: #fff; cursor: pointer; transition: border-color 0.15s, background-color 0.15s; }
+  .fx-opt:hover { border-color: var(--ink-300); }
+  .fx-opt.on { border-color: var(--green-dark); background: #f1f8f2; }
+  .fx-opt input { flex: none; width: calc(7 * var(--u)); height: calc(7 * var(--u)); min-width: 14px; min-height: 14px; margin: calc(1 * var(--u)) 0 0; accent-color: var(--green-dark); }
+  .fx-opt b { display: flex; flex-wrap: wrap; align-items: center; gap: calc(3 * var(--u)); font-size: var(--fs-2); font-weight: 600; }
+  .fx-opt .sub { display: block; margin-top: calc(1.5 * var(--u)); line-height: 1.4; }
+  .fx-steps { display: flex; gap: calc(4 * var(--u)); align-items: flex-start; }
+  .fx-steps svg { flex: none; width: calc(8 * var(--u)); height: calc(8 * var(--u)); }
+  .fx-line { display: flex; align-items: center; gap: calc(4 * var(--u)); margin-top: calc(5 * var(--u)); padding: calc(4 * var(--u)) calc(6 * var(--u)); border-radius: calc(5 * var(--u)); background: var(--tile); font-size: var(--fs-2); color: var(--ink-600); }
+  .fx-line > svg { flex: none; width: calc(8 * var(--u)); height: calc(8 * var(--u)); }
+  .fx-line b { font-weight: 600; color: var(--ink); }
+  .fx-line.g { background: var(--green-pale); color: var(--green-deep); }
+  .fx-line.w { background: var(--rose-soft); color: var(--rose-text); }
+  .fx-list { list-style: none; margin-top: calc(3 * var(--u)); }
+  .fx-list li { display: flex; align-items: center; gap: calc(6 * var(--u)); padding: calc(6 * var(--u)) 0; border-top: 1px solid var(--line); }
+  .fx-list li:first-child { border-top: 0; }
+  .fx-list b { display: block; font-weight: 600; }
+  .fx-list .sub { display: block; margin-top: calc(1 * var(--u)); }
+  .fx-level { display: flex; align-items: flex-start; gap: calc(6 * var(--u)); padding: calc(7 * var(--u)) calc(8 * var(--u)); border: 1.5px solid var(--ink-100); border-radius: calc(6 * var(--u)); background: #fff; cursor: pointer; }
+  .fx-level.on { border-color: var(--green-dark); background: #f1f8f2; }
+  .fx-level input { flex: none; margin-top: calc(1.5 * var(--u)); accent-color: var(--green-dark); }
+  .fx-level b { display: flex; flex-wrap: wrap; align-items: center; gap: calc(3 * var(--u)); }
   .diag { margin-top: calc(6 * var(--u)); padding: calc(8 * var(--u)); border-radius: calc(6 * var(--u)); background: var(--tile); font-size: var(--fs-2); line-height: 1.55; color: var(--ink-600); }
   .diag h4 { margin: 0 0 calc(2 * var(--u)); font-size: var(--fs-1); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-500); }
   .diag ol { display: grid; gap: calc(4 * var(--u)); list-style: none; }

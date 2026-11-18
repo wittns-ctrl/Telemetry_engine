@@ -23,6 +23,12 @@ def test_every_alert_rule_has_a_fix():
         assert fixes_for(rule.name), f"no fix offered for {rule.name}"
 
 
+def test_every_pc_fix_has_steps_to_do_it_by_hand():
+    # Shown to people who chose "Only suggest".
+    for fix in FIXES.values():
+        assert fix.manual or len(fix.how_to) > 20, fix.id
+
+
 def test_every_runnable_fix_has_an_agent_runner():
     for fix in FIXES.values():
         assert fix.manual or fix.id in fixes.RUNNERS, fix.id

@@ -214,10 +214,11 @@ export async function logoutUser() {
 }
 
 /** Change the name and/or the alert-email setting. Resolves to the changed user fields. */
-export async function updateProfile({ fullName, emailAlerts }) {
+export async function updateProfile({ fullName, emailAlerts, fixLevel }) {
   const changes = {};
   if (fullName !== undefined) changes.full_name = fullName;
   if (emailAlerts !== undefined) changes.email_alerts = emailAlerts;
+  if (fixLevel !== undefined) changes.fix_level = fixLevel;
   if (BACKEND_DISABLED) return { ...OFFLINE_USER, ...changes };
   return apiJson(
     "/api/v1/auth/profile",
@@ -288,6 +289,45 @@ export async function resendVerification(email) {
 export async function fetchDevices() {
   if (BACKEND_DISABLED) return { devices: [] };
   return apiJson("/api/v1/devices", {}, "Failed to load devices");
+}
+
+// ---------------------------------------------------------------------------
+// Fixes: chosen on the website, carried out by the PC's agent
+// ---------------------------------------------------------------------------
+
+/** Fix options for one alert, best first: { fix_level, source, options: [...] }. */
+export async function fetchFixSuggestions(deviceId, alertId) {
+  return apiJson(
+    `/api/v1/devices/${encodeURIComponent(deviceId)}/fixes/suggestions?alert_id=${encodeURIComponent(alertId)}`,
+    {},
+    "Couldn't load fixes for this alert",
+  );
+}
+
+/** Ask the PC to run a fix. */
+export async function requestFix(deviceId, { fixId, params, alertId }) {
+  return apiJson(
+    `/api/v1/devices/${encodeURIComponent(deviceId)}/fixes`,
+    { method: "POST", body: JSON.stringify({ fix_id: fixId, params: params || {}, alert_id: alertId || null }) },
+    "Couldn't send the fix to your PC",
+  );
+}
+
+/** Everything asked of one PC, newest first. */
+export async function fetchFixHistory(deviceId, { limit = 50 } = {}) {
+  return apiJson(
+    `/api/v1/devices/${encodeURIComponent(deviceId)}/fixes?limit=${limit}`,
+    {},
+    "Couldn't load the fix history",
+  );
+}
+
+export async function cancelFix(fixRequestId) {
+  return apiJson(`/api/v1/fixes/${encodeURIComponent(fixRequestId)}/cancel`, { method: "POST" }, "Couldn't cancel the fix");
+}
+
+export async function undoFix(fixRequestId) {
+  return apiJson(`/api/v1/fixes/${encodeURIComponent(fixRequestId)}/undo`, { method: "POST" }, "Couldn't undo the fix");
 }
 
 /** Country names a device can be placed in: exactly the names the dashboard map draws. */

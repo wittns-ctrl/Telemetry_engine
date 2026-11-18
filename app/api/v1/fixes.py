@@ -33,7 +33,8 @@ from app.core.websocket_manager import manager as stream_manager
 from app.models.alert import AnomalyAlertDocument
 from app.models.fix import FINAL_STATUSES, FixRequest, FixStatus
 from app.models.telemetry import Device
-from app.models.user import User
+from app.models.user import FixLevel, User
+from app.services.fix_advisor import fix_advisor
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Fixes"])
@@ -56,6 +57,18 @@ class FixInfo(BaseModel):
     needs_pc_approval: bool
     manual: bool
     params: list[str]
+    how_to: str = Field("", description="Plain steps to do it by hand")
+
+
+class FixSuggestion(FixInfo):
+    reason: str = Field(..., description="One short, plain sentence on why this helps")
+    recommended: bool = False
+
+
+class FixSuggestions(BaseModel):
+    fix_level: FixLevel
+    source: Literal["ai", "rules"]
+    options: list[FixSuggestion]
 
 
 class FixCreate(BaseModel):
@@ -75,6 +88,7 @@ class FixOut(BaseModel):
     is_undo: bool
     undo_of: Optional[str]
     can_undo: bool
+    undone: bool = False
     status: FixStatus
     message: Optional[str]
     reverted_at: Optional[datetime]
@@ -110,10 +124,16 @@ class AgentResult(BaseModel):
 
 # ------------------------------------------------------------------ helpers
 
+def _needs_approval(big: bool, level: FixLevel) -> bool:
+    """Whether a fix must be allowed on the PC, given the user's fix level."""
+    return big or level == FixLevel.ALWAYS_ASK
+
+
 def _info(fix: Fix) -> FixInfo:
     return FixInfo(
         id=fix.id, title=fix.title, summary=fix.summary, size=fix.size, undoable=fix.undoable,
         needs_pc_approval=fix.needs_pc_approval, manual=fix.manual, params=list(fix.params),
+        how_to=fix.how_to or fix.summary,
     )
 
 
@@ -130,6 +150,7 @@ def _out(req: FixRequest) -> FixOut:
         is_undo=req.undo_of is not None,
         undo_of=str(req.undo_of) if req.undo_of else None,
         can_undo=_can_undo(req),
+        undone=req.undone_by is not None,
         status=req.status,
         message=req.message,
         reverted_at=req.reverted_at,
@@ -209,7 +230,7 @@ async def catalogue(current_user: User = Depends(get_current_user)):
     return [_info(f) for f in FIXES.values()]
 
 
-@router.get("/devices/{device_id}/fixes/suggestions", response_model=list[FixInfo], summary="Fixes for an Alert")
+@router.get("/devices/{device_id}/fixes/suggestions", response_model=FixSuggestions, summary="Fixes for an Alert")
 async def suggestions(
     device_id: str,
     alert_id: str = Query(..., description="The alert to fix"),
@@ -219,14 +240,34 @@ async def suggestions(
     alert = await AnomalyAlertDocument.get(_oid(alert_id, "alert"))
     if not alert or alert.device_id != device.id or alert.user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Alert not found")
-    # Fixes that need a parameter only Lectio can't know yet (which app to
-    # close, say) are left out until the agent reports it.
-    return [_info(f) for f in fixes_for(alert.rule_name) if not any(p.required for p in f.params.values())]
+    # Fixes that need a parameter Lectio can't know yet (which app to close,
+    # say) are left out until the agent reports it.
+    candidates = [f for f in fixes_for(alert.rule_name) if not any(p.required for p in f.params.values())]
+    options, source = await fix_advisor.options_for(alert, candidates)
+    level = current_user.fix_level
+    return FixSuggestions(
+        fix_level=level,
+        source=source,
+        options=[
+            FixSuggestion(
+                **_info(o.fix).model_dump(exclude={"needs_pc_approval"}),
+                needs_pc_approval=_needs_approval(o.fix.needs_pc_approval, level),
+                reason=o.reason,
+                recommended=o.recommended,
+            )
+            for o in options
+        ],
+    )
 
 
 @router.post("/devices/{device_id}/fixes", response_model=FixOut, status_code=status.HTTP_201_CREATED, summary="Ask the PC to Run a Fix")
 async def request_fix(device_id: str, body: FixCreate, current_user: User = Depends(get_current_user)):
     device = await _own_device(device_id, current_user)
+    if current_user.fix_level == FixLevel.SUGGEST:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Lectio only suggests fixes on your account. Change this in Settings to let it fix your PCs.",
+        )
     fix = get_fix(body.fix_id)
     if not fix:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown fix")
@@ -254,7 +295,7 @@ async def request_fix(device_id: str, body: FixCreate, current_user: User = Depe
 
     req = FixRequest(
         user_id=current_user.id, device_id=device.id, fix_id=fix.id, params=params,
-        alert_id=alert_oid, needs_pc_approval=fix.needs_pc_approval,
+        alert_id=alert_oid, needs_pc_approval=_needs_approval(fix.needs_pc_approval, current_user.fix_level),
     )
     await req.insert()
     logger.info(f"Fix {fix.id} requested for device {device.id} by user {current_user.id}")
@@ -298,7 +339,8 @@ async def undo(fix_request_id: str, current_user: User = Depends(get_current_use
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Already undoing this fix")
     req = FixRequest(
         user_id=original.user_id, device_id=original.device_id, fix_id=original.fix_id,
-        params=original.params, alert_id=original.alert_id, needs_pc_approval=original.needs_pc_approval,
+        params=original.params, alert_id=original.alert_id,
+        needs_pc_approval=_needs_approval(original.needs_pc_approval, current_user.fix_level),
         undo_of=original.id, undo_data=original.undo_data,
     )
     await req.insert()

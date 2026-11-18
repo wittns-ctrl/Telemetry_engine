@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { User, Lock, Trash2, Calendar, Clock, ShieldCheck, Mail, KeyRound } from "lucide-react";
+import { User, Lock, Trash2, Calendar, Clock, ShieldCheck, Mail, KeyRound, Wrench } from "lucide-react";
 import {
   updateProfile,
   changePassword,
@@ -8,13 +8,15 @@ import {
 } from "../services/api";
 import { Card, Head, Chip, Ico, Stat, Tabs, Field, Empty } from "./ui";
 import { cx, initialsFor } from "./format";
+import { FIX_LEVELS } from "./fixState";
 
-// Settings: three tabs. Profile (name, email and account facts), Password,
-// and Delete account.
+// Settings: four tabs. Profile (name, email and account facts), Fixes (how far
+// Lectio may go in fixing the user's PCs), Password, and Delete account.
 
 const EMPTY_PASSWORDS = { currentPassword: "", newPassword: "", confirmPassword: "" };
 const TABS = [
   { id: "profile", label: "Profile", icon: User },
+  { id: "fixes", label: "Fixes", icon: Wrench },
   { id: "password", label: "Password", icon: Lock },
   { id: "delete", label: "Delete account", icon: Trash2 },
 ];
@@ -63,6 +65,26 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
       setAlertsStatus({ type: "error", message: err.message });
     } finally {
       setSavingAlerts(false);
+    }
+  };
+
+  // Fixes: how far Lectio may go. Saved as soon as a level is picked.
+  const fixLevel = user?.fix_level || "standard";
+  const [savingLevel, setSavingLevel] = useState(false);
+  const [levelStatus, setLevelStatus] = useState(null);
+
+  const handlePickLevel = async (next) => {
+    if (next === fixLevel || savingLevel) return;
+    setSavingLevel(true);
+    setLevelStatus(null);
+    try {
+      const updated = await updateProfile({ fixLevel: next });
+      onUserUpdated?.({ ...user, ...updated });
+      setLevelStatus({ type: "success", message: `Saved. ${FIX_LEVELS.find((l) => l.id === next).title}.` });
+    } catch (err) {
+      setLevelStatus({ type: "error", message: err.message });
+    } finally {
+      setSavingLevel(false);
     }
   };
 
@@ -263,6 +285,39 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
             </div>
           </Card>
         </>
+      )}
+
+      {activeTab === "fixes" && (
+        <Card className="pad col f1" style={{ gap: "calc(7 * var(--u))" }}>
+          <Head icon={Wrench} title="How should Lectio fix your PCs?" />
+          <p className="txt">
+            When Lectio spots a problem, it suggests ways to fix it. Choose how much it may do on your PCs by itself.
+            Whatever you pick, you can undo fixes that change a setting.
+          </p>
+          <div className="col" role="radiogroup" aria-label="How Lectio fixes your PCs" style={{ gap: "calc(5 * var(--u))" }}>
+            {FIX_LEVELS.map((level) => (
+              <label key={level.id} className={cx("fx-level", level.id === fixLevel && "on")}>
+                <input
+                  type="radio"
+                  name="fix-level"
+                  value={level.id}
+                  checked={level.id === fixLevel}
+                  onChange={() => handlePickLevel(level.id)}
+                  disabled={savingLevel}
+                />
+                <span className="f1">
+                  <b className="t7">{level.title}{level.recommended && <Chip>Recommended</Chip>}</b>
+                  <span className="txt" style={{ display: "block" }}>{level.text}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="sub">
+            Someone at a PC can also turn fixes off on that PC alone, and Lectio never runs anything outside its list of
+            safe fixes.
+          </p>
+          <StatusMessage status={levelStatus} />
+        </Card>
       )}
 
       {activeTab === "password" && (

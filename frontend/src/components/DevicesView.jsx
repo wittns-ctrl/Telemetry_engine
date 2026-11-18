@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Monitor, Plus, RefreshCw, TriangleAlert, Info, HardDrive, ChartLine, Bell, Sparkles, ChevronUp, Terminal, MapPin } from "lucide-react";
+import { Monitor, Plus, RefreshCw, TriangleAlert, Info, HardDrive, ChartLine, Bell, Sparkles, ChevronUp, Terminal, MapPin, Wrench } from "lucide-react";
 import {
   API_BASE,
   BACKEND_DISABLED,
@@ -11,10 +11,15 @@ import {
   telemetrySocketUrl,
   refreshAccessToken,
   requestDiagnosis,
+  fetchFixHistory,
+  requestFix,
+  cancelFix,
+  undoFix,
 } from "../services/api";
 import { SAMPLE_DEVICES, SAMPLE_DEVICE_ALERTS, SAMPLE_REPORT, sampleSnapshot, sampleWave } from "./sampleData";
 import { DiagnosisPanel } from "./DiagnosisPanel";
-import { Card, Head, Chip, Ico, Empty, LineGraph } from "./ui";
+import { Card, Head, Chip, Ico, Empty, LineGraph, Tabs } from "./ui";
+import { FixHistory, FixOptions, FixStatusLine } from "./fixes";
 import { cx, fmt, timeAgo } from "./format";
 
 const MAX_POINTS = 60;
@@ -185,6 +190,16 @@ export function DevicesView() {
   const [openDiagnoses, setOpenDiagnoses] = useState({});
   const selectedIdRef = useRef(null);
 
+  // Fixes: this PC's history (the Fixes tab), which alerts have their fix
+  // options open, and the fix being undone or cancelled.
+  const [view, setView] = useState("readings");
+  const [fixes, setFixes] = useState([]);
+  const [fixesLoading, setFixesLoading] = useState(false);
+  const [fixesError, setFixesError] = useState(null);
+  const [openFixes, setOpenFixes] = useState({});
+  const [busyFixId, setBusyFixId] = useState(null);
+  const [fixActionError, setFixActionError] = useState(null);
+
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
   const attemptsRef = useRef(0);
@@ -207,6 +222,30 @@ export function DevicesView() {
     loadDevices();
   }, [loadDevices]);
 
+  // Add or replace one fix (from the API or the live socket), newest first.
+  const upsertFix = useCallback((fix) => {
+    if (!fix || fix.device_id !== selectedIdRef.current) return;
+    setFixes((prev) =>
+      [fix, ...prev.filter((f) => f.id !== fix.id)].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+    );
+  }, []);
+
+  const loadFixes = useCallback(async (deviceId) => {
+    if (BACKEND_DISABLED) return;
+    setFixesLoading(true);
+    try {
+      const list = await fetchFixHistory(deviceId);
+      if (selectedIdRef.current === deviceId) {
+        setFixes(list);
+        setFixesError(null);
+      }
+    } catch (err) {
+      if (selectedIdRef.current === deviceId) setFixesError(err.message);
+    } finally {
+      setFixesLoading(false);
+    }
+  }, []);
+
   const pushPoint = useCallback((snap) => {
     if (!snap) return;
     setHistory((prev) => [...prev.slice(-(MAX_POINTS - 1)), pointOf(snap)]);
@@ -221,7 +260,12 @@ export function DevicesView() {
     setAlerts([]);
     setDiagnoses({});
     setOpenDiagnoses({});
+    setFixes([]);
+    setOpenFixes({});
+    setFixesError(null);
+    setFixActionError(null);
     selectedIdRef.current = selectedId;
+    loadFixes(selectedId);
 
     if (BACKEND_DISABLED) {
       // Sample PC: show its snapshot and let the three load figures drift every two seconds.
@@ -267,7 +311,7 @@ export function DevicesView() {
     return () => {
       cancelled = true;
     };
-  }, [selectedId, pushPoint]);
+  }, [selectedId, pushPoint, loadFixes]);
 
   // Live socket for the selected device.
   useEffect(() => {
@@ -290,6 +334,10 @@ export function DevicesView() {
         try {
           data = JSON.parse(event.data);
         } catch {
+          return;
+        }
+        if (data.type === "fix" && data.fix) {
+          upsertFix(data.fix);
           return;
         }
         if (data.type === "telemetry" && data.telemetry) {
@@ -324,7 +372,7 @@ export function DevicesView() {
       clearTimeout(reconnectRef.current);
       if (wsRef.current) wsRef.current.close();
     };
-  }, [selectedId, pushPoint]);
+  }, [selectedId, pushPoint, upsertFix]);
 
   const loadDiagnosis = useCallback(async (alertId, deviceId) => {
     setDiagnoses((prev) => ({ ...prev, [alertId]: { status: "loading" } }));
@@ -339,6 +387,56 @@ export function DevicesView() {
       setDiagnoses((prev) => ({ ...prev, [alertId]: next }));
     }
   }, []);
+
+  // While a fix is on its way, check every few seconds in case a live update is missed.
+  const pendingFix = fixes.some((f) => f.status === "queued" || f.status === "running");
+  useEffect(() => {
+    if (!pendingFix || !selectedId || BACKEND_DISABLED) return undefined;
+    const timer = setInterval(() => loadFixes(selectedId), 5000);
+    return () => clearInterval(timer);
+  }, [pendingFix, selectedId, loadFixes]);
+
+  const sendFix = async (alert, { fixId, option }) => {
+    setFixActionError(null);
+    if (BACKEND_DISABLED) {
+      // Sample PC: pretend it ran, without changing anything.
+      const now = new Date().toISOString();
+      const fix = {
+        id: `sample-${Date.now()}`, device_id: selectedId, fix_id: fixId, title: option.title,
+        params: fixId === "cool_down" ? { minutes: 60, max_percent: 80 } : {}, alert_id: alert.id,
+        needs_pc_approval: option.needs_pc_approval, is_undo: false, undo_of: null, can_undo: false, undone: false,
+        status: "running", message: null, reverted_at: null, created_at: now, started_at: now, finished_at: null,
+      };
+      upsertFix(fix);
+      setOpenFixes((prev) => ({ ...prev, [alert.id]: false }));
+      setTimeout(() => upsertFix({
+        ...fix, status: "succeeded", can_undo: option.undoable, finished_at: new Date().toISOString(),
+        message: "Done. (Sample data: nothing on a real PC was changed.)",
+      }), 1800);
+      return;
+    }
+    const fix = await requestFix(selectedId, { fixId, alertId: alert.id });
+    upsertFix(fix);
+    setOpenFixes((prev) => ({ ...prev, [alert.id]: false }));
+  };
+
+  const fixAction = async (fix, action) => {
+    setBusyFixId(fix.id);
+    setFixActionError(null);
+    try {
+      if (BACKEND_DISABLED) {
+        upsertFix(action === "undo" ? { ...fix, can_undo: false, undone: true } : { ...fix, status: "cancelled" });
+        return;
+      }
+      upsertFix(action === "undo" ? await undoFix(fix.id) : await cancelFix(fix.id));
+    } catch (err) {
+      setFixActionError(err.message);
+    } finally {
+      setBusyFixId(null);
+    }
+  };
+  const undo = (fix) => fixAction(fix, "undo");
+  const cancel = (fix) => fixAction(fix, "cancel");
 
   const toggleDiagnosis = (alertId) => {
     const opening = !openDiagnoses[alertId];
@@ -421,8 +519,33 @@ export function DevicesView() {
             </div>
           )}
 
+          {selected && (
+            <Tabs
+              label="Device view"
+              value={view}
+              onChange={setView}
+              items={[
+                { id: "readings", label: "Readings", icon: ChartLine },
+                { id: "fixes", label: "Fixes", icon: Wrench, count: fixes.length || undefined },
+              ]}
+            />
+          )}
+          {fixActionError && <p className="note w" role="alert">{fixActionError}</p>}
+
           {showAdd && <AddDevice onRefresh={loadDevices} />}
 
+          {view === "fixes" && selected ? (
+            <FixHistory
+              fixes={fixes}
+              pc={selected.device_name}
+              onUndo={undo}
+              onCancel={cancel}
+              busyId={busyFixId}
+              loading={fixesLoading}
+              error={fixesError}
+            />
+          ) : (
+          <>
           {!snapshot ? (
             <Card className="pad col">
               <Empty title="No telemetry yet">
@@ -504,10 +627,12 @@ export function DevicesView() {
                 <ul style={{ listStyle: "none", marginTop: "calc(3 * var(--u))" }}>
                   {alerts.map((a) => {
                     const open = !!openDiagnoses[a.id];
+                    const fixOpen = !!openFixes[a.id];
+                    const latestFix = fixes.find((f) => f.alert_id === a.id && !f.is_undo);
                     const calm = a.severity === "INFO";
                     return (
                       <li key={a.id} className="alert">
-                        <div className="row ac">
+                        <div className="row ac wrap">
                           <Ico icon={calm ? Info : TriangleAlert} tone={calm ? "g" : "w"} />
                           <span className="f1" style={{ fontWeight: 500 }}>
                             {a.message}
@@ -515,11 +640,21 @@ export function DevicesView() {
                               {a.severity} · {a.rule_name} · <time dateTime={a.created_at} title={new Date(a.created_at).toLocaleString()}>{timeAgo(a.created_at)}</time>
                             </span>
                           </span>
-                          <button type="button" className={cx("bk", open ? "ol" : "gr")} onClick={() => toggleDiagnosis(a.id)} aria-expanded={open}>
-                            {open ? <ChevronUp strokeWidth={2} aria-hidden="true" /> : <Sparkles strokeWidth={1.9} aria-hidden="true" />}
-                            {open ? "Hide diagnosis" : "Diagnose"}
-                          </button>
+                          <span className="row ac" style={{ gap: "calc(4 * var(--u))" }}>
+                            <button type="button" className={cx("bk", fixOpen ? "ol" : "gr")} onClick={() => setOpenFixes((prev) => ({ ...prev, [a.id]: !prev[a.id] }))} aria-expanded={fixOpen}>
+                              {fixOpen ? <ChevronUp strokeWidth={2} aria-hidden="true" /> : <Wrench strokeWidth={1.9} aria-hidden="true" />}
+                              {fixOpen ? "Hide fixes" : "Fix it"}
+                            </button>
+                            <button type="button" className={cx("bk", open && "ol")} onClick={() => toggleDiagnosis(a.id)} aria-expanded={open}>
+                              {open ? <ChevronUp strokeWidth={2} aria-hidden="true" /> : <Sparkles strokeWidth={1.9} aria-hidden="true" />}
+                              {open ? "Hide diagnosis" : "Diagnose"}
+                            </button>
+                          </span>
                         </div>
+                        {latestFix && !fixOpen && (
+                          <FixStatusLine fix={latestFix} pc={selected?.device_name} onUndo={undo} onCancel={cancel} busy={busyFixId === latestFix.id} />
+                        )}
+                        {fixOpen && selected && <FixOptions device={selected} alert={a} onFix={(choice) => sendFix(a, choice)} />}
                         {open && <DiagnosisPanel state={diagnoses[a.id]} onRetry={() => loadDiagnosis(a.id, selectedId)} />}
                       </li>
                     );
@@ -528,6 +663,8 @@ export function DevicesView() {
               )}
             </Card>
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>

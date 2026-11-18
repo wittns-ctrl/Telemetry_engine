@@ -10,6 +10,13 @@ class UserRole(str, Enum):
     ADMIN = "admin"
 
 
+class FixLevel(str, Enum):
+    """How far Lectio may go in fixing the user's PCs (Settings)."""
+    SUGGEST = "suggest"        # only show what to do; never change a PC
+    STANDARD = "standard"      # small fixes run from the website, big ones ask on the PC
+    ALWAYS_ASK = "always_ask"  # every fix asks for Allow on the PC
+
+
 class AuthProvider(str, Enum):
     PASSWORD = "password"
     GOOGLE = "google"
@@ -34,6 +41,7 @@ class User(Document):
     last_login_at: Optional[datetime] = None
     # Email me when one of my devices raises a warning or critical alert.
     email_alerts: bool = True
+    fix_level: FixLevel = FixLevel.STANDARD
     
     class settings:
         name = "users"
@@ -93,11 +101,13 @@ class UserResponse(BaseModel):
     created_at: datetime
     last_login_at: Optional[datetime] = None
     email_alerts: bool = True
+    fix_level: FixLevel = FixLevel.STANDARD
 
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     email_alerts: Optional[bool] = None
+    fix_level: Optional[FixLevel] = None
 
 
 class Token(BaseModel):

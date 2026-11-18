@@ -65,9 +65,12 @@ class TestCatalogueAndSuggestions:
             headers=auth_headers,
         )
         assert r.status_code == 200
-        ids = [f["id"] for f in r.json()]
-        assert ids[0] == "cool_down"
-        assert "clean_fans" in ids  # advice is offered too, after the PC fixes
+        body = r.json()
+        assert body["source"] == "rules" and body["fix_level"] == "standard"  # no OpenAI key in tests
+        ids = [f["id"] for f in body["options"]]
+        assert ids[0] == "cool_down" and body["options"][0]["recommended"] is True
+        assert all(o["reason"] for o in body["options"])
+        assert ids[-1] == "clean_fans"  # advice is offered too, after the PC fixes
         assert "close_app" not in ids  # needs to know which app, which Lectio can't tell yet
 
     async def test_suggestions_for_someone_elses_alert(self, async_client, other_auth_headers, keyed_device, heat_alert):
@@ -155,7 +158,7 @@ class TestAgentRoundTrip:
                                 json={"status": "succeeded", "message": "Back to normal."})
         history = (await async_client.get(f"/api/v1/devices/{keyed_device.id}/fixes", headers=auth_headers)).json()
         original = next(h for h in history if h["id"] == fix_id)
-        assert original["can_undo"] is False  # already undone
+        assert original["can_undo"] is False and original["undone"] is True
         assert (await async_client.post(f"/api/v1/fixes/{fix_id}/undo", headers=auth_headers)).status_code == 409
 
     async def test_declined_on_the_pc(self, async_client, auth_headers, keyed_device):
@@ -220,3 +223,34 @@ class TestLifecycle:
         await ask(async_client, auth_headers, keyed_device, "cool_down")
         assert (await async_client.delete(f"/api/v1/devices/{keyed_device.id}", headers=auth_headers)).status_code == 204
         assert await FixRequest.find(FixRequest.device_id == keyed_device.id).count() == 0
+
+
+class TestFixLevel:
+    async def set_level(self, client, headers, level):
+        r = await client.patch("/api/v1/auth/profile", json={"fix_level": level}, headers=headers)
+        assert r.status_code == 200 and r.json()["fix_level"] == level
+
+    async def test_default_is_standard(self, async_client, auth_headers):
+        r = await async_client.get("/api/v1/auth/me", headers=auth_headers)
+        assert r.json()["fix_level"] == "standard"
+
+    async def test_suggest_only_blocks_fixes(self, async_client, auth_headers, keyed_device, heat_alert):
+        await self.set_level(async_client, auth_headers, "suggest")
+        r = await ask(async_client, auth_headers, keyed_device, "cool_down")
+        assert r.status_code == 403 and "Settings" in r.json()["detail"]
+        # Suggestions still come, so the user knows what to do.
+        s = await async_client.get(f"/api/v1/devices/{keyed_device.id}/fixes/suggestions",
+                                   params={"alert_id": str(heat_alert.id)}, headers=auth_headers)
+        assert s.json()["fix_level"] == "suggest" and s.json()["options"]
+
+    async def test_always_ask_needs_pc_approval_for_small_fixes(self, async_client, auth_headers, keyed_device, heat_alert):
+        await self.set_level(async_client, auth_headers, "always_ask")
+        r = await ask(async_client, auth_headers, keyed_device, "cool_down")
+        assert r.json()["needs_pc_approval"] is True
+        s = await async_client.get(f"/api/v1/devices/{keyed_device.id}/fixes/suggestions",
+                                   params={"alert_id": str(heat_alert.id)}, headers=auth_headers)
+        assert all(o["needs_pc_approval"] for o in s.json()["options"])
+
+    async def test_unknown_level_rejected(self, async_client, auth_headers):
+        r = await async_client.patch("/api/v1/auth/profile", json={"fix_level": "anything"}, headers=auth_headers)
+        assert r.status_code == 422
