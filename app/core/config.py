@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings , SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -33,6 +34,10 @@ class Settings(BaseSettings):
     ALERT_EMAILS_ENABLED: bool = True
     ALERT_EMAIL_MIN_SEVERITY: str = "WARNING"  # INFO, WARNING or CRITICAL
     ALERT_EMAIL_COOLDOWN_MINUTES: int = 30  # at most one email per device and rule in this time
+
+    # Hardware readings older than this are deleted by MongoDB (TTL index on
+    # telemetry_snapshots.timestamp). The dashboard shows up to 30 days.
+    TELEMETRY_RETENTION_DAYS: int = Field(default=30, ge=1)
 
     # Rate limiting
     RATE_LIMIT_ENABLED: bool = True

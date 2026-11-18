@@ -41,7 +41,7 @@ class StorageService:
     """
     
     # Constants for data retention and downsampling
-    DEFAULT_RETENTION_DAYS = 30
+    # Raw readings are deleted after settings.TELEMETRY_RETENTION_DAYS (TTL index).
     DOWNSAMPLE_THRESHOLD_DAYS = 7
     DOWNSAMPLE_RETENTION_DAYS = 365
     

@@ -7,7 +7,12 @@ from app.models.refresh_token import RefreshToken
 from app.models.email_verification import EmailVerification
 from app.models.password_reset import PasswordReset
 from app.models.audit_log import AuditLog
-from app.models.telemetry import Device, TelemetrySnapshotDocument
+from app.models.telemetry import (
+    Device,
+    TelemetrySnapshotDocument,
+    TELEMETRY_TIMESTAMP_INDEX,
+    telemetry_retention_seconds,
+)
 from app.models.alert import AnomalyAlertDocument
 
 
@@ -39,12 +44,34 @@ async def _migrate_device_indexes(db):
         await db["devices"].drop_index("ingest_key_hash_1")
 
 
+async def _migrate_telemetry_ttl_index(db):
+    """Make telemetry_snapshots.timestamp_1 a TTL index with the configured retention.
+
+    Older databases have a plain timestamp index, which never deleted anything,
+    and TELEMETRY_RETENTION_DAYS may have changed since the index was built.
+    Beanie won't change an existing index's options, so drop one that doesn't
+    match and let init_beanie recreate it from TelemetrySnapshotDocument.
+    MongoDB then removes readings past the retention period on its own.
+    """
+    coll = TelemetrySnapshotDocument.Settings.name
+    if coll not in await db.list_collection_names():
+        return
+    current = (await db[coll].index_information()).get(TELEMETRY_TIMESTAMP_INDEX)
+    if current and current.get("expireAfterSeconds") != telemetry_retention_seconds():
+        await db[coll].drop_index(TELEMETRY_TIMESTAMP_INDEX)
+
+
+async def migrate_indexes(db):
+    await _migrate_device_indexes(db)
+    await _migrate_telemetry_ttl_index(db)
+
+
 async def init_db():
     # tz_aware=True so datetimes read back from Mongo compare correctly with
     # datetime.now(timezone.utc) (expiry checks on tokens, alert timing, etc.).
     client = AsyncMongoClient(settings.MONGODB_URI, tz_aware=True)
     db = client[settings.MONGO_DB]
-    await _migrate_device_indexes(db)
+    await migrate_indexes(db)
 
     await init_beanie(
         database=db,

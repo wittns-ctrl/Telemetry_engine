@@ -5,6 +5,15 @@ from beanie import Document, Indexed
 from beanie.odm.fields import PydanticObjectId
 from pymongo import IndexModel, ASCENDING
 
+from app.core.config import settings
+
+# The TTL index on telemetry_snapshots.timestamp (see TelemetrySnapshotDocument).
+TELEMETRY_TIMESTAMP_INDEX = "timestamp_1"
+
+
+def telemetry_retention_seconds() -> int:
+    return settings.TELEMETRY_RETENTION_DAYS * 24 * 60 * 60
+
 
 # Base schema with shared telemetry fields
 
@@ -155,13 +164,15 @@ class TelemetrySnapshotDocument(Document):
     """
     Time-series telemetry snapshot document for persistent storage.
     
-    This model stores hardware telemetry snapshots with automatic TTL-based
-    cleanup for efficient long-term storage management. All queries enforce
-    multi-tenant isolation through user_id and device_id filtering.
+    This model stores hardware telemetry snapshots. MongoDB deletes each one
+    TELEMETRY_RETENTION_DAYS after its timestamp (TTL index below). All queries
+    enforce multi-tenant isolation through user_id and device_id filtering.
     """
     device_id: Indexed(PydanticObjectId, description="Reference to the Device")
     user_id: Indexed(PydanticObjectId, description="Reference to the User for tenant isolation")
-    timestamp: Indexed(datetime, description="Telemetry collection timestamp (UTC)")
+    # Indexed by the TTL index in Settings, not here: MongoDB allows one index
+    # per key pattern, and a plain one would block the TTL options.
+    timestamp: datetime = Field(..., description="Telemetry collection timestamp (UTC)")
     sensor_id: str = Field(..., min_length=3, max_length=64, description="Sensor identifier")
     
     # Embedded telemetry metrics
@@ -176,8 +187,14 @@ class TelemetrySnapshotDocument(Document):
     class Settings:
         name = "telemetry_snapshots"
         indexes = [
-            # Compound index for efficient time-series queries with tenant isolation
             "user_id",
-            "device_id", 
-            "timestamp",
+            "device_id",
+            # Serves time-range queries and is a TTL index: MongoDB's background
+            # task removes readings older than the retention period (it runs
+            # about once a minute). app.db.session migrates older databases.
+            IndexModel(
+                [("timestamp", ASCENDING)],
+                name=TELEMETRY_TIMESTAMP_INDEX,
+                expireAfterSeconds=telemetry_retention_seconds(),
+            ),
         ]
