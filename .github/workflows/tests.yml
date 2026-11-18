@@ -42,5 +42,30 @@ jobs:
       - name: Install dependencies
         run: uv sync --locked --extra agent
 
+      # -v logs each test's name as it runs, so a hang shows which test it is.
+      # faulthandler_timeout prints every thread's traceback for any test still
+      # running after 120 s (the whole suite takes about 2 minutes).
+      # --durations lists the slowest tests.
       - name: Run tests
-        run: uv run --no-sync pytest -q
+        timeout-minutes: 10
+        shell: bash
+        env:
+          PYTHONUNBUFFERED: "1"  # so the log keeps every line even if the step is killed
+        run: |
+          set -o pipefail
+          uv run --no-sync pytest -v -o faulthandler_timeout=120 --durations=15 2>&1 | tee pytest.log
+
+      # Job logs need a GitHub sign-in to read; the run summary and annotations
+      # don't. On a failure or timeout, put where pytest stopped in both.
+      - name: Report where the tests stopped
+        if: failure() || cancelled()
+        shell: bash
+        run: |
+          {
+            echo "## Last 80 lines of pytest output"
+            echo '```'
+            tail -n 80 pytest.log 2>/dev/null || echo "(no pytest output)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          last=$(grep -E '^(tests/|test_)[^ ]*::' pytest.log 2>/dev/null | tail -n 1)
+          echo "::error title=Last test pytest reached::${last:-none}"
