@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, ArrowUpRight, ChevronDown, CircleHelp, Cpu,
-  HardDrive, House, LayoutGrid, MemoryStick, MonitorSmartphone, MoreHorizontal, Radio, Stethoscope,
+  AlertTriangle, ArrowLeft, ArrowRight, ChevronDown, CircleHelp, Cpu,
+  HardDrive, House, LayoutGrid, MemoryStick, MonitorSmartphone, MoreHorizontal, Stethoscope,
   Thermometer, Workflow, Zap,
 } from 'lucide-react';
 import { SITE } from '../siteInfo';
 import { LectioMark } from '../components/LectioMark';
+import { DashboardPreview } from './DashboardPreview';
 import './landing.css';
 
 /* ------------------------------------------------------------------ */
@@ -56,93 +57,6 @@ function PhoneLive() {
             <span className="ph-dot" />
             <div className="ph-chip"><i>CPU load</i><b>42%</b></div>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Static dashboard preview shown inside the tablet (sample data)      */
-/* ------------------------------------------------------------------ */
-const PREVIEW_BARS = [
-  { label: 'Temperature', pct: 44, tone: '#1c7a2e' },
-  { label: 'CPU', pct: 33, tone: '#1c1c1f' },
-  { label: 'Network', pct: 23, tone: '#a1a1aa' },
-];
-const PREVIEW_SENSORS = ['sensor_server_101', 'sensor_edge_node_4', 'sensor_db_cluster_a', 'sensor_gateway_01'];
-const PREVIEW_NAV = ['Dashboard', 'My Devices', 'Metrics Studio', 'Live Monitor', 'Analytics', 'Sensors'];
-
-function DashboardPreview() {
-  return (
-    <div className="pv" aria-hidden="true">
-      <aside className="pv-side">
-        <div className="pv-brand"><span className="pv-logo"><LectioMark size="1em" /></span>Lectio</div>
-        {PREVIEW_NAV.map((n, i) => (
-          <div key={n} className={`pv-nav ${i === 0 ? 'is-on' : ''}`}>{n}</div>
-        ))}
-        <div className="pv-status">
-          <b>System status</b>
-          <span>All systems operational</span>
-        </div>
-      </aside>
-      <div className="pv-main">
-        <div className="pv-top">
-          <div>
-            <div className="pv-h">Telemetry Dashboard</div>
-            <div className="pv-sub">Sample data · live view of every reporting device</div>
-          </div>
-          <div className="pv-actions">
-            <span className="pv-btn pv-btn-dark">+ Ingest Metric</span>
-            <span className="pv-btn">Simulate Stream</span>
-          </div>
-        </div>
-
-        <div className="pv-kpis">
-          <div className="pv-card pv-card-dark">
-            <span>Total Metrics Ingested</span>
-            <b>12,480</b>
-            <i><ArrowUpRight size="1em" /> Stored readings</i>
-          </div>
-          <div className="pv-card"><span><Thermometer size="1em" /> Temperature</span><b>5,512</b><i>Limit: 100°C</i></div>
-          <div className="pv-card"><span><Cpu size="1em" /> CPU Load</span><b>4,096</b><i>Limit: 90%</i></div>
-          <div className="pv-card"><span><Radio size="1em" /> Network</span><b>2,872</b><i>Limit: 1000 MB/s</i></div>
-        </div>
-
-        <div className="pv-row">
-          <div className="pv-card pv-grow">
-            <div className="pv-title">Readings by Type</div>
-            {PREVIEW_BARS.map((b) => (
-              <div key={b.label} className="pv-bar">
-                <div><span>{b.label}</span><span>{b.pct}%</span></div>
-                <u><s style={{ width: `${b.pct}%`, background: b.tone }} /></u>
-              </div>
-            ))}
-          </div>
-          <div className="pv-card pv-gauge">
-            <div className="pv-title">Live Safety Gauge</div>
-            <svg viewBox="0 0 100 57">
-              <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#e4e4e7" strokeWidth="13" strokeLinecap="round" />
-              <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#1c1c1f" strokeWidth="13" strokeLinecap="round" strokeDasharray="116 126" />
-            </svg>
-            <b>92%</b>
-            <span>Within limits</span>
-          </div>
-          <div className="pv-card pv-sensors">
-            <div className="pv-title">Recently Active Sensors</div>
-            {PREVIEW_SENSORS.map((s) => (
-              <div key={s} className="pv-sensor"><em />{s}</div>
-            ))}
-          </div>
-        </div>
-
-        <div className="pv-card pv-alert">
-          <span className="pv-alert-ic"><AlertTriangle size="1em" /></span>
-          <div>
-            <b>sensor_edge_node_4</b>
-            <span>temperature · value 108.2 · limit 100</span>
-          </div>
-          <strong>CRITICAL</strong>
         </div>
       </div>
     </div>
