@@ -148,6 +148,10 @@
   .rail.is-slim .nav button { justify-content: center; width: calc(24 * var(--u)); padding: 0; }
   .rail.is-slim .who { flex-direction: column-reverse; }
   .rail.is-slim .who-btn { padding: 0; flex: none; }
+  .menu-btn { display: none; } /* phone menu button: shown by the narrow layout only */
+  /* The slim rail is icons only (the labels stay in the page for the phone menu). */
+  /* :where() adds no specificity, so the phone layout can show these again. */
+  .rail.is-slim :where(.brand-name, .cap, .nav button span, .who-text) { display: none; }
 
   /* ------------------------------------------------------------- panel */
   .panel {
@@ -522,26 +526,63 @@
 
 /* ---------------------------------------------------------- narrow */
 @media (max-width: 860px) {
+  /* The open phone menu stops the page behind it scrolling. Only at this
+     width, so a wide screen never stays locked. */
+  html.menu-open, html.menu-open body { overflow: hidden; }
+
   .ld-frame {
     --u: 2px;
+    /* At --u: 2px the smallest sizes fell to 9-10px; keep phone text readable. */
+    --fs-1: 11px;
+    --fs-2: 12px;
+    --fs-3: 12.5px;
     flex-direction: column;
 
-    .rail, .rail.is-slim { position: static; flex-direction: row; align-items: center; gap: calc(8 * var(--u)); width: auto; height: auto; padding: calc(8 * var(--u)); overflow-x: auto; }
-    .rail .cap, .rail-toggle, .who-btn small, .who-btn b { display: none; }
-    .rail .nav, .rail.is-slim .nav { flex-direction: row; margin: 0; padding: 0; border: 0; }
-    .rail .nav button, .rail.is-slim .nav button { width: auto; padding: 0 calc(5 * var(--u)); }
-    .rail .nav button span { display: none; }
-    .acct { margin: 0 0 0 auto; padding: 0; }
-    .who, .rail.is-slim .who { flex-direction: row; }
+    /* Top bar: logo and a menu button. The menu (Sidebar.jsx) opens over the page. */
+    .rail, .rail.is-slim { position: static; flex-direction: column; align-items: stretch; width: auto; height: auto; padding: calc(7 * var(--u)) calc(8 * var(--u)); overflow: visible; }
+    .rail .brand, .rail.is-slim .brand { padding-left: calc(2 * var(--u)); }
+    .rail-toggle { display: none; }
+    .rail:not(.is-open) :is(.cap, .nav, .acct) { display: none; }
+    /* The desktop slim rail choice doesn't apply here: always show the name and labels. */
+    .rail.is-slim .brand-name, .rail.is-open.is-slim .nav button span { display: inline; }
+    .rail.is-open.is-slim :is(.cap, .who-text) { display: block; }
+    .menu-btn { display: grid; place-items: center; width: 44px; height: 44px; margin: -6px -6px -6px auto; border-radius: 12px; color: #fff; }
+    .menu-btn:hover { background: rgba(255, 255, 255, 0.08); }
+    .menu-btn svg { width: 24px; height: 24px; }
+
+    .rail.is-open {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      padding-bottom: max(calc(10 * var(--u)), env(safe-area-inset-bottom));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      background: var(--ink);
+    }
+    .rail.is-open .cap { margin: calc(14 * var(--u)) 0 calc(5 * var(--u)) calc(2 * var(--u)); font-size: 11px; }
+    .rail.is-open .nav { gap: 2px; }
+    .rail.is-open .nav button, .rail.is-open.is-slim .nav button { justify-content: flex-start; width: 100%; height: 48px; padding: 0 10px; border-radius: 12px; font-size: 15px; }
+    .rail.is-open .nav button > i { width: 32px; height: 32px; border-radius: 9px; }
+    .rail.is-open .nav button svg { width: 17px; height: 17px; }
+    .rail.is-open .nav + .nav { margin-top: 0; padding-top: 0; border-top: 0; }
+    .rail.is-open .acct { padding-top: calc(14 * var(--u)); }
+    .rail.is-open .who, .rail.is-open.is-slim .who { flex-direction: row; }
+    .rail.is-open .who-btn { flex: 1; min-height: 48px; padding: 4px 8px; }
+    .rail.is-open .who-btn b { font-size: 14px; }
+    .rail.is-open .out-btn { width: 48px; height: 48px; }
     .panel { min-height: 0; margin: 0 calc(4 * var(--u)) calc(4 * var(--u)); padding: calc(10 * var(--u)) calc(8 * var(--u)); }
     .top { flex-wrap: wrap; }
     .search { width: auto; flex: 1; }
-    .tools { flex: 1; min-width: calc(150 * var(--u)); }
+    /* Fill the row, but never wider than it (300px overflowed a 320px phone). */
+    .tools { flex: 1; min-width: min(calc(150 * var(--u)), 100%); }
+    .plot-y span, .plot-x span, .lim span { font-size: 11px; }
     .g3, .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .gmid, .gmid.two, .glow { grid-template-columns: minmax(0, 1fr); }
     .gmid > .r2 { min-height: calc(110 * var(--u)); }
-    .stack-sm { flex-direction: column; }
-    .stack-sm > * { width: auto !important; }
+    /* Stacked cards take the full width. Some rows set align-items inline,
+       which would size a card to its content (a wide table) and widen the page. */
+    .stack-sm { flex-direction: column; align-items: stretch !important; }
+    .stack-sm > * { width: auto !important; min-width: 0; }
     .dev-list, .send-form { width: auto; }
     .tb-tall, .alert-list { max-height: none; }
     .sim-bar > .f1 { flex-basis: 100%; }
@@ -552,8 +593,31 @@
     .chart { min-height: calc(130 * var(--u)); }
   }
 }
+/* --------------------------------------------------------- touch */
+/* Fingers need bigger targets than a mouse pointer (24px minimum, ~32px
+   comfortable). Only on touch screens, so the desktop layout is unchanged. */
+@media (pointer: coarse) {
+  .ld-frame {
+    .vd, button.chip, .tabs button, .seg button { min-height: 32px; }
+    .bk { min-height: 36px; }
+    .search, .promo-find { min-height: 40px; }
+    /* The pill isn't a label, so make the input itself fill its height. */
+    .search input, .promo-find input { align-self: stretch; }
+    .places button, .map-reset { min-height: 32px; }
+    .geo .maplibregl-ctrl-group button { width: 32px; height: 32px; }
+    .map-tip small, .geo .maplibregl-ctrl-attrib { font-size: 11px; }
+    .inp { min-height: 40px; }
+    /* Same look; the invisible ::before widens what a tap can hit. */
+    .switch::before { content: ""; position: absolute; inset: -9px -6px; }
+  }
+}
+
 @media (max-width: 520px) {
   .ld-frame {
+    /* Card headers with filters or buttons wrap onto a second line rather
+       than squeezing the controls into a narrow column. */
+    .hd { flex-wrap: wrap; row-gap: calc(4 * var(--u)); }
+    .hd > .r { flex-wrap: wrap; justify-content: flex-end; }
     .g2, .g3, .g4 { grid-template-columns: minmax(0, 1fr); }
     .stat .bars { display: none; }
   }

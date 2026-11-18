@@ -63,3 +63,8 @@
 .lg-foot nav { display: flex; gap: 22px; }
 .lg-foot a { color: inherit; text-decoration: none; transition: color 0.2s ease; }
 .lg-foot a:hover { color: var(--green-bright); }
+
+/* Touch screens: bigger tap areas for the footer links, same layout. */
+@media (pointer: coarse) {
+  .lg-foot a { display: inline-block; padding-block: 10px; margin-block: -10px; }
+}

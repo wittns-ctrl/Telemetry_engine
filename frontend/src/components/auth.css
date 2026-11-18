@@ -178,3 +178,10 @@
   .au-home { left: 16px; top: 16px; }
   .au-panel, .au-footnote { width: 100%; max-width: calc(380 * var(--u)); padding-inline: calc(6 * var(--u)); }
 }
+
+/* Touch screens: bigger tap areas for the eye button and text links, with
+   negative margins so nothing moves. */
+@media (pointer: coarse) {
+  .au-field button { min-width: 40px; min-height: 40px; margin: -10px; }
+  .au-link { padding-block: 8px; margin-block: -8px; }
+}
