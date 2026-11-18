@@ -1,3 +1,5 @@
+import asyncio
+import html
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -23,6 +25,14 @@ class EmailService:
             self.smtp_from_email
         ])
     
+    def _deliver(self, message: MIMEMultipart) -> None:
+        """Send one message over SMTP. Blocking: call it through a thread."""
+        with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
+            if self.use_tls:
+                server.starttls()
+            server.login(self.smtp_username, self.smtp_password)
+            server.send_message(message)
+
     async def send_email(
         self,
         to_email: str,
@@ -46,12 +56,9 @@ class EmailService:
                 message.attach(MIMEText(text_content, "plain"))
             message.attach(MIMEText(html_content, "html"))
             
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                if self.use_tls:
-                    server.starttls()
-                server.login(self.smtp_username, self.smtp_password)
-                server.send_message(message)
-            
+            # smtplib blocks, so it runs in a thread instead of stalling the API.
+            await asyncio.to_thread(self._deliver, message)
+
             return True
         except Exception as e:
             print(f"Failed to send email: {e}")
@@ -167,6 +174,63 @@ class EmailService:
         If you didn't request a password reset, please ignore this email.
         """
         
+        return await self.send_email(to_email, subject, html_content, text_content)
+
+    async def send_alert_email(
+        self,
+        to_email: str,
+        user_name: Optional[str],
+        device_name: str,
+        severity: str,
+        message: str,
+        created_at: str,
+        dashboard_url: str,
+    ) -> bool:
+        """Tell a user that one of their devices raised an alert."""
+        # Device names and alert text can contain anything, so escape them for the HTML part.
+        e = html.escape
+        label = "Critical" if severity == "CRITICAL" else "Warning" if severity == "WARNING" else "Notice"
+        colour = "#c70036" if severity == "CRITICAL" else "#b45309" if severity == "WARNING" else "#176b22"
+        subject = f"{label}: {device_name} - {message}"[:150]
+        greeting = f" {e(user_name)}" if user_name else ""
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>{e(label)} on {e(device_name)}</title></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: #0e0e10; padding: 24px 30px; border-radius: 10px 10px 0 0;">
+                    <h1 style="color: white; margin: 0; font-size: 22px;">Lectio</h1>
+                </div>
+                <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                    <p style="margin-top: 0;">Hello{greeting},</p>
+                    <p>Your PC <strong>{e(device_name)}</strong> needs attention:</p>
+                    <div style="background: #fff; border-left: 4px solid {colour}; padding: 14px 18px; border-radius: 4px;">
+                        <div style="color: {colour}; font-weight: bold; font-size: 13px; text-transform: uppercase;">{e(label)}</div>
+                        <div style="font-size: 16px; margin-top: 4px;">{e(message)}</div>
+                        <div style="color: #666; font-size: 13px; margin-top: 6px;">{e(created_at)}</div>
+                    </div>
+                    <div style="text-align: center; margin: 28px 0;">
+                        <a href="{e(dashboard_url, quote=True)}" style="display: inline-block; background: #0e0e10; color: white; padding: 14px 28px; text-decoration: none; border-radius: 5px; font-weight: bold;">Open Lectio</a>
+                    </div>
+                    <p style="font-size: 13px; color: #666;">Open My Devices and choose Diagnose on this alert to see the likely cause and what to do.</p>
+                    <p style="font-size: 13px; color: #666;">You get at most one email per kind of alert in a set time. You can turn these emails off in Settings.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        text_content = (
+            f"Hello{' ' + user_name if user_name else ''},\n\n"
+            f"Your PC {device_name} needs attention.\n\n"
+            f"{label}: {message}\n{created_at}\n\n"
+            f"Open Lectio: {dashboard_url}\n"
+            "Choose Diagnose on this alert in My Devices to see the likely cause and what to do.\n\n"
+            "You get at most one email per kind of alert in a set time. You can turn these emails off in Settings.\n"
+        )
+
         return await self.send_email(to_email, subject, html_content, text_content)
 
 

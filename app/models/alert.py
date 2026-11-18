@@ -43,6 +43,7 @@ class AnomalyAlertDocument(Document):
     is_active: bool = Field(default=True, description="Whether the alert is currently active")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Alert creation timestamp")
     resolved_at: Optional[datetime] = Field(None, description="Alert resolution timestamp (when is_active becomes False)")
+    email_sent_at: Optional[datetime] = Field(None, description="When the alert email was sent, if one was")
     
     class Settings:
         name = "anomaly_alerts"

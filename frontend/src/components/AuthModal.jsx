@@ -125,7 +125,7 @@ export function AuthModal({ isOpen, onClose, onAuthSuccess }) {
   };
 
   const Wrapper = ({ children }) => (
-    <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 font-sans">
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 font-sans">
       <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl relative p-8">
         <button onClick={onClose} className="absolute top-5 right-5 p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
           <X className="w-5 h-5" />

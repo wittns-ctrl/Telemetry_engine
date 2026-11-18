@@ -34,7 +34,13 @@ const greenFill = (
 );
 
 const TILE_ICONS = {
-  star: <path fill="url(#au-green)" d="M12 1.5C12.9 7.2 16.8 11.1 22.5 12 16.8 12.9 12.9 16.8 12 22.5 11.1 16.8 7.2 12.9 1.5 12 7.2 11.1 11.1 7.2 12 1.5Z" />,
+  // The Lectio mark (see LectioMark.jsx), in its on-light colours, fitted to the 24 x 24 tile.
+  mark: (
+    <g transform="translate(4.78 2) scale(0.4444)">
+      <path fill="#414142" d="M0 0H13V32.5H32.5V45H0Z" />
+      <path fill="#2e8b37" d="M19 0H32.5V25.4L25.75 20.4L19 25.4Z" />
+    </g>
+  ),
   mail: (
     <>
       <rect x="2" y="5" width="20" height="14.5" rx="2.6" fill="url(#au-green)" />
@@ -50,7 +56,7 @@ const TILE_ICONS = {
   ),
 };
 
-export function AuthHeading({ icon = "star", title, children }) {
+export function AuthHeading({ icon = "mark", title, children }) {
   return (
     <>
       <div className="au-tile">

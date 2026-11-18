@@ -4,13 +4,18 @@
 // no sockets. You land straight in the dashboard as a placeholder user, and
 // sign-in / sign-up just let you through. Set it to false to reconnect.
 // ---------------------------------------------------------------------------
-export const BACKEND_DISABLED = true;
+export const BACKEND_DISABLED = false;
 
 export const OFFLINE_USER = {
   id: "offline-user",
   full_name: "Offline User",
   email: "offline@example.com",
   is_verified: true,
+  email_verified: true,
+  email_alerts: true,
+  role: "owner",
+  created_at: "2026-03-12T08:30:00Z",
+  last_login_at: new Date().toISOString(),
 };
 
 const BACKEND_DISABLED_MESSAGE = "The backend is disabled (frontend-only mode).";
@@ -208,10 +213,15 @@ export async function logoutUser() {
   }
 }
 
-export async function updateProfile({ fullName }) {
+/** Change the name and/or the alert-email setting. Resolves to the changed user fields. */
+export async function updateProfile({ fullName, emailAlerts }) {
+  const changes = {};
+  if (fullName !== undefined) changes.full_name = fullName;
+  if (emailAlerts !== undefined) changes.email_alerts = emailAlerts;
+  if (BACKEND_DISABLED) return { ...OFFLINE_USER, ...changes };
   return apiJson(
     "/api/v1/auth/profile",
-    { method: "PATCH", body: JSON.stringify({ full_name: fullName }) },
+    { method: "PATCH", body: JSON.stringify(changes) },
     "Failed to update profile",
   );
 }
@@ -286,6 +296,13 @@ export async function fetchLatestTelemetry(deviceId) {
     {},
     "Failed to load latest telemetry",
   );
+}
+
+/** Stored snapshots for a device, newest first (the API caps one request at 1000). */
+export async function fetchTelemetryHistory(deviceId, { start = null, limit = 1000 } = {}) {
+  const params = new URLSearchParams({ device_id: deviceId, limit: String(limit) });
+  if (start) params.append("start_time", start.toISOString());
+  return apiJson(`/api/v1/metrics/history?${params.toString()}`, {}, "Failed to load telemetry history");
 }
 
 export async function fetchDeviceAlerts(deviceId, { activeOnly = false, limit = 50 } = {}) {

@@ -58,6 +58,15 @@ from app.models.user import User, UserRole
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument, AlertSeverity
 from app.models.metric import Metrics
+from app.core.rate_limit import limiter
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Start every test with full rate-limit buckets so tests can't throttle each other."""
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 # ============================================================================
@@ -828,3 +837,13 @@ async def cleanup_telemetry(mock_mongo_client):
     """
     yield
     await TelemetrySnapshotDocument.delete_all()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_notifications(monkeypatch):
+    """
+    Keep every test from sending real alert emails or webhooks, whatever the
+    developer's .env says. Tests that exercise notifications switch them back on.
+    """
+    monkeypatch.setattr(settings, "ALERT_EMAILS_ENABLED", False)
+    monkeypatch.setattr(settings, "ALERT_WEBHOOK_URL", None)

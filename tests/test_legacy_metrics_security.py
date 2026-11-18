@@ -1,6 +1,6 @@
 """
 Auth and per-user isolation for the legacy /api/v1/metrics endpoints and the
-/ws/alerts broadcast socket defined in app/main.py.
+/ws/alerts broadcast socket defined in app/api/v1/sensor_metrics.py.
 """
 
 from unittest.mock import patch
@@ -69,7 +69,7 @@ class TestLegacyMetricsIsolation:
         assert [m["sensor_id"] for m in theirs] == ["other_sensor"]
 
     async def test_events_go_only_to_the_owner(self, async_client, auth_headers, test_user):
-        with patch("app.main.manager.send_to_user") as send:
+        with patch("app.api.v1.sensor_metrics.manager.send_to_user") as send:
             await async_client.post("/api/v1/metrics", json=CPU_BREACH, headers=auth_headers)
         assert send.await_count == 2  # metric event + alert event
         assert {call.args[0] for call in send.await_args_list} == {str(test_user.id)}
@@ -78,15 +78,15 @@ class TestLegacyMetricsIsolation:
 class TestAlertWebhook:
 
     async def test_no_webhook_unless_configured(self, async_client, auth_headers):
-        with patch("app.main.send_webhook_alert") as webhook, \
-             patch("app.main.settings.ALERT_WEBHOOK_URL", None):
+        with patch("app.api.v1.sensor_metrics.send_webhook_alert") as webhook, \
+             patch("app.api.v1.sensor_metrics.settings.ALERT_WEBHOOK_URL", None):
             response = await async_client.post("/api/v1/metrics", json=CPU_BREACH, headers=auth_headers)
         assert response.json()["alert_triggered"] is True
         webhook.assert_not_called()
 
     async def test_webhook_uses_configured_url(self, async_client, auth_headers):
-        with patch("app.main.send_webhook_alert") as webhook, \
-             patch("app.main.settings.ALERT_WEBHOOK_URL", "https://hooks.example.com/alerts"):
+        with patch("app.api.v1.sensor_metrics.send_webhook_alert") as webhook, \
+             patch("app.api.v1.sensor_metrics.settings.ALERT_WEBHOOK_URL", "https://hooks.example.com/alerts"):
             await async_client.post("/api/v1/metrics", json=CPU_BREACH, headers=auth_headers)
         webhook.assert_called_once()
         assert webhook.call_args.kwargs["webhook_url"] == "https://hooks.example.com/alerts"

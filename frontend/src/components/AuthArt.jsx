@@ -1,4 +1,5 @@
 import React from "react";
+import { LectioMark } from "./LectioMark";
 
 // Left half of the auth pages, drawn as SVG and live text so it stays sharp at
 // any size. Each scene is laid out in the pixel space of the original picture
@@ -51,10 +52,6 @@ function Defs() {
       <linearGradient id="aa-cube-r" x1="0" y1="0" x2="1" y2="1">
         <stop offset="0" stopColor="#6cc18a" />
         <stop offset="1" stopColor="#9ed6b0" />
-      </linearGradient>
-      <linearGradient id="aa-star" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#5cc061" />
-        <stop offset="1" stopColor="#13651f" />
       </linearGradient>
       <filter id="aa-blur-s" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="0.8" /></filter>
       <filter id="aa-blur-m" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3" /></filter>
@@ -178,35 +175,35 @@ const SCENES = {
   signin: {
     w: 326, h: 464, Art: SignInArt,
     backdrop: { disc: [100, 115, 170], band: [-49, 520, 228], carve: [-16, 580, 202] },
-    logo: { x: 30, cy: 35.5, star: 17, f: 17 },
+    logo: { x: 30, cy: 35.5, mark: 19, f: 17 },
     heading: { x: 36, cap: 128, f: 28.7, l: 35, text: <>Welcome back<br />to <em>lectio</em></> },
     body: { x: 36, cap: 207, f: 11.6, l: 17, text: <>Continue your learning journey<br />with the power of AI.</> },
   },
   signup: {
     w: 335, h: 463, Art: SignUpArt,
     backdrop: { disc: [105, 125, 175], band: [-60, 560, 200], carve: [-80, 600, 175] },
-    logo: { x: 34, cy: 37, star: 18, f: 17 },
+    logo: { x: 34, cy: 37, mark: 20, f: 17 },
     heading: { x: 38, cap: 135, f: 30, l: 35, text: <>Create your<br /><em>lectio</em> account</> },
     body: { x: 38, cap: 215, f: 12.7, l: 16.5, text: <>Unlock personalized learning<br />with AI.</> },
   },
   forgot: {
     w: 197, h: 338, Art: ForgotArt,
     backdrop: { disc: [20, 120, 180], band: [-35, 378, 80] },
-    logo: { x: 20, cy: 33, star: 16, f: 14.3 },
+    logo: { x: 20, cy: 33, mark: 17.5, f: 14.3 },
     heading: { x: 24, cap: 83, f: 23.9, l: 23.5, text: <>Forgot your<br />password?</> },
     body: { x: 24, cap: 140, f: 10.1, l: 15, text: <>No worries! We'll send you<br />a reset link.</> },
   },
   reset: {
     w: 187, h: 336, Art: ResetArt,
     backdrop: { disc: [15, 120, 175] },
-    logo: { x: 19, cy: 31.5, star: 15, f: 13.9 },
+    logo: { x: 19, cy: 31.5, mark: 16.5, f: 13.9 },
     heading: { x: 20, cap: 82, f: 23.6, l: 24, text: <>Set a new<br />password</> },
     body: { x: 20, cap: 138, f: 10.1, l: 14.5, text: <>Choose a strong password to<br />keep your account secure.</> },
   },
   verify: {
     w: 215, h: 337, Art: VerifyArt,
     backdrop: { disc: [25, 115, 185], band: [-35, 380, 80] },
-    logo: { x: 20, cy: 30.5, star: 15, f: 13.9 },
+    logo: { x: 20, cy: 30.5, mark: 16.5, f: 13.9 },
     heading: { x: 21, cap: 80, f: 23.2, l: 25, text: <>Check your<br />email</> },
     body: { x: 21, cap: 137, f: 10.1, l: 15, text: <>We've sent a verification link<br />to your email address.</> },
   },
@@ -235,10 +232,8 @@ export function AuthArt({ scene }) {
           <Backdrop w={w} h={h} {...backdrop} />
           <Art />
         </svg>
-        <div className="aa-logo" style={{ left: s(logo.x), top: s(logo.cy), fontSize: s(logo.f), gap: s(logo.star * 0.42) }}>
-          <svg viewBox="0 0 24 24" style={{ width: s(logo.star), height: s(logo.star) }}>
-            <path fill="url(#aa-star)" d="M12 0C12.9 7.2 16.8 11.1 24 12 16.8 12.9 12.9 16.8 12 24 11.1 16.8 7.2 12.9 0 12 7.2 11.1 11.1 7.2 12 0Z" />
-          </svg>
+        <div className="aa-logo" style={{ left: s(logo.x), top: s(logo.cy), fontSize: s(logo.f), gap: s(logo.mark * 0.4) }}>
+          <LectioMark size={s(logo.mark)} />
           lectio
         </div>
         <Text as="h2" spec={heading} className="aa-heading" />

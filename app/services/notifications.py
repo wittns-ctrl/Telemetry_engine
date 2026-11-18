@@ -1,4 +1,5 @@
-import asyncio
+"""Webhook delivery for alerts (device alerts and hand-submitted metric breaches)."""
+
 import logging
 import httpx
 
@@ -13,8 +14,3 @@ async def send_webhook_alert(webhook_url: str, alert_payload: dict):
             logger.info(f"[BACKGROUND TASK FINISHED] Webhook delivered! status: {response.status_code}")
     except Exception as e:
         logger.error(f"[BACKGROUND TASK FAILED] Webhook delivery failed: {str(e)}")
-
-async def send_email_alert(recipient_email: str, alert_payload: dict):
-    logger.info(f"[BACKGROUND TASK STARTED] Dispatching email alert to {recipient_email}...")
-    await asyncio.sleep(1)
-    logger.info(f"[BACKGROUND TASK FINISHED] Email alert successfully delivered to {recipient_email}")

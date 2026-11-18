@@ -1,285 +1,366 @@
-import React, { useState } from "react";
-import { ArrowUpRight, ChevronRight, LayoutGrid, Thermometer, Gauge, Activity } from "lucide-react";
-import { TopBar } from "./TopBar";
-import { HeroScene, HealthScene, ThermalBoard } from "./DashboardArt";
-import {
-  HERO,
-  TEMP_WAVES,
-  STATS,
-  DAY_STATUS,
-  READINGS,
-  HEALTH_TAGS,
-  THERMAL,
-  USAGE_SERIES,
-  USAGE,
-} from "./dashboardData";
+import React, { useEffect, useMemo, useState } from "react";
+import { Check, Flame } from "lucide-react";
+import { BACKEND_DISABLED, fetchDevices, fetchLatestTelemetry, fetchTelemetryHistory } from "../services/api";
+import { SAMPLE_DEVICES, SAMPLE_SNAPSHOT, SAMPLE_PLACES, sampleWave } from "./sampleData";
+import { GROUPS, READING_COUNT, valueOf, maxOf, statusOf, display, show, isCharted, healthOf } from "./readings";
+import { Card, Chip, Stat, Pill, Ring, Gauge, Tabs, Seg, LineGraph, Modal, Promo, Empty } from "./ui";
+import { DeviceMap } from "./DeviceMap";
+import { timeAgo } from "./format";
 
-const PERIODS = ["Week", "Last week"];
-const nextOf = (list, current) => list[(list.indexOf(current) + 1) % list.length];
+// The dashboard: one screen, a tab per component. Each tab lays its readings
+// out in the same slots (stat cards, a gauge, a big number and two pills), as
+// listed under `layout` in readings.js, beside the map of where the PCs are.
+// Every card has a "View details" button that opens the reading's history.
 
-function PeriodPill({ value, onChange }) {
-  return (
-    <button type="button" className="ld-pill" onClick={() => onChange(nextOf(PERIODS, value))} title="Switch period">
-      {value}
-      <ChevronRight strokeWidth={2} aria-hidden="true" />
-    </button>
-  );
+const HOUR = 3600 * 1000;
+const PERIODS = [
+  { id: "24h", label: "24h", ms: 24 * HOUR, points: 24 },
+  { id: "7d", label: "7d", ms: 7 * 24 * HOUR, points: 7 },
+  { id: "30d", label: "30d", ms: 30 * 24 * HOUR, points: 30 },
+];
+
+// Headings for the two tall cards.
+const TITLES = { cpu_util: "CPU Utilization", gpu_util: "GPU Utilization", ram_usage: "RAM Usage", disk_used: "Storage Used", cpu_power: "Package Power", gpu_vram: "VRAM Used", ram_used: "RAM Used", vrm_temp: "VRM Temperature", psu_12v: "PSU +12V Rail" };
+
+// How much each sample series wanders (share of its value); slow readings barely move.
+const SAMPLE_SWING = { psu_12v: 0.004, disk_smart: 0.003, disk_tbw: 0.01, disk_used: 0.008, cpu_clock: 0.05, ram_used: 0.05, ram_usage: 0.05, gpu_vram: 0.2 };
+
+/** A time label for every sample point, newest last. */
+function sampleLabels(period, count) {
+  const now = new Date();
+  return Array.from({ length: count }, (_, i) => {
+    const back = count - 1 - i;
+    const d = new Date(now);
+    if (period === "24h") {
+      d.setMinutes(0, 0, 0);
+      d.setHours(d.getHours() - back);
+      return back === 0 ? "Now" : d.toLocaleTimeString("en-US", { hour: "numeric" });
+    }
+    d.setDate(d.getDate() - back);
+    if (back === 0) return "Today";
+    return period === "7d"
+      ? d.toLocaleDateString("en-US", { weekday: "short" })
+      : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  });
 }
 
-function Legend({ items }) {
-  return (
-    <div className="ld-legend">
-      {items.map((it) => (
-        <span key={it.label}><i style={{ background: it.color }} />{it.label}</span>
-      ))}
-    </div>
-  );
+/**
+ * The first device's latest snapshot and its stored history for the period.
+ * In frontend-only mode it returns the sample PC, with `history` null so the
+ * graphs draw sample series instead.
+ */
+function useTelemetry(period) {
+  const [state, setState] = useState(() => (
+    BACKEND_DISABLED
+      ? { status: "ready", device: SAMPLE_DEVICES[0], snapshot: SAMPLE_SNAPSHOT, history: null }
+      : { status: "loading" }
+  ));
+
+  useEffect(() => {
+    if (BACKEND_DISABLED) return undefined;
+    let cancelled = false;
+    const span = PERIODS.find((p) => p.id === period).ms;
+    const load = async () => {
+      try {
+        const device = (await fetchDevices())?.devices?.[0];
+        if (!device) {
+          if (!cancelled) setState({ status: "empty" });
+          return;
+        }
+        const [snapshot, stored] = await Promise.all([
+          fetchLatestTelemetry(device.id).catch(() => null),
+          fetchTelemetryHistory(device.id, { start: new Date(Date.now() - span) }).catch(() => null),
+        ]);
+        if (cancelled) return;
+        // The API returns the newest first; the graphs want oldest first.
+        setState({ status: snapshot ? "ready" : "empty", device, snapshot, history: [...(stored?.snapshots || [])].reverse() });
+      } catch (error) {
+        if (!cancelled) setState({ status: "error", error });
+      }
+    };
+    load();
+    const timer = setInterval(load, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [period]);
+
+  return state;
 }
 
-// ------------------------------------------------------------------ hero
+/** A reading's values over the period, with a time label for each point. */
+function buildSeries(reading, { snapshot, history }, period) {
+  const none = { values: [], labels: [] };
+  if (!isCharted(reading)) return none;
 
-function Hero({ alertsCount, onOpenAlerts, onOpen }) {
-  const { load, temp } = HERO;
-  const wave = (pts) => pts.map(([x, y]) => `${x},${y}`).join(" ");
+  if (!history) {
+    const end = valueOf(reading, snapshot);
+    if (end === null) return none;
+    const points = PERIODS.find((p) => p.id === period).points;
+    const seed = ([...reading.id].reduce((n, c) => n + c.charCodeAt(0), 0) % 9) + points * 0.1;
+    return {
+      values: sampleWave(points, end, { seed, swing: SAMPLE_SWING[reading.id], min: reading.min ?? 0, max: maxOf(reading, snapshot), digits: Math.max(1, reading.digits || 0) }),
+      labels: sampleLabels(period, points),
+    };
+  }
+
+  if (!history.length) return none;
+  // Average the stored snapshots into at most 30 buckets across the time they cover.
+  const at = (snap) => new Date(snap.timestamp).getTime();
+  const first = at(history[0]);
+  const last = at(history[history.length - 1]);
+  const buckets = Math.min(30, history.length);
+  const width = (last - first) / buckets || 1;
+  const sums = Array(buckets).fill(0);
+  const counts = Array(buckets).fill(0);
+  history.forEach((snap) => {
+    const v = valueOf(reading, snap);
+    if (v === null) return;
+    const i = Math.min(buckets - 1, Math.floor((at(snap) - first) / width));
+    sums[i] += Number(v);
+    counts[i] += 1;
+  });
+  const days = last - first > 36 * HOUR;
+  return {
+    values: sums.map((sum, i) => (counts[i] ? sum / counts[i] : null)),
+    labels: sums.map((_, i) => {
+      const d = new Date(first + (i + 0.5) * width);
+      return days
+        ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+        : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    }),
+  };
+}
+
+function summarise(values) {
+  const nums = values.filter((v) => v !== null && v !== undefined);
+  if (!nums.length) return null;
+  return { nums, low: Math.min(...nums), high: Math.max(...nums), avg: nums.reduce((s, v) => s + v, 0) / nums.length };
+}
+
+function limitSentence(reading) {
+  const { warnAt, warnBelow } = reading;
+  if (warnAt !== undefined && warnBelow !== undefined) return ` Lectio warns you below ${show(reading, warnBelow)} or above ${show(reading, warnAt)}.`;
+  if (warnAt !== undefined) return ` Lectio warns you at ${show(reading, warnAt)} or above.`;
+  if (warnBelow !== undefined) return ` Lectio warns you at ${show(reading, warnBelow)} or below.`;
+  return "";
+}
+
+// ------------------------------------------------------------ the dialog
+
+function ReadingDetail({ group, reading, data, period, setPeriod, onClose, onNavigate }) {
+  const value = valueOf(reading, data.snapshot);
+  const shown = display(reading, value);
+  const status = statusOf(reading, value);
+  const series = buildSeries(reading, data, period);
+  const stats = summarise(series.values);
   return (
-    <section className="ld-hero" aria-label="Overview">
-      <div className="ld-crumb"><LayoutGrid strokeWidth={1.8} aria-hidden="true" />Dashboard</div>
-      <h1>{HERO.title[0].toUpperCase()}<br />{HERO.title[1].toUpperCase()}</h1>
-      <div className="ld-hero-sub">{HERO.subtitle}</div>
-
-      <div className="ld-hero-cards">
-        <div className="ld-glass ld-hero-card is-first">
-          <div className="ld-hero-card-label">{load.label[0]}<br />{load.label[1]}</div>
-          <button type="button" className="ld-arrow-btn" onClick={() => onOpen("devices")} aria-label="Open My Devices">
-            <ArrowUpRight strokeWidth={2} />
-          </button>
-          <div className="ld-hero-card-value">{load.value}<small> {load.unit}</small></div>
-          <div className="ld-meter">
-            <div className="ld-meter-labels"><span>{load.from}</span><span>{load.to}</span></div>
-            <div className="ld-meter-track" role="meter" aria-valuenow={load.value} aria-valuemin={0} aria-valuemax={100} aria-label="CPU load">
-              <div className="ld-meter-fill" style={{ width: `${Math.max(18, load.value * 0.55)}%` }} />
-            </div>
+    <Modal title={`${group.label} · ${reading.label}`} onClose={onClose}>
+      <div className="row ac wrap">
+        <div className="val" style={{ margin: 0, fontSize: "calc(20 * var(--u))" }}>{shown.text}{shown.unit && <small> {shown.unit}</small>}</div>
+        <Chip tone={status.warn ? "w" : undefined}>{status.text}</Chip>
+        {isCharted(reading) && <Seg items={PERIODS} value={period} onChange={setPeriod} label="Period" />}
+      </div>
+      <p className="txt">{reading.hint}{limitSentence(reading)}</p>
+      {isCharted(reading) && (
+        <>
+          {stats && (
+            <dl className="st">
+              <div><dt>Low</dt><dd>{show(reading, stats.low)}</dd></div>
+              <div><dt>Average</dt><dd>{show(reading, stats.avg)}</dd></div>
+              <div><dt>High</dt><dd>{show(reading, stats.high)}</dd></div>
+              <div><dt>Now</dt><dd>{show(reading, value)}</dd></div>
+            </dl>
+          )}
+          <div className="chart" style={{ padding: 0, minHeight: "calc(110 * var(--u))" }}>
+            <LineGraph
+              series={[{ name: reading.label, colour: "#1c7a2e", values: series.values }]}
+              labels={series.labels}
+              min={reading.min ?? 0}
+              max={maxOf(reading, data.snapshot)}
+              unit={reading.unit || ""}
+              digits={reading.digits || 0}
+              limit={reading.warnAt}
+              summary={`${group.label} ${reading.label} over the last ${period}`}
+            />
           </div>
-        </div>
-
-        <div className="ld-glass ld-hero-card is-second">
-          <div className="ld-hero-card-label">{temp.label[0]}<br />{temp.label[1]}</div>
-          <button type="button" className="ld-arrow-btn" onClick={() => onOpen("live")} aria-label="Open Live Stream">
-            <ArrowUpRight strokeWidth={2} />
-          </button>
-          <div className="ld-hero-card-value">{temp.value}<small>{temp.unit}</small></div>
-          <svg className="ld-hero-wave" viewBox="0 0 100 20" preserveAspectRatio="none" aria-hidden="true">
-            <polyline points={wave(TEMP_WAVES.gpu)} fill="none" stroke="#1c1c1f" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-            <polyline points={wave(TEMP_WAVES.cpu)} fill="none" stroke="#5cc061" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          </svg>
-        </div>
+        </>
+      )}
+      <div className="row">
+        <button type="button" className="bk" onClick={() => { onClose(); onNavigate?.("devices"); }}>Open My Devices</button>
+        <button type="button" className="bk ol" onClick={onClose}>Close</button>
       </div>
-
-      <div className="ld-hero-art"><HeroScene /></div>
-
-      <TopBar alertsCount={alertsCount} onOpenAlerts={onOpenAlerts} />
-
-      <div className="ld-glass ld-hero-kpis">
-        {HERO.kpis.map((k) => (
-          <div key={k.label}>
-            <b>{k.value}<small>{k.unit}</small></b>
-            <span>{k.label}</span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-// ----------------------------------------------------------- stat cards
-
-const STAT_ICONS = { temp: Thermometer, gpu: Gauge, readings: Activity };
-
-function StatCards() {
-  return (
-    <section className="ld-stats" aria-label="Key figures">
-      {STATS.map((s) => {
-        const Icon = STAT_ICONS[s.icon];
-        return (
-          <div key={s.label} className="ld-card ld-stat">
-            <span className="ld-stat-icon"><Icon strokeWidth={1.6} aria-hidden="true" /></span>
-            <div>
-              <div className="ld-stat-value">
-                {s.value}
-                {s.unit && <sup>{s.unit}</sup>}
-                <span className={`ld-badge ${s.good ? "is-up" : "is-down"}`}>{s.change}</span>
-              </div>
-              <div className="ld-stat-label">{s.label}</div>
-            </div>
-          </div>
-        );
-      })}
-    </section>
-  );
-}
-
-// ------------------------------------------------- readings lollipop chart
-
-const MAX_READINGS = 3000;
-const PLOT_H = 123; // reference px from 0 to the top gridline
-const Y_LABELS = [[3000, "Qty"], [2000, "2k"], [1000, "1k"], [0, "0"]];
-
-function ReadingsChart() {
-  const [period, setPeriod] = useState("Week");
-  const data = READINGS[period];
-  const peakIndex = data.reduce((best, d, i) => (d.value > data[best].value ? i : best), 0);
-  const [hover, setHover] = useState(null);
-  const active = hover ?? peakIndex;
-  const top = (v) => PLOT_H - (v / MAX_READINGS) * PLOT_H;
-
-  return (
-    <section className="ld-card ld-readings" aria-label="Readings received">
-      <div className="ld-readings-head">
-        <h2 className="ld-card-title">Readings Received</h2>
-        <PeriodPill value={period} onChange={(p) => { setPeriod(p); setHover(null); }} />
-      </div>
-      <p>Daily overview of hardware readings received from all your PCs.</p>
-      <Legend items={Object.values(DAY_STATUS)} />
-
-      <div className="ld-lolli">
-        <div className="ld-lolli-grid">
-          {[0, 500, 1000, 1500, 2000, 2500, 3000].map((v) => (
-            <i key={v} style={{ top: `calc(${top(v)} * var(--u))` }} />
-          ))}
-        </div>
-        {Y_LABELS.map(([v, label]) => (
-          <span key={v} className="ld-lolli-y" style={{ top: `calc(${top(v)} * var(--u))` }}>{label}</span>
-        ))}
-        <span className="ld-lolli-date">Date</span>
-        <div className="ld-lolli-cols" onMouseLeave={() => setHover(null)}>
-          {data.map((d, i) => {
-            const isActive = i === active;
-            const y = top(d.value);
-            return (
-              <div
-                key={d.day}
-                className={`ld-lolli-col${isActive ? " is-active" : ""}`}
-                onMouseEnter={() => setHover(i)}
-                title={`${d.day}: ${d.value.toLocaleString()} readings (${DAY_STATUS[d.status].label})`}
-              >
-                <span className="ld-lolli-glow" style={{ top: `calc(${y - 5} * var(--u))` }} />
-                <span className="ld-lolli-stem" style={{ height: `calc(${PLOT_H - y} * var(--u))` }} />
-                <span className="ld-lolli-dot" style={{ top: `calc(${y} * var(--u))`, background: isActive ? "#5cc061" : DAY_STATUS[d.status].color }} />
-                {isActive && (
-                  <span className="ld-lolli-tip" style={{ top: `calc(${y} * var(--u))` }}>{d.value.toLocaleString()}</span>
-                )}
-                <span className="ld-lolli-day">{d.day}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ----------------------------------------------- device health + thermal
-
-function DeviceHealth() {
-  return (
-    <section className="ld-card" aria-label="Device health">
-      <div className="ld-card-head">
-        <h3 className="ld-card-title">Device Health</h3>
-        <button type="button" className="ld-more" aria-label="Device health options"><span /><span /><span /></button>
-      </div>
-      <div className="ld-health-art">
-        <HealthScene />
-        {HEALTH_TAGS.map((t) => (
-          <span
-            key={t.label}
-            className="ld-tag"
-            style={{
-              left: `${(t.x / 150) * 100}%`,
-              top: `${(t.y / 108) * 100}%`,
-              transform: t.align === "above" ? "translate(-50%, -100%)" : "translate(-50%, 0)",
-            }}
-          >
-            {t.label}
-          </span>
-        ))}
-      </div>
-      <div className="ld-health-status">
-        Status
-        <b>Active <i aria-hidden="true" /></b>
-      </div>
-    </section>
-  );
-}
-
-function ThermalMap() {
-  const [index, setIndex] = useState(0);
-  const t = THERMAL[index];
-  return (
-    <section className="ld-card" aria-label="Thermal map">
-      <div className="ld-card-head">
-        <h3 className="ld-card-title">Thermal Map</h3>
-        <button type="button" className="ld-pill" onClick={() => setIndex((index + 1) % THERMAL.length)} title="Next device">
-          {t.device}
-          <ChevronRight strokeWidth={2} aria-hidden="true" />
-        </button>
-      </div>
-      <div className="ld-thermal">
-        <ThermalBoard hot={t.hot} />
-        <div className="ld-thermal-tip">
-          <div>
-            <b>{t.part}</b>
-            <span>{t.level}</span>
-          </div>
-          <strong>{t.percent}%</strong>
-        </div>
-        <button type="button" className="ld-help-dot" aria-label="Brighter parts are running hotter" title="Brighter parts are running hotter">?</button>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------- usage bars
-
-function ResourceUsage() {
-  const [period, setPeriod] = useState("Week");
-  return (
-    <section className="ld-card ld-usage" aria-label="Resource usage">
-      <div className="ld-card-head">
-        <h3 className="ld-card-title">Resource Usage</h3>
-        <PeriodPill value={period} onChange={setPeriod} />
-      </div>
-      <Legend items={USAGE_SERIES} />
-      <div className="ld-bars">
-        {USAGE[period].map((d) => (
-          <div key={d.day} className="ld-bar" title={USAGE_SERIES.map((s) => `${s.label} ${Math.round(d[s.key] * 2)}%`).join(" · ")}>
-            {[...USAGE_SERIES].reverse().map((s) => (
-              <i key={s.key} style={{ height: `calc(${d[s.key]} * var(--u))`, background: s.color }} />
-            ))}
-            <span>{d.day}</span>
-          </div>
-        ))}
-      </div>
-    </section>
+    </Modal>
   );
 }
 
 // -------------------------------------------------------------- the view
 
-export function Dashboard({ alertsCount = 0, onNavigate }) {
+export function Dashboard({ onNavigate }) {
+  const [tab, setTab] = useState("cpu");
+  const [period, setPeriod] = useState("24h");
+  const [detail, setDetail] = useState(null);
+  const data = useTelemetry(period);
+
+  const group = GROUPS.find((g) => g.id === tab);
+  const byId = useMemo(() => Object.fromEntries(group.readings.map((r) => [r.id, r])), [group]);
+
+  if (data.status !== "ready") {
+    return (
+      <div className="page">
+        <Card className="pad f1 col">
+          {data.status === "loading" && <Empty title="Loading your readings…" />}
+          {data.status === "error" && <Empty title="Couldn't load your readings">{data.error?.message}</Empty>}
+          {data.status === "empty" && (
+            <Empty title={data.device ? `No readings from ${data.device.device_name} yet` : "Connect your first PC"}>
+              <span>Run the Lectio agent on the computer you want to watch and its readings appear here.</span>
+              <button type="button" className="bk" onClick={() => onNavigate?.("devices")}>Open My Devices</button>
+            </Empty>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
+  const { snapshot, device } = data;
+  const read = (reading) => {
+    const value = valueOf(reading, snapshot);
+    return { value, shown: display(reading, value), status: statusOf(reading, value), stats: summarise(buildSeries(reading, data, period).values) };
+  };
+  const scale = (reading, value) => {
+    const min = reading.min ?? 0;
+    return value === null ? 0 : (value - min) / (maxOf(reading, snapshot) - min || 1);
+  };
+
+  // Card fills alternate: brand green, black, then white.
+  const STAT_TONES = ["gd", "dk", undefined];
+  const statCard = (id, index) => {
+    const reading = byId[id];
+    const { value, shown, status, stats } = read(reading);
+    const change = stats && stats.avg ? ((value - stats.avg) / stats.avg) * 100 : null;
+    return (
+      <Stat
+        key={id}
+        label={`${group.label} · ${reading.label}`}
+        value={shown.text}
+        unit={shown.unit}
+        warn={status.warn}
+        tone={STAT_TONES[index % STAT_TONES.length]}
+        icon={reading.icon || group.icon}
+        sub={change === null ? status.text : <><b>{change >= 0 ? "▲" : "▼"} {Math.abs(change).toFixed(1)}%</b> vs {period} average</>}
+        onAction={() => setDetail(id)}
+      />
+    );
+  };
+
+  const gauge = byId[group.layout.gauge];
+  const gaugeNow = read(gauge);
+  const drive = snapshot.storage?.[0];
+  const gaugeFoot = gauge.id === "disk_used" && drive
+    ? <>Free space <b>{Math.round(drive.available_capacity_gb ?? 0).toLocaleString("en-US")} GB</b> of {Math.round(drive.total_capacity_gb).toLocaleString("en-US")} GB</>
+    : gauge.id === "ram_usage" && snapshot.ram?.total_gb
+      ? <><b>{show(byId.ram_used, snapshot.ram.used_gb)}</b> of {Math.round(snapshot.ram.total_gb)} GB in use</>
+      : gaugeNow.stats
+        ? <>Average over {period} <b>{show(gauge, gaugeNow.stats.avg)}</b></>
+        : gaugeNow.status.text;
+
+  const big = group.layout.big ? byId[group.layout.big] : null;
+  const bigNow = big ? read(big) : null;
+
+  // Where the PCs are. The API has no location for a device yet, so with the
+  // backend connected a device only appears once it carries a `country`.
+  const places = BACKEND_DISABLED
+    ? SAMPLE_PLACES
+    : device.country ? [{ country: device.country, health: healthOf(snapshot) }] : [];
+
+  const pill = (id, tone) => {
+    const reading = byId[id];
+    const { value, shown, status } = read(reading);
+    const Icon = group.icon;
+    const centre = reading.kind === "text"
+      ? <Icon strokeWidth={1.9} />
+      : reading.kind === "flag"
+        ? (value ? <Flame strokeWidth={1.9} /> : <Check strokeWidth={2.2} />)
+        : `${shown.text}${shown.unit === "%" ? "%" : shown.unit === "°C" ? "°" : ""}`;
+    return (
+      <Pill
+        key={id}
+        tone={tone}
+        title={reading.label}
+        sub={reading.kind === "text" ? shown.text : reading.kind === "flag" ? `${shown.text} · ${status.text}` : `${show(reading, value)} · ${reading.hint}`}
+        ring={<Ring tone={tone} warn={status.warn} share={isCharted(reading) ? scale(reading, value) : 1}>{centre}</Ring>}
+      >
+        <button type="button" className="vd" onClick={() => setDetail(id)} aria-label={`View details: ${reading.label}`}>View details</button>
+      </Pill>
+    );
+  };
+
   return (
-    <div className="ld-dash">
-      <Hero alertsCount={alertsCount} onOpenAlerts={() => onNavigate?.("live")} onOpen={(id) => onNavigate?.(id)} />
-      <div className="ld-col">
-        <StatCards />
-        <ReadingsChart />
+    <div className="page">
+      <div className="row ac wrap">
+        <Tabs
+          label="Component"
+          value={tab}
+          onChange={setTab}
+          items={GROUPS.map((g) => ({ id: g.id, label: g.label, icon: g.icon, count: g.readings.length }))}
+        />
+        <span className="sub r">
+          {device.device_name}
+          {tab === "storage" && drive?.device_name ? ` · ${drive.device_name}` : ""}
+          {` · updated ${timeAgo(snapshot.timestamp)}`}
+        </span>
+        {BACKEND_DISABLED && <Chip tone="o">Sample data</Chip>}
       </div>
-      <div className="ld-col">
-        <div className="ld-pair">
-          <DeviceHealth />
-          <ThermalMap />
-        </div>
-        <ResourceUsage />
+
+      {group.layout.stats.length > 0 && <div className="g3">{group.layout.stats.map(statCard)}</div>}
+
+      <div className={`gmid${big ? "" : " two"}`}>
+        <article className="card r2 gs">
+          <h3>{TITLES[gauge.id] || gauge.label}</h3>
+          <div className="big">{gaugeNow.shown.text}<small>{gaugeNow.shown.unit}</small></div>
+          <Gauge share={scale(gauge, gaugeNow.value)} warn={gaugeNow.status.warn} />
+          <div className="foot">{gaugeFoot}</div>
+          <button type="button" className="btn" onClick={() => setDetail(gauge.id)} aria-label={`View details: ${gauge.label}`}>View Details</button>
+        </article>
+
+        {big && (
+          <article className="card r2 dk">
+            <h3>{TITLES[big.id] || big.label}</h3>
+            <div className="big">{bigNow.shown.text}<small> {bigNow.shown.unit}</small></div>
+            <div className="rows">
+              <div><i aria-hidden="true" />Low<em>{bigNow.stats ? show(big, bigNow.stats.low) : "—"}</em></div>
+              <div><i aria-hidden="true" />Average<em>{bigNow.stats ? show(big, bigNow.stats.avg) : "—"}</em></div>
+              <div><i aria-hidden="true" />High<em>{bigNow.stats ? show(big, bigNow.stats.high) : "—"}</em></div>
+            </div>
+            <button type="button" className="btn" onClick={() => setDetail(big.id)} aria-label={`View details: ${big.label}`}>View Details</button>
+          </article>
+        )}
+
+        <DeviceMap
+          places={places}
+          sample={BACKEND_DISABLED}
+          emptyText="Lectio doesn't record where your PCs are yet, so there is nothing to shade on the map."
+          onOpen={() => onNavigate?.("devices")}
+        />
       </div>
+
+      <div className="glow">
+        <div className="pills">{group.layout.pills.map((id, i) => pill(id, i ? "soft" : "dark"))}</div>
+        <Promo onOpen={() => onNavigate?.("devices")} note={`${READING_COUNT} readings watched`} />
+      </div>
+
+      {detail && byId[detail] && (
+        <ReadingDetail
+          group={group}
+          reading={byId[detail]}
+          data={data}
+          period={period}
+          setPeriod={setPeriod}
+          onClose={() => setDetail(null)}
+          onNavigate={onNavigate}
+        />
+      )}
     </div>
   );
 }

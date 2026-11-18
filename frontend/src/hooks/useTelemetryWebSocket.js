@@ -2,6 +2,16 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { WS_BASE, BACKEND_DISABLED, getAccessToken, refreshAccessToken } from "../services/api";
 import { playAlertSound } from "../utils/sound";
 
+/** The user id inside an access token, or null if it can't be read. */
+function tokenUser(token) {
+  try {
+    const part = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(part)).sub ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function useTelemetryWebSocket({
   soundEnabled = true,
   maxDataPoints = 60,
@@ -48,6 +58,7 @@ export function useTelemetryWebSocket({
     try {
       const ws = new WebSocket(`${WS_BASE}?token=${encodeURIComponent(token)}`);
       wsRef.current = ws;
+      const userId = tokenUser(token);
       let opened = false;
 
       ws.onopen = () => {
@@ -57,8 +68,10 @@ export function useTelemetryWebSocket({
 
       ws.onmessage = (event) => {
         // Signed out or switched accounts since connecting: drop this socket's
-        // events and reconnect as whoever is signed in now.
-        if (getAccessToken() !== token) {
+        // events and reconnect as whoever is signed in now. Compare the user,
+        // not the token string, so a routine token refresh keeps the socket.
+        const current = getAccessToken();
+        if (!current || tokenUser(current) !== userId) {
           ws.close();
           return;
         }
@@ -82,7 +95,9 @@ export function useTelemetryWebSocket({
           }
 
           // Handle metric recorded event
-          if (data.event === "METRIC_RECORDED" || data.metric_type) {
+          // (A breach alert also names its metric_type, so match the event
+          // itself: otherwise each alert is counted as a second reading.)
+          if (data.event === "METRIC_RECORDED") {
             const point = {
               id:
                 data.metric_id ||
@@ -121,6 +136,9 @@ export function useTelemetryWebSocket({
       };
 
       ws.onclose = async () => {
+        // A socket that has already been replaced (for example by a remount)
+        // must not refresh the token or schedule another connection.
+        if (wsRef.current !== ws) return;
         if (!isUnmountingRef.current) {
           setStatus("disconnected");
           // A socket that never opened was most likely rejected for an expired

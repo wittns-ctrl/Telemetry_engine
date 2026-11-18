@@ -180,8 +180,8 @@ class StorageService:
     async def get_historical_telemetry(
         user_id: str,
         device_id: str,
-        start_time: datetime,
-        end_time: datetime,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
         limit: int = 500
     ) -> List[TelemetrySnapshotDocument]:
         """
@@ -193,8 +193,8 @@ class StorageService:
         Args:
             user_id: The user's ObjectId as a string
             device_id: The device's ObjectId as a string
-            start_time: Start of the time range (inclusive)
-            end_time: End of the time range (inclusive)
+            start_time: Start of the time range (inclusive); open-ended if None
+            end_time: End of the time range (inclusive); open-ended if None
             limit: Maximum number of documents to return (default: 500)
             
         Returns:
@@ -206,11 +206,18 @@ class StorageService:
             device_oid = PydanticObjectId(device_id)
             
             # Query with tenant isolation and time range filter
-            telemetry_docs = await TelemetrySnapshotDocument.find(
+            filters = [
                 TelemetrySnapshotDocument.user_id == user_oid,
                 TelemetrySnapshotDocument.device_id == device_oid,
-                TelemetrySnapshotDocument.timestamp >= start_time,
-                TelemetrySnapshotDocument.timestamp <= end_time
+            ]
+            # Only bound the range on the sides the caller gave: comparing
+            # against None would match no documents at all.
+            if start_time is not None:
+                filters.append(TelemetrySnapshotDocument.timestamp >= start_time)
+            if end_time is not None:
+                filters.append(TelemetrySnapshotDocument.timestamp <= end_time)
+            telemetry_docs = await TelemetrySnapshotDocument.find(
+                *filters
             ).sort("-timestamp").limit(limit).to_list()
             
             logger.info(f"Retrieved {len(telemetry_docs)} telemetry records for device {device_id}")

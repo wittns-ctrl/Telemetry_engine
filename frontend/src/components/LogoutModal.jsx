@@ -5,7 +5,7 @@ export function LogoutModal({ isOpen, onClose, onConfirm }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-3xl w-full max-w-xs shadow-2xl overflow-hidden">
         <div className="px-8 pt-10 pb-8 text-center">
           

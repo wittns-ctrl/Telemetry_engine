@@ -1,0 +1,25 @@
+# Only pyproject.toml, uv.lock and app/ are needed to build the API image.
+.git
+.gitignore
+.claude
+.venv
+.vscode
+.pytest_cache
+.dist
+**/__pycache__
+**/*.py[cod]
+
+# Secrets: pass configuration at run time instead.
+.env
+.env.*
+!.env.example
+
+frontend
+agent
+tests
+public
+test_anomaly_debug.py
+test_client.html
+requirements.txt
+Dockerfile
+docker-compose.yml

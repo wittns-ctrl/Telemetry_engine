@@ -10,8 +10,18 @@ Version: 6.0.0
 
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from beanie import PydanticObjectId
+from app.core.countries import canonical_country
+
+from app.models.telemetry import (
+    CPUMetrics,
+    GPUMetrics,
+    PowerAndVRMMetrics,
+    RAMMetrics,
+    StorageMetrics,
+    TelemetrySnapshotDocument,
+)
 
 
 # --- Device Schemas ---
@@ -23,6 +33,7 @@ class DeviceResponse(BaseModel):
     device_name: str = Field(..., description="Human-readable device name")
     system_uuid: str = Field(..., description="Unique system identifier (UUID)")
     os_info: Optional[str] = Field(None, description="Operating system information")
+    country: Optional[str] = Field(None, description="Country the device is in, as the map spells it")
     last_seen: Optional[datetime] = Field(None, description="Last telemetry timestamp")
     is_active: bool = Field(True, description="Whether device is actively reporting")
     created_at: datetime = Field(..., description="Device registration timestamp")
@@ -43,6 +54,34 @@ class DeviceRegisterRequest(BaseModel):
     device_name: str = Field(..., min_length=1, max_length=128, description="Human-readable device name")
     system_uuid: str = Field(..., min_length=8, max_length=128, description="Stable per-machine identifier")
     os_info: Optional[str] = Field(None, max_length=256, description="Operating system description")
+    country: Optional[str] = Field(None, max_length=64, description="Country the machine is in (see GET /devices/countries)")
+
+    @field_validator("country")
+    @classmethod
+    def _country(cls, value: Optional[str]) -> Optional[str]:
+        return canonical_country(value)
+
+
+class DeviceUpdateRequest(BaseModel):
+    """Fields a user may change on their device. Send country: null to clear it."""
+
+    device_name: Optional[str] = Field(None, min_length=1, max_length=128)
+    country: Optional[str] = Field(None, max_length=64)
+
+    @field_validator("device_name")
+    @classmethod
+    def _name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Device name cannot be blank")
+        return value
+
+    @field_validator("country")
+    @classmethod
+    def _country(cls, value: Optional[str]) -> Optional[str]:
+        return canonical_country(value)
 
 
 class DeviceRegisterResponse(BaseModel):
@@ -62,62 +101,6 @@ class TelemetryIngestResponse(BaseModel):
 
 # --- Telemetry Schemas ---
 
-class CPUMetricsResponse(BaseModel):
-    """Response model for CPU metrics."""
-    
-    utilization_percent: Optional[float] = None
-    core_temperature_c: Optional[float] = None
-    package_temperature_c: Optional[float] = None
-    clock_speed_mhz: Optional[float] = None
-    core_count: Optional[int] = None
-
-
-class GPUMetricsResponse(BaseModel):
-    """Response model for GPU metrics."""
-    
-    utilization_percent: Optional[float] = None
-    core_temperature_c: Optional[float] = None
-    hotspot_temperature_c: Optional[float] = None
-    memory_clock_mhz: Optional[float] = None
-    core_clock_mhz: Optional[float] = None
-    fan_speed_percent: Optional[float] = None
-    power_draw_watts: Optional[float] = None
-
-
-class StorageMetricsResponse(BaseModel):
-    """Response model for storage metrics."""
-    
-    device_id: str
-    model: Optional[str] = None
-    serial_number: Optional[str] = None
-    health_percent: Optional[float] = None
-    temperature_c: Optional[float] = None
-    used_gb: Optional[float] = None
-    total_gb: Optional[float] = None
-    read_speed_mb_s: Optional[float] = None
-    write_speed_mb_s: Optional[float] = None
-
-
-class RAMMetricsResponse(BaseModel):
-    """Response model for RAM metrics."""
-    
-    usage_percent: Optional[float] = None
-    used_gb: Optional[float] = None
-    total_gb: Optional[float] = None
-    clock_speed_mhz: Optional[float] = None
-
-
-class PowerAndVRMMetricsResponse(BaseModel):
-    """Response model for Power and VRM metrics."""
-    
-    vrm_temperature_c: Optional[float] = None
-    psu_12v_voltage: Optional[float] = None
-    psu_5v_voltage: Optional[float] = None
-    psu_3v3_voltage: Optional[float] = None
-    cpu_package_power_w: Optional[float] = None
-    gpu_package_power_w: Optional[float] = None
-
-
 class TelemetrySnapshotResponse(BaseModel):
     """Response model for telemetry snapshot."""
     
@@ -125,14 +108,31 @@ class TelemetrySnapshotResponse(BaseModel):
     device_id: str = Field(..., description="Device ID")
     timestamp: datetime = Field(..., description="Snapshot timestamp")
     sensor_id: str = Field(..., description="Sensor identifier")
-    cpu: Optional[CPUMetricsResponse] = None
-    gpu: Optional[GPUMetricsResponse] = None
-    storage: Optional[List[StorageMetricsResponse]] = None
-    ram: Optional[RAMMetricsResponse] = None
-    power_vrm: Optional[PowerAndVRMMetricsResponse] = None
+    # Same shapes the agent sends and the live WebSocket relays, so every
+    # reading reaches the client under one set of field names.
+    cpu: CPUMetrics = Field(default_factory=CPUMetrics)
+    gpu: GPUMetrics = Field(default_factory=GPUMetrics)
+    storage: List[StorageMetrics] = Field(default_factory=list)
+    ram: RAMMetrics = Field(default_factory=RAMMetrics)
+    power_vrm: PowerAndVRMMetrics = Field(default_factory=PowerAndVRMMetrics)
     collection_duration_ms: Optional[float] = None
     
     model_config = ConfigDict(from_attributes=True)
+
+    @classmethod
+    def from_document(cls, doc: TelemetrySnapshotDocument) -> "TelemetrySnapshotResponse":
+        return cls(
+            id=str(doc.id),
+            device_id=str(doc.device_id),
+            timestamp=doc.timestamp,
+            sensor_id=doc.sensor_id,
+            cpu=doc.cpu,
+            gpu=doc.gpu,
+            storage=doc.storage,
+            ram=doc.ram,
+            power_vrm=doc.power_vrm,
+            collection_duration_ms=doc.collection_duration_ms,
+        )
 
 
 class TelemetryHistoryRequest(BaseModel):

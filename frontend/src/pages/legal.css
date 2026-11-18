@@ -13,7 +13,7 @@
   min-height: 100vh; min-height: 100svh;
   display: flex; flex-direction: column;
   background: #fff; color: var(--fg);
-  font-family: 'Inter Tight', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
 }
 .lg *, .lg *::before, .lg *::after { box-sizing: border-box; }
 .lg a:focus-visible { outline: 2px solid var(--fg); outline-offset: 3px; border-radius: 4px; }
