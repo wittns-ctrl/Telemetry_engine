@@ -1,0 +1,46 @@
+name: Backend tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or PR cancels the run still in progress.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Settings needs these to load. The tests use an in-memory MongoDB
+    # (mongomock), so nothing connects to this URI, and the key only signs
+    # test tokens. Real alert emails and webhooks are switched off by
+    # tests/conftest.py.
+    env:
+      MONGODB_URI: mongodb://localhost:27017
+      MONGO_DB: lectio_ci
+      SECRET_KEY: ci-only-signing-key-not-used-anywhere-else
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.1"
+          python-version: "3.14"
+          enable-cache: true
+
+      # Dev group (pytest, mongomock) plus the agent extra: the sensor service
+      # tests import psutil. The Windows-only WMI packages are skipped on Linux.
+      - name: Install dependencies
+        run: uv sync --locked --extra agent
+
+      - name: Run tests
+        run: uv run --no-sync pytest -q
