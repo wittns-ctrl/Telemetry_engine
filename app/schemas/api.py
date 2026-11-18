@@ -10,8 +10,9 @@ Version: 6.0.0
 
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from beanie import PydanticObjectId
+from app.core.countries import canonical_country
 
 from app.models.telemetry import (
     CPUMetrics,
@@ -32,6 +33,7 @@ class DeviceResponse(BaseModel):
     device_name: str = Field(..., description="Human-readable device name")
     system_uuid: str = Field(..., description="Unique system identifier (UUID)")
     os_info: Optional[str] = Field(None, description="Operating system information")
+    country: Optional[str] = Field(None, description="Country the device is in, as the map spells it")
     last_seen: Optional[datetime] = Field(None, description="Last telemetry timestamp")
     is_active: bool = Field(True, description="Whether device is actively reporting")
     created_at: datetime = Field(..., description="Device registration timestamp")
@@ -52,6 +54,34 @@ class DeviceRegisterRequest(BaseModel):
     device_name: str = Field(..., min_length=1, max_length=128, description="Human-readable device name")
     system_uuid: str = Field(..., min_length=8, max_length=128, description="Stable per-machine identifier")
     os_info: Optional[str] = Field(None, max_length=256, description="Operating system description")
+    country: Optional[str] = Field(None, max_length=64, description="Country the machine is in (see GET /devices/countries)")
+
+    @field_validator("country")
+    @classmethod
+    def _country(cls, value: Optional[str]) -> Optional[str]:
+        return canonical_country(value)
+
+
+class DeviceUpdateRequest(BaseModel):
+    """Fields a user may change on their device. Send country: null to clear it."""
+
+    device_name: Optional[str] = Field(None, min_length=1, max_length=128)
+    country: Optional[str] = Field(None, max_length=64)
+
+    @field_validator("device_name")
+    @classmethod
+    def _name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("Device name cannot be blank")
+        return value
+
+    @field_validator("country")
+    @classmethod
+    def _country(cls, value: Optional[str]) -> Optional[str]:
+        return canonical_country(value)
 
 
 class DeviceRegisterResponse(BaseModel):

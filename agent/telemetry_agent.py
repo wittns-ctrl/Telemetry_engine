@@ -59,7 +59,8 @@ def os_description() -> str:
     return f"{platform.system()} {platform.release()} ({platform.machine()})"
 
 
-async def register(client: httpx.AsyncClient, api: str, config: dict, device_name: str) -> dict:
+async def register(client: httpx.AsyncClient, api: str, config: dict, device_name: str,
+                   country: str | None = None) -> dict:
     """Sign in once, register this machine, and return the updated config."""
     print(f"Registering this machine with {api}")
     email = input("Account email: ").strip()
@@ -77,7 +78,8 @@ async def register(client: httpx.AsyncClient, api: str, config: dict, device_nam
     resp = await client.post(
         f"{api}/api/v1/devices/register",
         headers={"Authorization": f"Bearer {access_token}"},
-        json={"device_name": device_name, "system_uuid": system_uuid, "os_info": os_description()},
+        json={"device_name": device_name, "system_uuid": system_uuid, "os_info": os_description(),
+              "country": country},
     )
     if resp.status_code != 201:
         raise SystemExit(f"Device registration failed ({resp.status_code}): {resp.text}")
@@ -101,7 +103,7 @@ async def run(args: argparse.Namespace) -> int:
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         if args.reset or not config.get("device_key") or config.get("api") != api:
-            config = await register(client, api, config, args.name)
+            config = await register(client, api, config, args.name, args.country)
             save_config(config_path, config)
             print(f"Saved device key to {config_path}")
 
@@ -146,6 +148,9 @@ def main() -> None:
                         help="API base URL (env TELEMETRY_API)")
     parser.add_argument("--interval", type=float, default=2.0, help="Seconds between snapshots (min 1)")
     parser.add_argument("--name", default=platform.node() or "My computer", help="Device name shown in the dashboard")
+    parser.add_argument("--country", default=None,
+                        help="Country this machine is in, e.g. Rwanda; places it on the dashboard map "
+                             "(sent when registering, so use with --reset on a registered machine)")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG), help="Where the device key is stored")
     parser.add_argument("--reset", action="store_true", help="Sign in again and re-register this machine")
     parser.add_argument("--once", action="store_true", help="Send a single snapshot and exit")

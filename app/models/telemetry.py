@@ -127,6 +127,8 @@ class Device(Document):
     device_name: str = Field(..., min_length=1, max_length=128, description="Human-readable device name")
     system_uuid: Indexed(str, unique=True, description="Unique system identifier (UUID)")
     os_info: Optional[str] = Field(None, description="Operating system information")
+    # English country name as spelled by the map data (app/core/countries.py); None until set.
+    country: Optional[str] = Field(None, description="Country the device is in")
     is_active: bool = Field(default=True, description="Device active status")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Device registration timestamp")
     last_seen: Optional[datetime] = Field(None, description="Last telemetry collection timestamp")

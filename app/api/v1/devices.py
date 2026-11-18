@@ -26,7 +26,9 @@ from app.schemas.api import (
     DeviceListResponse,
     DeviceRegisterRequest,
     DeviceRegisterResponse,
+    DeviceUpdateRequest,
 )
+from app.core.countries import COUNTRIES
 from app.core.security import hash_token
 
 logger = logging.getLogger(__name__)
@@ -40,6 +42,7 @@ def _to_response(device: Device) -> DeviceResponse:
         device_name=device.device_name,
         system_uuid=device.system_uuid,
         os_info=device.os_info,
+        country=device.country,
         last_seen=device.last_seen,
         is_active=device.is_active,
         created_at=device.created_at,
@@ -81,6 +84,8 @@ async def register_device(
     device.device_name = body.device_name
     if body.os_info:
         device.os_info = body.os_info
+    if body.country:
+        device.country = body.country
     device.is_active = True
     device.ingest_key_hash = hash_token(device_key)
     await device.save()
@@ -123,18 +128,7 @@ async def list_devices(
             devices = [d for d in devices if d.is_active == is_active]
         
         # Convert to response models
-        device_responses = [
-            DeviceResponse(
-                id=str(device.id),
-                device_name=device.device_name,
-                system_uuid=device.system_uuid,
-                os_info=device.os_info,
-                last_seen=device.last_seen,
-                is_active=device.is_active,
-                created_at=device.created_at
-            )
-            for device in devices
-        ]
+        device_responses = [_to_response(device) for device in devices]
         
         return DeviceListResponse(
             devices=device_responses,
@@ -147,6 +141,47 @@ async def list_devices(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve devices"
         )
+
+
+@router.get(
+    "/devices/countries",
+    response_model=list[str],
+    summary="List Device Countries",
+    description="Country names a device can be placed in: the names the dashboard map can draw.",
+)
+async def list_countries():
+    return list(COUNTRIES)
+
+
+@router.patch(
+    "/devices/{device_id}",
+    response_model=DeviceResponse,
+    summary="Update a Device",
+    description="Rename a device or set the country it is in. Send country: null to clear it.",
+)
+async def update_device(
+    device_id: str,
+    body: DeviceUpdateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        device_oid = PydanticObjectId(device_id)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid device ID format")
+
+    device = await Device.get(device_oid)
+    if not device:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Device not found")
+    if str(device.user_id) != str(current_user.id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Device does not belong to user")
+
+    sent = body.model_fields_set
+    if "device_name" in sent and body.device_name is not None:
+        device.device_name = body.device_name
+    if "country" in sent:
+        device.country = body.country
+    await device.save()
+    return _to_response(device)
 
 
 @router.get(
@@ -200,15 +235,7 @@ async def get_device(
                 detail="Device does not belong to user"
             )
         
-        return DeviceResponse(
-            id=str(device.id),
-            device_name=device.device_name,
-            system_uuid=device.system_uuid,
-            os_info=device.os_info,
-            last_seen=device.last_seen,
-            is_active=device.is_active,
-            created_at=device.created_at
-        )
+        return _to_response(device)
     
     except HTTPException:
         raise
