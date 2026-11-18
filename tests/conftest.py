@@ -58,6 +58,15 @@ from app.models.user import User, UserRole
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument, AlertSeverity
 from app.models.metric import Metrics
+from app.core.rate_limit import limiter
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Start every test with full rate-limit buckets so tests can't throttle each other."""
+    limiter.reset()
+    yield
+    limiter.reset()
 
 
 # ============================================================================

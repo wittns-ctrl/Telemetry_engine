@@ -36,7 +36,9 @@ class Settings(BaseSettings):
 
     # Rate limiting
     RATE_LIMIT_ENABLED: bool = True
-    RATE_LIMIT_PER_MINUTE: int = 60
+    RATE_LIMIT_PER_MINUTE: int = 60  # per signed-in user (or per IP without a token)
+    RATE_LIMIT_AUTH_PER_MINUTE: int = 10  # per IP: login, register, password reset, email verification
+    RATE_LIMIT_INGEST_PER_MINUTE: int = 120  # per device key: agent telemetry uploads
 
     # Anomaly Detection Thresholds
     # CPU Thermal Thresholds

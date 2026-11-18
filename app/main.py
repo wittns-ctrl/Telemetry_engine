@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, status, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.core.rate_limit import RateLimitMiddleware
 from app.db.session import init_db
 from app.models.metric import Metrics
 from app.models.user import User
@@ -32,6 +33,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Rate limiting. Added before CORS so CORS wraps it and 429 responses still
+# carry the CORS headers the browser needs to read them.
+app.add_middleware(RateLimitMiddleware)
 
 # Enable CORS for Frontend communication
 app.add_middleware(
