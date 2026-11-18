@@ -11,6 +11,21 @@ from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument
 
 
+# Every Beanie document the app uses. The test suite's in-memory database
+# registers this same list (tests/conftest.py).
+DOCUMENT_MODELS = [
+    Metrics,
+    User,
+    RefreshToken,
+    EmailVerification,
+    PasswordReset,
+    AuditLog,
+    Device,
+    TelemetrySnapshotDocument,
+    AnomalyAlertDocument,
+]
+
+
 async def _migrate_device_indexes(db):
     """Replace the old unique+sparse ingest_key_hash index with the partial one.
 
@@ -33,15 +48,5 @@ async def init_db():
 
     await init_beanie(
         database=db,
-        document_models=[
-            Metrics,
-            User,
-            RefreshToken,
-            EmailVerification,
-            PasswordReset,
-            AuditLog,
-            Device,
-            TelemetrySnapshotDocument,
-            AnomalyAlertDocument
-        ]
+        document_models=DOCUMENT_MODELS,
     )

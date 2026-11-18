@@ -10,7 +10,6 @@ from app.models.email_verification import EmailVerification
 from app.models.password_reset import PasswordReset
 from app.models.audit_log import AuditLog, AuditEventType
 from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token, hash_token, verify_token_hash
-from app.db.session import init_db
 from app.core.config import settings
 
 
@@ -22,10 +21,9 @@ async def client():
 
 
 @pytest.fixture
-async def setup_db():
-    """Initialize database for tests."""
-    await init_db()
-    yield
+async def setup_db(mock_mongo_client):
+    """The in-memory test database (tests/conftest.py); never a real MongoDB."""
+    yield mock_mongo_client
 
 
 class TestSecurity:

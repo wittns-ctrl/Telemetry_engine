@@ -15,14 +15,12 @@ from fastapi import WebSocket
 from app.core.websocket_manager import ConnectionManager, manager
 from app.models.user import User, UserRole
 from app.core.security import get_password_hash, create_access_token
-from app.db.session import init_db
 
 
 @pytest.fixture
-async def setup_db():
-    """Initialize database for tests."""
-    await init_db()
-    yield
+async def setup_db(mock_mongo_client):
+    """The in-memory test database (tests/conftest.py); never a real MongoDB."""
+    yield mock_mongo_client
 
 
 @pytest.fixture

@@ -52,6 +52,19 @@ def _create_indexes_compat(self, indexes, session=None):
 
 
 mongomock.collection.Collection.create_indexes = _create_indexes_compat
+
+
+# pymongo's AsyncMongoClient, which the app uses, makes aggregate() a
+# coroutine that returns the cursor, and Beanie awaits it. mongomock_motor
+# copies Motor, where aggregate() returns the cursor directly.
+_mock_aggregate = mongomock_motor.AsyncMongoMockCollection.aggregate
+
+
+async def _aggregate_compat(self, *args, **kwargs):
+    return _mock_aggregate(self, *args, **kwargs)
+
+
+mongomock_motor.AsyncMongoMockCollection.aggregate = _aggregate_compat
 from app.core.config import settings
 from app.core.security import get_password_hash, create_access_token
 from app.models.user import User, UserRole
@@ -59,6 +72,24 @@ from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument, AlertSeverity
 from app.models.metric import Metrics
 from app.core.rate_limit import limiter
+from app.db import session as db_session_module
+from app.db.session import DOCUMENT_MODELS
+
+
+@pytest.fixture(autouse=True)
+def no_real_database(monkeypatch):
+    """Fail fast if anything tries to open a real MongoDB connection.
+
+    Tests use the in-memory database (mock_mongo_client). A real connection
+    would write to whatever MONGODB_URI points at on a developer's machine,
+    and in CI, where no server runs, it hangs instead of failing.
+    """
+    def refuse(*args, **kwargs):
+        raise RuntimeError(
+            "Tests must not connect to a real MongoDB: use the mock_mongo_client fixture instead of init_db()"
+        )
+
+    monkeypatch.setattr(db_session_module, "AsyncMongoClient", refuse)
 
 
 @pytest.fixture(autouse=True)
@@ -84,26 +115,12 @@ async def mock_mongo_client() -> AsyncGenerator:
     # Create mongomock client
     client = mongomock_motor.AsyncMongoMockClient()
     
-    # Initialize Beanie with the mock client
-    await init_beanie(
-        database=client.telemetry_test,
-        document_models=[
-            User,
-            Device,
-            TelemetrySnapshotDocument,
-            AnomalyAlertDocument,
-            Metrics
-        ]
-    )
-    
+    # Register every model the app uses, exactly as app.db.session.init_db does.
+    await init_beanie(database=client.telemetry_test, document_models=DOCUMENT_MODELS)
+
     yield client
-    
-    # Cleanup: drop all collections
-    await client.telemetry_test.drop_collection("user")
-    await client.telemetry_test.drop_collection("device")
-    await client.telemetry_test.drop_collection("telemetry_snapshot_document")
-    await client.telemetry_test.drop_collection("anomaly_alert_document")
-    await client.telemetry_test.drop_collection("metrics")
+
+    await client.drop_database("telemetry_test")
 
 
 @pytest.fixture(scope="function")
