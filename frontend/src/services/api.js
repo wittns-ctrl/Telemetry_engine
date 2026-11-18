@@ -290,6 +290,20 @@ export async function fetchDevices() {
   return apiJson("/api/v1/devices", {}, "Failed to load devices");
 }
 
+/** Country names a device can be placed in: exactly the names the dashboard map draws. */
+export async function fetchDeviceCountries() {
+  return apiJson("/api/v1/devices/countries", {}, "Failed to load countries");
+}
+
+/** Rename a device and/or set its country (country: null takes it off the map). */
+export async function updateDevice(deviceId, changes) {
+  return apiJson(
+    `/api/v1/devices/${encodeURIComponent(deviceId)}`,
+    { method: "PATCH", body: JSON.stringify(changes) },
+    "Failed to update device",
+  );
+}
+
 export async function fetchLatestTelemetry(deviceId) {
   return apiJson(
     `/api/v1/metrics/latest?device_id=${encodeURIComponent(deviceId)}`,

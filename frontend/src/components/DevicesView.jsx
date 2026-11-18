@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Monitor, Plus, RefreshCw, TriangleAlert, Info, HardDrive, ChartLine, Bell, Sparkles, ChevronUp, Terminal } from "lucide-react";
+import { Monitor, Plus, RefreshCw, TriangleAlert, Info, HardDrive, ChartLine, Bell, Sparkles, ChevronUp, Terminal, MapPin } from "lucide-react";
 import {
   API_BASE,
   BACKEND_DISABLED,
   fetchDevices,
   fetchLatestTelemetry,
   fetchDeviceAlerts,
+  fetchDeviceCountries,
+  updateDevice,
   telemetrySocketUrl,
   refreshAccessToken,
   requestDiagnosis,
@@ -63,6 +65,101 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}</pre>
           <RefreshCw strokeWidth={1.9} aria-hidden="true" /> I've started the agent, refresh
         </button>
       </div>
+    </Card>
+  );
+}
+
+// The country names the map can draw, loaded once. With the backend off they
+// come straight from the map's own data (world-atlas), which the API list mirrors.
+let countriesPromise;
+function loadCountries() {
+  if (!countriesPromise) {
+    countriesPromise = (BACKEND_DISABLED
+      ? import("world-atlas/countries-110m.json").then((m) => {
+          const world = m.default || m;
+          return [...new Set(world.objects.countries.geometries.map((g) => g.properties.name))].sort();
+        })
+      : fetchDeviceCountries()
+    ).catch((err) => {
+      countriesPromise = null; // let the next mount try again
+      throw err;
+    });
+  }
+  return countriesPromise;
+}
+
+/** Where the device is, which places it on the dashboard map. */
+function LocationCard({ device, onSaved }) {
+  const [countries, setCountries] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  const [draft, setDraft] = useState(device.country || "");
+  const [status, setStatus] = useState({ state: "idle" });
+
+  useEffect(() => {
+    let cancelled = false;
+    loadCountries()
+      .then((list) => !cancelled && setCountries(list))
+      .catch((err) => !cancelled && setLoadError(err.message));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saved = device.country || "";
+  const changed = draft !== saved;
+  const saving = status.state === "saving";
+
+  const save = async () => {
+    if (!changed || saving) return;
+    setStatus({ state: "saving" });
+    const country = draft || null;
+    try {
+      const next = BACKEND_DISABLED ? { ...device, country } : await updateDevice(device.id, { country });
+      onSaved(next);
+      setStatus({ state: "done", text: country ? `Saved. ${device.device_name} now shows in ${country} on the map.` : "Removed from the map." });
+    } catch (err) {
+      setStatus({ state: "error", text: err.message });
+    }
+  };
+
+  return (
+    <Card className="pad col dk">
+      <Head icon={MapPin} title="Location">
+        <span className="sub">Shown on the dashboard map</span>
+      </Head>
+      {loadError ? (
+        <p className="note w" role="alert">Couldn't load the country list. {loadError}</p>
+      ) : (
+        <form
+          className="row ac"
+          style={{ gap: "calc(5 * var(--u))" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            save();
+          }}
+        >
+          <select
+            className="inp f1"
+            aria-label={`Country ${device.device_name} is in`}
+            value={draft}
+            disabled={!countries || saving}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setStatus({ state: "idle" });
+            }}
+          >
+            <option value="">{countries ? "Not on the map" : "Loading countries…"}</option>
+            {/* Keep a stored country selectable even before the list arrives. */}
+            {!countries && saved && <option value={saved}>{saved}</option>}
+            {countries?.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <button type="submit" className="bk lt" disabled={!changed || saving}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </form>
+      )}
+      {status.state === "done" && <p className="note" role="status">{status.text}</p>}
+      {status.state === "error" && <p className="note w" role="alert">{status.text}</p>}
     </Card>
   );
 }
@@ -360,6 +457,14 @@ export function DevicesView() {
                 />
               </Card>
             </>
+          )}
+
+          {selected && (
+            <LocationCard
+              key={selected.id}
+              device={selected}
+              onSaved={(next) => setDevices((list) => list.map((d) => (d.id === next.id ? { ...d, ...next } : d)))}
+            />
           )}
 
           <div className="row stack-sm">

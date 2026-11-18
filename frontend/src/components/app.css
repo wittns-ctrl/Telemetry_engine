@@ -216,6 +216,9 @@
   .bk svg { width: calc(7.5 * var(--u)); height: calc(7.5 * var(--u)); }
   .bk.gr { background: var(--green-dark); }
   .bk.gr:hover:not(:disabled) { background: var(--green-deep); }
+  .bk.lt { background: var(--green); color: var(--ink); }
+  .bk.lt:hover:not(:disabled) { background: #7bcf7f; }
+  .bk:disabled { opacity: 0.55; cursor: default; }
   .bk.rs { background: var(--rose-text); }
   .bk.rs:hover:not(:disabled) { background: #a3002c; }
   .bk.ol { border: 1px solid var(--ink-400); background: transparent; color: var(--ink); }
