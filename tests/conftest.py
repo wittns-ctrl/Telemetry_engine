@@ -707,11 +707,16 @@ def mock_smartctl():
 def mock_wmi():
     """
     Mock WMI/LHM wrappers for Windows-specific metrics.
-    
+
+    Patches sensor_service._wmi_client, the one place the service imports
+    wmi/pythoncom, rather than wmi.WMI itself: patching wmi.WMI imports the
+    real wmi package, which only exists on Windows, so the fixture failed on
+    Linux (CI). This also keeps these tests from starting real COM on Windows.
+
     Returns:
-        MagicMock: Mocked WMI module
+        MagicMock: stands in for _wmi_client; its return_value is the WMI connection
     """
-    with patch('wmi.WMI') as mock_wmi_class:
+    with patch('app.services.sensor_service._wmi_client') as mock_wmi_class:
         mock_wmi = MagicMock()
         
         # Mock WMI query for temperature
