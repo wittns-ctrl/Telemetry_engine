@@ -23,6 +23,12 @@ agent = [
 ]
 
 [dependency-groups]
+# Packaging the agent as one .exe (Windows only, never installed on the server):
+#   uv sync --extra agent --group build
+#   uv run python agent/build_exe.py --api https://api.example.com
+build = [
+    "pyinstaller>=6.16 ; sys_platform == 'win32'",
+]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
