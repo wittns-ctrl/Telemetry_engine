@@ -3,9 +3,6 @@ export const API_BASE = (import.meta.env.VITE_API_BASE || "http://localhost:8000
 // WebSocket origin defaults to the API origin with ws:// or wss:// swapped in.
 export const WS_ORIGIN = (import.meta.env.VITE_WS_ORIGIN || API_BASE.replace(/^http/, "ws")).replace(/\/$/, "");
 
-// Legacy broadcast socket used by the original dashboard views.
-export const WS_BASE = import.meta.env.VITE_WS_BASE || `${WS_ORIGIN}/ws/alerts`;
-
 const TOKEN_KEY = "telemetry_jwt_token";
 
 export const AUTH_LOGOUT_EVENT = "telemetry:auth-logout";
@@ -328,9 +325,26 @@ export async function fetchTelemetryHistory(deviceId, { start = null, limit = 10
   return apiJson(`/api/v1/metrics/history?${params.toString()}`, {}, "Failed to load telemetry history");
 }
 
-export async function fetchDeviceAlerts(deviceId, { activeOnly = false, limit = 50 } = {}) {
+/**
+ * A device's main readings averaged per hour (period "24h") or per day ("7d",
+ * "30d"): { bucket, buckets: [{ start, count, readings: { cpu_util: { avg, max }, ... } }] },
+ * oldest first. Worked out by the API over the whole period.
+ */
+export async function fetchMetricsTrend(deviceId, period = "24h") {
+  const params = new URLSearchParams({ device_id: deviceId, period });
+  return apiJson(`/api/v1/metrics/trend?${params.toString()}`, {}, "Failed to load the trend");
+}
+
+/** How many alerts are open across all the user's PCs (for the header bell). */
+export async function fetchOpenAlertCount() {
+  const data = await apiJson("/api/v1/alerts?is_active=true&limit=500", {}, "Failed to load alerts");
+  return data?.alerts?.length ?? 0;
+}
+
+export async function fetchDeviceAlerts(deviceId, { activeOnly = false, limit = 50, start = null } = {}) {
   const params = new URLSearchParams({ device_id: deviceId, limit: String(limit) });
   if (activeOnly) params.append("is_active", "true");
+  if (start) params.append("start_time", start.toISOString());
   return apiJson(`/api/v1/alerts?${params.toString()}`, {}, "Failed to load alerts");
 }
 
@@ -354,36 +368,4 @@ export async function requestDiagnosis(alertId, deviceId) {
 export function telemetrySocketUrl(deviceId) {
   const token = getAccessToken() || "";
   return `${WS_ORIGIN}/api/v1/ws/telemetry/${encodeURIComponent(deviceId)}?token=${encodeURIComponent(token)}`;
-}
-
-// ---------------------------------------------------------------------------
-// Legacy metric endpoints (used by the original dashboard views)
-// ---------------------------------------------------------------------------
-
-export async function fetchMetrics({ limit = 50, metricType = null, sensorId = null } = {}) {
-  const params = new URLSearchParams();
-  if (limit) params.append("limit", limit);
-  if (metricType && metricType !== "all") params.append("metric_type", metricType);
-  if (sensorId && sensorId !== "all") params.append("sensor_id", sensorId);
-  return apiJson(`/api/v1/metrics?${params.toString()}`, {}, "Failed to fetch metrics");
-}
-
-export async function fetchStats() {
-  return apiJson("/api/v1/metrics/stats", {}, "Failed to fetch metrics stats");
-}
-
-export async function fetchThresholds() {
-  return apiJson("/api/v1/thresholds", {}, "Failed to fetch thresholds");
-}
-
-export async function fetchHealth() {
-  return apiJson("/api/v1/health", { auth: false }, "Health check failed");
-}
-
-export async function ingestMetric(payload) {
-  return apiJson(
-    "/api/v1/metrics",
-    { method: "POST", body: JSON.stringify(payload) },
-    "Ingestion failed",
-  );
 }

@@ -23,18 +23,3 @@ export function initialsFor(name) {
   const parts = base.split(/[\s._-]+/).filter(Boolean);
   return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : base.slice(0, 2)).toUpperCase();
 }
-
-/** "Temperature", "CPU usage" and "Network": the three legacy reading types. */
-export const METRIC_TYPES = [
-  { id: "temperature", label: "Temperature", unit: "°C" },
-  { id: "cpu", label: "CPU usage", unit: "%" },
-  { id: "network", label: "Network", unit: " MB/s" },
-];
-
-export const metricType = (id) => METRIC_TYPES.find((t) => t.id === id) || { id, label: id, unit: "" };
-
-/** A legacy reading's value with its unit: "24.5°C", "42%", "240 MB/s". */
-export function metricValue(m) {
-  if (m.metric_type === "temperature") return `${m.value}°${m.payload_data?.unit || "C"}`;
-  return `${m.value}${metricType(m.metric_type).unit}`;
-}

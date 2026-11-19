@@ -25,10 +25,8 @@ import VerifyEmail from './pages/VerifyEmail';
 import Landing from './pages/Landing';
 import { PrivacyPage, TermsPage } from './pages/Legal';
 
-import { useTelemetryWebSocket } from './hooks/useTelemetryWebSocket';
 import {
-  fetchStats,
-  fetchThresholds,
+  fetchOpenAlertCount,
   fetchCurrentUser,
   logoutUser,
   getAccessToken,
@@ -42,13 +40,6 @@ function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
-  const [stats, setStats] = useState(null);
-  const [thresholds, setThresholds] = useState({
-    temperature: { max: 100 },
-    cpu: { max: 90 },
-    network: { max: 1000 },
-  });
-
   // Which signed-in page is open.
   const [activeNav, setActiveNav] = useState('dashboard');
 
@@ -57,21 +48,23 @@ function App() {
   const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const toggleSidebar = useCallback(() => setSidebarExpanded((prev) => !prev), []);
 
-  // WebSocket Hook
-  const socket = useTelemetryWebSocket();
-  const { liveMetrics, alerts, clearAlerts, dismissAlert } = socket;
+  // Open alerts across all the user's PCs, for the bell in the header.
+  const [openAlerts, setOpenAlerts] = useState(0);
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    let cancelled = false;
+    const load = () => fetchOpenAlertCount()
+      .then((n) => { if (!cancelled) setOpenAlerts(n); })
+      .catch(() => {});
+    load();
+    const timer = setInterval(load, 30000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [isAuthenticated, activeNav]);
 
   // Load initial metadata
   const loadInitialData = useCallback(async () => {
     if (!getAccessToken()) return;
     try {
-      const [statsData, thresholdsData] = await Promise.all([
-        fetchStats().catch(() => null),
-        fetchThresholds().catch(() => null),
-      ]);
-      if (statsData) setStats(statsData);
-      if (thresholdsData) setThresholds(thresholdsData);
-
       const currentUser = await fetchCurrentUser().catch(() => null);
       if (currentUser) {
         setUser(currentUser);
@@ -82,26 +75,13 @@ function App() {
         setIsAuthenticated(false);
       }
     } catch (err) {
-      console.error('Error loading initial telemetry metadata:', err);
+      console.error('Error loading the signed-in user:', err);
     }
   }, []);
 
   useEffect(() => {
     loadInitialData();
   }, [loadInitialData]);
-
-  // Keep the stored-reading totals current: refetch them when a page that
-  // shows them opens and whenever a new reading arrives over the socket.
-  const latestMetricId = socket.latestMetric?.id;
-  useEffect(() => {
-    if (!getAccessToken()) return;
-    if (!['metrics', 'analytics', 'sensors'].includes(activeNav)) return;
-    let cancelled = false;
-    fetchStats()
-      .then((data) => { if (!cancelled && data) setStats(data); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [activeNav, latestMetricId]);
 
   // api.js fires this when a refresh fails and the session is cleared.
   useEffect(() => {
@@ -151,7 +131,7 @@ function App() {
           />
 
           <div className="panel">
-            <PageHeader title={activeItem.label} alertsCount={alerts.length} onNavigate={setActiveNav} />
+            <PageHeader title={activeItem.label} alertsCount={openAlerts} onNavigate={setActiveNav} />
 
             <main className="page" aria-label={activeItem.label}>
               <Suspense fallback={<div className="empty" role="status">Loading…</div>}>
@@ -159,22 +139,13 @@ function App() {
 
                 {activeNav === 'devices' && <DevicesView />}
 
-                {activeNav === 'metrics' && <MetricsStudioView stats={stats} onRefreshStats={loadInitialData} />}
+                {activeNav === 'metrics' && <MetricsStudioView onNavigate={setActiveNav} />}
 
-                {activeNav === 'live' && (
-                  <LiveStreamView
-                    liveMetrics={liveMetrics}
-                    thresholds={thresholds}
-                    alerts={alerts}
-                    clearAlerts={clearAlerts}
-                    dismissAlert={dismissAlert}
-                    status={socket.status === 'connected' ? 'live' : socket.status === 'connecting' ? 'connecting' : 'offline'}
-                  />
-                )}
+                {activeNav === 'live' && <LiveStreamView onNavigate={setActiveNav} />}
 
-                {activeNav === 'analytics' && <AnalyticsView stats={stats} thresholds={thresholds} onNavigate={setActiveNav} />}
+                {activeNav === 'analytics' && <AnalyticsView onNavigate={setActiveNav} />}
 
-                {activeNav === 'sensors' && <SensorsView stats={stats} />}
+                {activeNav === 'sensors' && <SensorsView onNavigate={setActiveNav} />}
 
                 {activeNav === 'help' && <HelpView onNavigate={setActiveNav} />}
 

@@ -649,7 +649,7 @@ export default function Landing() {
         <div className="lp-faq-grid">
           <aside className="lp-help">
             <ol className="lp-help-art">
-              {['Monitor a computer', 'Send a metric by hand', 'Watch readings live', 'Manage your account'].map((t) => <li key={t}>{t}</li>)}
+              {['Monitor a computer', 'See every reading live', 'Watch readings live', 'Manage your account'].map((t) => <li key={t}>{t}</li>)}
             </ol>
             <div className="lp-help-text">
               <h3>Built-in help</h3>

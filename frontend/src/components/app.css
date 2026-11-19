@@ -257,6 +257,15 @@
   .tb th { padding: calc(4 * var(--u)) calc(6 * var(--u)); border-bottom: 1px solid var(--ink-100); text-align: left; font-size: var(--fs-1); font-weight: 500; color: var(--ink-500); }
   .tb td { padding: calc(5 * var(--u)) calc(6 * var(--u)); border-bottom: 1px solid var(--tile); white-space: nowrap; }
   .tb tr:last-child td { border-bottom: 0; }
+  /* Metrics Studio's live table: a header row per component, rows over their limit tinted rose. */
+  .live-tb .tb-group th { position: static; padding-top: calc(8 * var(--u)); font-size: var(--fs-1); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink); background: transparent; }
+  .live-tb tr.warn td { background: var(--rose-soft); }
+  .live-tb .now { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .live-tb .lnk { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; text-decoration: underline; text-decoration-color: var(--ink-300); text-underline-offset: 3px; cursor: pointer; }
+  .live-tb .lnk:hover { text-decoration-color: var(--ink); }
+  .spark { display: block; }
+  /* A sensor card over its limit. */
+  .card.warn-card { background: var(--rose-soft); }
   .fld { display: block; min-width: 0; }
   .fld > span { display: block; margin-bottom: calc(2.5 * var(--u)); font-size: var(--fs-1); font-weight: 500; color: var(--ink-500); }
   .inp { display: block; width: 100%; min-height: 28px; height: calc(17 * var(--u)); padding: 0 calc(6 * var(--u)); border: 1px solid var(--ink-200); border-radius: calc(5 * var(--u)); outline: 0; background: #fff; font: inherit; font-size: var(--fs-2); color: var(--ink); }
@@ -650,6 +659,8 @@
     .hd { flex-wrap: wrap; row-gap: calc(4 * var(--u)); }
     .hd > .r { flex-wrap: wrap; justify-content: flex-end; }
     .g2, .g3, .g4 { grid-template-columns: minmax(0, 1fr); }
+    /* Narrow tables keep only the reading, its value and its status. */
+    .hide-sm { display: none; }
     .stat .bars { display: none; }
   }
 }

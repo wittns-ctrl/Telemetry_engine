@@ -27,15 +27,15 @@ const TOPICS = [
   },
   {
     id: "metrics",
-    title: "Send a metric by hand",
-    body: "Metrics Studio lets you submit a single temperature, CPU or network reading and browse the readings already stored for your account.",
+    title: "See every reading at once",
+    body: "Metrics Studio lists every reading the agent on your PC sends, with its value now, its limit, a line of the last two minutes and its status. It updates every couple of seconds.",
     page: "metrics",
     action: "Open Metrics Studio",
   },
   {
     id: "live",
     title: "Watch readings live",
-    body: "Live Monitor charts readings as they arrive and lists alerts in real time. The simulator on that page sends random test readings to your own account so you can try the charts and alerts without a device.",
+    body: "Live Monitor graphs your PC's main readings as the agent sends them and lists its open alerts. Readings only arrive while the agent is running on that PC.",
     page: "live",
     action: "Open Live Monitor",
   },
@@ -49,7 +49,7 @@ const TOPICS = [
   {
     id: "alerts",
     title: "When do alerts fire?",
-    body: "A reading that goes over its limit raises an alert. Open a reading's details on the Dashboard to see its limit. Alerts reach this app immediately while it is open; the Live Monitor list only covers alerts received since you opened the app.",
+    body: "A reading that stays over its limit raises an alert, and the alert closes by itself once the reading is back to normal. Metrics Studio shows every reading's limit. Open alerts are listed on Live Monitor and on My Devices, where you can diagnose and fix them.",
     page: "live",
     action: "Open Live Monitor",
   },
