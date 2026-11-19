@@ -190,6 +190,97 @@ async def get_latest_metrics(
         )
 
 
+# Readings the trend endpoint summarises, by the ids the frontend uses
+# (frontend/src/components/readings.js), and where each is stored.
+TREND_FIELDS = {
+    "cpu_util": "cpu.utilization_percent",
+    "cpu_core_temp": "cpu.core_temperature_c",
+    "cpu_package_temp": "cpu.package_temperature_c",
+    "cpu_clock": "cpu.clock_speed_ghz",
+    "gpu_util": "gpu.utilization_percent",
+    "gpu_core_temp": "gpu.core_temperature_c",
+    "gpu_hotspot": "gpu.hotspot_temperature_c",
+    "ram_usage": "ram.usage_percent",
+    "ram_pagefile": "ram.pagefile_usage_percent",
+    "vrm_temp": "power_vrm.vrm_temperature_c",
+    "psu_12v": "power_vrm.psu_12v_voltage",
+}
+
+# period -> (how far back, bucket format for $dateToString, bucket name)
+TREND_PERIODS = {
+    "24h": (timedelta(hours=24), "%Y-%m-%dT%H:00:00Z", "hour"),
+    "7d": (timedelta(days=7), "%Y-%m-%dT00:00:00Z", "day"),
+    "30d": (timedelta(days=30), "%Y-%m-%dT00:00:00Z", "day"),
+}
+
+
+@router.get(
+    "/metrics/trend",
+    summary="Readings Averaged per Hour or Day",
+    description=(
+        "Average and peak of the main readings for one device, per hour over the last 24 hours "
+        "or per day over the last 7 or 30 days, worked out in the database so the whole period "
+        "counts (not just the newest snapshots). Buckets with no snapshots are left out."
+    ),
+)
+async def get_metrics_trend(
+    device_id: str = Query(..., description="Device ID to query"),
+    period: str = Query("24h", pattern="^(24h|7d|30d)$", description="24h (hourly), 7d or 30d (daily)"),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        device_oid = PydanticObjectId(device_id)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid device ID format")
+
+    user_devices = await StorageService.get_user_devices(str(current_user.id))
+    if not any(str(device.id) == device_id for device in user_devices):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Device does not belong to user")
+
+    span, bucket_format, bucket = TREND_PERIODS[period]
+    start = datetime.now(timezone.utc) - span
+
+    group: dict = {
+        "_id": {"$dateToString": {"format": bucket_format, "date": "$timestamp"}},
+        "count": {"$sum": 1},
+    }
+    for reading_id, path in TREND_FIELDS.items():
+        group[f"{reading_id}__avg"] = {"$avg": f"${path}"}
+        group[f"{reading_id}__max"] = {"$max": f"${path}"}
+
+    pipeline = [
+        {"$match": {"user_id": current_user.id, "device_id": device_oid, "timestamp": {"$gte": start}}},
+        {"$group": group},
+        {"$sort": {"_id": 1}},
+    ]
+    try:
+        rows = await TelemetrySnapshotDocument.aggregate(aggregation_pipeline=pipeline).to_list()
+    except Exception as e:
+        logger.error(f"Error building the trend for device {device_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to build the trend")
+
+    def rounded(value):
+        return None if value is None else round(float(value), 2)
+
+    return {
+        "device_id": device_id,
+        "period": period,
+        "bucket": bucket,
+        "start": start.isoformat(),
+        "buckets": [
+            {
+                "start": row["_id"],
+                "count": row["count"],
+                "readings": {
+                    reading_id: {"avg": rounded(row.get(f"{reading_id}__avg")), "max": rounded(row.get(f"{reading_id}__max"))}
+                    for reading_id in TREND_FIELDS
+                },
+            }
+            for row in rows
+        ],
+    }
+
+
 @router.get(
     "/metrics/summary",
     summary="Get Telemetry Summary",
