@@ -14,6 +14,10 @@ It also checks in for fixes chosen on the website and carries them out
     uv run python -m agent.telemetry_agent --api https://api.example.com
 
 Your password is only used for the one-time registration and is never stored.
+
+Testers get this as one file, lectio-agent.exe (built by agent/build_exe.py).
+The packaged build sends to the API URL chosen at build time instead of
+localhost, and keeps its device key in the same file in your home folder.
 """
 
 from __future__ import annotations
@@ -33,12 +37,36 @@ from pathlib import Path
 
 import httpx
 
-from agent.fix_worker import EXIT_AUTH, FixWorker
-from app.services.sensor_service import SensorService
+# True inside the packaged lectio-agent.exe (PyInstaller sets sys.frozen).
+FROZEN = getattr(sys, "frozen", False)
+
+if FROZEN:
+    # The sensor models import the server's settings, which refuse to load
+    # without these. The agent never uses them; testers have no server .env.
+    for _name, _value in (("MONGODB_URI", "mongodb://unused"), ("MONGO_DB", "unused"),
+                          ("SECRET_KEY", "unused-by-the-agent")):
+        os.environ.setdefault(_name, _value)
+
+from agent.fix_worker import EXIT_AUTH, FixWorker  # noqa: E402
+from app.services.sensor_service import SensorService  # noqa: E402
 
 logger = logging.getLogger("telemetry_agent")
 
 DEFAULT_CONFIG = Path.home() / ".telemetry_agent.json"
+DEV_API = "http://localhost:8000"
+
+
+def default_api() -> str:
+    """TELEMETRY_API if set, else the URL baked in at build time, else localhost."""
+    if os.environ.get("TELEMETRY_API"):
+        return os.environ["TELEMETRY_API"]
+    if FROZEN:
+        try:
+            from lectio_build_config import API_URL  # written by agent/build_exe.py
+            return API_URL
+        except ImportError:
+            pass
+    return DEV_API
 
 
 def load_config(path: Path) -> dict:
@@ -66,17 +94,29 @@ def os_description() -> str:
 async def register(client: httpx.AsyncClient, api: str, config: dict, device_name: str,
                    country: str | None = None) -> dict:
     """Sign in once, register this machine, and return the updated config."""
-    print(f"Registering this machine with {api}")
-    email = input("Account email: ").strip()
-    password = getpass.getpass("Password: ")
-
-    login = await client.post(
-        f"{api}/api/v1/auth/login",
-        data={"username": email, "password": password},
-    )
-    if login.status_code != 200:
+    print(f"Sign in with your Lectio account to link this PC ({api}).")
+    print("Your password is only used now and is never saved.\n")
+    for attempt in range(3):
+        email = input("Account email: ").strip()
+        if sys.stdin.isatty():
+            password = getpass.getpass("Password (hidden as you type): ")
+        else:  # piped in, e.g. a scripted install; getpass would wait on the console
+            password = input().rstrip("\n")
+        login = await client.post(
+            f"{api}/api/v1/auth/login",
+            data={"username": email, "password": password},
+        )
+        if login.status_code == 200:
+            break
+        if login.status_code in (400, 401, 403) and attempt < 2:
+            print("That email and password didn't work. Please try again.\n")
+            continue
         raise SystemExit(f"Sign-in failed ({login.status_code}): {login.text}")
     access_token = login.json()["access_token"]
+
+    if country is None:
+        country = input("Country this PC is in, for the dashboard map "
+                        "(optional, press Enter to skip): ").strip() or None
 
     system_uuid = config.get("system_uuid") or str(uuid.uuid4())
     resp = await client.post(
@@ -107,6 +147,9 @@ async def run(args: argparse.Namespace) -> int:
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         if args.reset or not config.get("device_key") or config.get("api") != api:
+            if not config.get("device_key"):
+                print("Welcome to Lectio. This app reads your PC's temperatures, usage and "
+                      "hardware health\nand sends them to your Lectio dashboard.\n")
             config = await register(client, api, config, args.name, args.country)
             save_config(config_path, config)
             print(f"Saved device key to {config_path}")
@@ -169,8 +212,8 @@ async def send_telemetry(client: httpx.AsyncClient, api: str, headers: dict, con
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Send this machine's hardware telemetry to Lectio.")
-    parser.add_argument("--api", default=os.environ.get("TELEMETRY_API", "http://localhost:8000"),
-                        help="API base URL (env TELEMETRY_API)")
+    parser.add_argument("--api", default=default_api(),
+                        help=f"API base URL (env TELEMETRY_API; default {default_api()})")
     parser.add_argument("--interval", type=float, default=2.0, help="Seconds between snapshots (min 1)")
     parser.add_argument("--name", default=platform.node() or "My computer", help="Device name shown in the dashboard")
     parser.add_argument("--country", default=None,
@@ -186,10 +229,49 @@ def main() -> None:
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
+    code: int | str | None = 0
     try:
-        sys.exit(asyncio.run(run(args)))
+        code = asyncio.run(run(args))
     except KeyboardInterrupt:
         print("\nStopped.")
+    except SystemExit as e:
+        code = e.code
+    except EOFError:
+        code = "Signing in needs a keyboard: run lectio-agent in a terminal window, not with input piped in."
+    except Exception:
+        logger.exception("The agent stopped because of an error")
+        code = 1
+    if code is not None and not isinstance(code, int):
+        print(code, file=sys.stderr)  # a SystemExit message such as "Sign-in failed"
+        code = 1
+    if code and started_by_double_click():
+        # The console window closes as soon as we exit; let people read why.
+        input("\nPress Enter to close this window.")
+    if FROZEN:
+        # Everything is saved by now. Skipping interpreter teardown avoids
+        # pywin32 printing "Win32 exception occurred releasing IUnknown" for
+        # WMI objects freed after COM has shut down, which only the .exe does.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(code or 0)
+    sys.exit(code)
+
+
+def started_by_double_click() -> bool:
+    """True for the packaged .exe opened from Explorer, so it owns its console window.
+
+    Run from a terminal, the shell shares the console too. The onefile build
+    is a bootloader process plus this one, hence at most 2.
+    """
+    if not FROZEN or sys.platform != "win32":
+        return False
+    import ctypes
+    processes = (ctypes.c_uint32 * 8)()
+    try:
+        count = ctypes.windll.kernel32.GetConsoleProcessList(processes, 8)
+    except (AttributeError, OSError):
+        return False
+    return 0 < count <= 2
 
 
 if __name__ == "__main__":
