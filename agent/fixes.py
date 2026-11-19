@@ -154,7 +154,15 @@ def cool_down(params: dict) -> tuple[str, dict]:
     _require_windows()
     minutes, limit = params.get("minutes", 60), params.get("max_percent", 80)
     before = _throttle_values()
-    _set_throttle(min(before["ac"], limit), min(before["dc"], limit))
+    try:
+        _set_throttle(min(before["ac"], limit), min(before["dc"], limit))
+    except FixError:
+        # Half-applied (AC set, DC not, say): put back what was there, then fail.
+        try:
+            _set_throttle(before["ac"], before["dc"])
+        except FixError as e:
+            logger.warning(f"Couldn't restore the processor setting after a failed cool down: {e}")
+        raise
     revert_at = time.time() + minutes * 60
     return (
         f"Done. The processor is limited to {limit}% for {minutes} minutes, then goes back to normal.",

@@ -11,7 +11,7 @@ import httpx
 import pytest
 
 from agent import fixes
-from agent.fix_worker import EXIT_AUTH, FixWorker
+from agent.fix_worker import EXIT_AUTH, REVERT_RETRY_S, FixWorker
 from app.core.fix_catalogue import FIXES, fixes_for
 from app.core.anomaly_rules import BASELINE_RULES
 
@@ -316,6 +316,125 @@ async def test_worker_failure_is_reported_plainly(monkeypatch):
     worker, _ = make_worker(server)
     await worker.check_once()
     assert server.results["f3"] == {"status": "failed", "message": "This fix only works on Windows.", "undo_data": None}
+
+
+# ------------------------------------------------------------------ safety: the agent trusts its own catalogue
+
+@pytest.mark.parametrize("fix_id, params", [
+    ("close_app", {"process": "chrome.exe & calc.exe"}),
+    ("close_app", {"process": "..\\..\\x.exe"}),
+    ("disable_startup_app", {"name": "..\\Run\\Evil"}),
+    ("restart_service", {"service": "Spooler; Stop-Computer"}),
+    ("cool_down", {"command": "format c:"}),
+])
+def test_agent_refuses_injected_params(fix_id, params):
+    with pytest.raises(fixes.FixError):
+        fixes.run_fix(fix_id, params)
+
+
+async def test_worker_asks_for_big_fixes_even_if_the_server_says_not_to():
+    asked = []
+    server = FakeServer([a_fix(id="f4", fix_id="close_app", title="Harmless tidy-up", summary="Nothing to see",
+                               params={"process": "chrome.exe"}, needs_pc_approval=False)])
+    worker, _ = make_worker(server, ask=lambda title, summary: asked.append((title, summary)) or False)
+    await worker.check_once()
+    # The prompt uses this PC's own wording, and names the app to be closed.
+    assert len(asked) == 1
+    title, summary = asked[0]
+    assert title == FIXES["close_app"].title and "Harmless" not in title
+    assert FIXES["close_app"].summary in summary and "process: chrome.exe" in summary
+    assert server.results["f4"]["status"] == "declined"
+
+
+async def test_worker_refuses_unknown_fixes_without_asking():
+    asked = []
+    server = FakeServer([a_fix(id="f5", fix_id="run_command", params={"cmd": "del *"}, needs_pc_approval=True)])
+    worker, _ = make_worker(server, ask=lambda title, summary: asked.append(title) or True)
+    await worker.check_once()
+    assert asked == [] and server.results["f5"]["status"] == "failed"
+
+
+async def test_worker_refuses_bad_params_before_asking():
+    asked = []
+    server = FakeServer([a_fix(id="f6", fix_id="close_app", params={"process": "lsass.exe"}, needs_pc_approval=True)])
+    worker, _ = make_worker(server, ask=lambda title, summary: asked.append(title) or True)
+    await worker.check_once()
+    assert asked == [] and server.results["f6"]["status"] == "failed"
+    assert "part of Windows" in server.results["f6"]["message"]
+
+
+async def test_worker_ignores_a_malformed_request_id():
+    server = FakeServer([a_fix(id="../../auth/logout")])
+    worker, _ = make_worker(server)
+    await worker.check_once()
+    assert server.results == {}
+
+
+async def test_worker_undo_of_a_big_fix_asks_on_the_pc():
+    asked = []
+    config = {"undo_records": {"f7": {"fix_id": "disable_startup_app", "data": {"name": "Spotify", "value": "x", "type": 1}}}}
+    server = FakeServer([a_fix(id="u7", fix_id="disable_startup_app", undo=True, undo_of="f7", needs_pc_approval=False)])
+    worker, _ = make_worker(server, config=config, ask=lambda title, summary: asked.append(title) or False)
+    await worker.check_once()
+    assert asked == ["Undo: " + FIXES["disable_startup_app"].title]
+    assert server.results["u7"]["status"] == "declined" and "f7" in worker.config["undo_records"]
+
+
+# ------------------------------------------------------------------ safety: undo and timed reverts really restore
+
+async def test_failed_timed_revert_is_not_reported_and_is_retried(monkeypatch):
+    def broken(fix_id, data):
+        raise fixes.FixError("powercfg failed")
+    monkeypatch.setattr(fixes, "undo_fix", broken)
+    record = {"fix_id": "cool_down", "data": {"ac": 100, "dc": 100, "revert_at": 1}}
+    config = {"undo_records": {"f8": record}, "timed_reverts": [{"request_id": "f8", "at": 1}]}
+    server = FakeServer()
+    worker, saved = make_worker(server, config=config)
+    await worker.revert_due(now=2)
+    assert server.reverted == []  # the website still shows it can be undone
+    assert worker.config["undo_records"]["f8"] == record
+    assert worker.config["timed_reverts"] == [{"request_id": "f8", "at": 2 + REVERT_RETRY_S}]
+    assert saved
+
+    monkeypatch.undo()
+    calls = []
+    monkeypatch.setattr(fixes, "IS_WINDOWS", True)
+    monkeypatch.setattr(fixes, "_run", lambda args, timeout=60: calls.append(args) or "")
+    await worker.revert_due(now=2 + REVERT_RETRY_S)
+    assert server.reverted == ["f8"] and "f8" not in worker.config["undo_records"]
+    assert ["powercfg", "/setacvalueindex", "SCHEME_CURRENT", "SUB_PROCESSOR", "PROCTHROTTLEMAX", "100"] in calls
+
+
+async def test_failed_undo_keeps_the_record_and_reports_failure(monkeypatch):
+    def broken(fix_id, data):
+        raise fixes.FixError("Windows wouldn't change the startup apps")
+    monkeypatch.setattr(fixes, "undo_fix", broken)
+    config = {"undo_records": {"f9": {"fix_id": "cool_down", "data": {"ac": 100, "dc": 90}}}}
+    server = FakeServer([a_fix(id="u9", undo=True, undo_of="f9")])
+    worker, _ = make_worker(server, config=config)
+    await worker.check_once()
+    assert server.results["u9"]["status"] == "failed"
+    assert "f9" in worker.config["undo_records"]  # can be tried again
+
+
+def test_half_applied_cool_down_is_put_back(fake_windows, monkeypatch):
+    calls, outputs = fake_windows
+    outputs["/query"] = QUERY
+
+    def run(args, timeout=60):
+        calls.append(args)
+        if "/setdcvalueindex" in args and args[-1] == "80":
+            raise fixes.FixError("Access denied")
+        return QUERY if "/query" in args else ""
+    monkeypatch.setattr(fixes, "_run", run)
+    with pytest.raises(fixes.FixError):
+        fixes.run_fix("cool_down", {})
+    # AC was set to 80, then put back to what it was (100).
+    assert calls[-3:] == [
+        ["powercfg", "/setacvalueindex", "SCHEME_CURRENT", "SUB_PROCESSOR", "PROCTHROTTLEMAX", "100"],
+        ["powercfg", "/setdcvalueindex", "SCHEME_CURRENT", "SUB_PROCESSOR", "PROCTHROTTLEMAX", "90"],
+        ["powercfg", "/setactive", "SCHEME_CURRENT"],
+    ]
 
 
 async def test_worker_stops_when_the_key_is_rejected():
