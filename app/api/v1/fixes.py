@@ -16,6 +16,14 @@ Agent side (X-Device-Key, like telemetry uploads):
 
 Only catalogue fixes (app/core/fix_catalogue.py) can be requested; "big" ones
 are marked needs_pc_approval and the agent asks on the PC before running them.
+
+Safety rules kept here:
+  - the user's fix level (Settings) is checked when a fix is asked for AND
+    again when the agent takes it, so a change in Settings applies to fixes
+    already waiting;
+  - asking for or undoing a fix has its own per-user budget
+    (RATE_LIMIT_FIX_PER_MINUTE) on top of the general one;
+  - every request, cancel, result and timed revert is written to AuditLog.
 """
 
 import logging
@@ -23,14 +31,17 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Optional
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_current_user
 from app.api.v1.ingest import get_ingest_device
+from app.core.config import settings
 from app.core.fix_catalogue import FIXES, Fix, fixes_for, get_fix
+from app.core.rate_limit import limiter
 from app.core.websocket_manager import manager as stream_manager
 from app.models.alert import AnomalyAlertDocument
+from app.models.audit_log import AuditEventType, AuditLog
 from app.models.fix import FINAL_STATUSES, FixRequest, FixStatus
 from app.models.telemetry import Device
 from app.models.user import FixLevel, User
@@ -188,7 +199,57 @@ async def _own_request(request_id: str, user: User) -> FixRequest:
     req = await FixRequest.get(_oid(request_id, "fix"))
     if not req or req.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fix not found")
+    # The device must still be this user's too, not just the old request.
+    device = await Device.get(req.device_id)
+    if not device or device.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fix not found")
     return req
+
+
+async def _fix_budget(current_user: User = Depends(get_current_user)) -> User:
+    """A stricter, per-user limit for making a PC do something (run or undo a fix)."""
+    if settings.RATE_LIMIT_ENABLED:
+        decision = limiter.hit(f"fix:{current_user.id}", settings.RATE_LIMIT_FIX_PER_MINUTE)
+        if not decision.allowed:
+            seconds = decision.retry_after
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Too many fixes asked for. Try again in {seconds} second{'s' if seconds != 1 else ''}.",
+                headers={"Retry-After": str(seconds)},
+            )
+    return current_user
+
+
+async def _audit(
+    req: FixRequest,
+    event: AuditEventType,
+    actor: str,
+    request: Optional[Request] = None,
+    success: bool = True,
+    **details: Any,
+) -> None:
+    """Record who asked a PC to do what, and what came of it. Never breaks the request."""
+    try:
+        await AuditLog(
+            user_id=str(req.user_id),
+            event_type=event,
+            ip_address=request.client.host if request and request.client else None,
+            user_agent=request.headers.get("user-agent") if request else None,
+            success=success,
+            details={
+                "actor": actor,  # "user" (the website), "agent" (the PC) or "server"
+                "fix_request_id": str(req.id),
+                "device_id": str(req.device_id),
+                "fix_id": req.fix_id,
+                "params": req.params,
+                "undo_of": str(req.undo_of) if req.undo_of else None,
+                "needs_pc_approval": req.needs_pc_approval,
+                "status": req.status.value,
+                **details,
+            },
+        ).insert()
+    except Exception as e:
+        logger.error(f"Could not write audit log for fix {req.id}: {e}")
 
 
 def _aware(dt: Optional[datetime]) -> Optional[datetime]:
@@ -211,6 +272,7 @@ async def _expire_stale(device_id: PydanticObjectId) -> None:
             continue
         req.finished_at = now
         await req.save()
+        await _audit(req, AuditEventType.FIX_RESULT, "server", success=False, message=req.message)
 
 
 async def _announce(req: FixRequest) -> None:
@@ -261,7 +323,7 @@ async def suggestions(
 
 
 @router.post("/devices/{device_id}/fixes", response_model=FixOut, status_code=status.HTTP_201_CREATED, summary="Ask the PC to Run a Fix")
-async def request_fix(device_id: str, body: FixCreate, current_user: User = Depends(get_current_user)):
+async def request_fix(device_id: str, body: FixCreate, request: Request, current_user: User = Depends(_fix_budget)):
     device = await _own_device(device_id, current_user)
     if current_user.fix_level == FixLevel.SUGGEST:
         raise HTTPException(
@@ -299,6 +361,7 @@ async def request_fix(device_id: str, body: FixCreate, current_user: User = Depe
     )
     await req.insert()
     logger.info(f"Fix {fix.id} requested for device {device.id} by user {current_user.id}")
+    await _audit(req, AuditEventType.FIX_REQUESTED, "user", request, fix_level=current_user.fix_level.value)
     await _announce(req)
     return _out(req)
 
@@ -316,18 +379,21 @@ async def history(
 
 
 @router.post("/fixes/{fix_request_id}/cancel", response_model=FixOut, summary="Cancel a Fix")
-async def cancel(fix_request_id: str, current_user: User = Depends(get_current_user)):
+async def cancel(fix_request_id: str, request: Request, current_user: User = Depends(get_current_user)):
     req = await _own_request(fix_request_id, current_user)
     if req.status != FixStatus.QUEUED:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The PC has already started this fix")
     req.status, req.finished_at, req.message = FixStatus.CANCELLED, datetime.now(timezone.utc), "Cancelled."
     await req.save()
+    await _audit(req, AuditEventType.FIX_CANCELLED, "user", request)
     await _announce(req)
     return _out(req)
 
 
 @router.post("/fixes/{fix_request_id}/undo", response_model=FixOut, status_code=status.HTTP_201_CREATED, summary="Undo a Fix")
-async def undo(fix_request_id: str, current_user: User = Depends(get_current_user)):
+async def undo(fix_request_id: str, request: Request, current_user: User = Depends(_fix_budget)):
+    # Undo is allowed at every fix level, "Only suggest" included: it puts the
+    # PC back the way it was, which is what someone turning fixes off wants.
     original = await _own_request(fix_request_id, current_user)
     if not _can_undo(original):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This fix can't be undone")
@@ -344,6 +410,7 @@ async def undo(fix_request_id: str, current_user: User = Depends(get_current_use
         undo_of=original.id, undo_data=original.undo_data,
     )
     await req.insert()
+    await _audit(req, AuditEventType.FIX_UNDO_REQUESTED, "user", request, fix_level=current_user.fix_level.value)
     await _announce(req)
     return _out(req)
 
@@ -371,8 +438,22 @@ async def agent_next(
     if fix is None or fix.manual:  # catalogue changed since it was queued
         req.status, req.finished_at, req.message = FixStatus.FAILED, datetime.now(timezone.utc), "Lectio no longer offers this fix."
         await req.save()
+        await _audit(req, AuditEventType.FIX_RESULT, "server", success=False, message=req.message)
         await _announce(req)
         return AgentNext(fix=None)
+
+    # The fix level may have changed in Settings since this was queued.
+    owner = await User.get(req.user_id)
+    level = owner.fix_level if owner else FixLevel.SUGGEST
+    if level == FixLevel.SUGGEST and req.undo_of is None:
+        req.status, req.finished_at = FixStatus.CANCELLED, datetime.now(timezone.utc)
+        req.message = "Cancelled: your account is set to only suggest fixes."
+        await req.save()
+        await _audit(req, AuditEventType.FIX_CANCELLED, "server", fix_level=level.value)
+        await _announce(req)
+        return AgentNext(fix=None, poll_seconds=5)
+    # Big fixes always ask on the PC, whatever is stored on the request.
+    req.needs_pc_approval = req.needs_pc_approval or _needs_approval(fix.needs_pc_approval, level)
 
     req.status, req.started_at = FixStatus.RUNNING, datetime.now(timezone.utc)
     await req.save()
@@ -391,6 +472,8 @@ async def agent_result(fix_request_id: str, body: AgentResult, device: Device = 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fix not found")
     if req.status in FINAL_STATUSES:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This fix is already closed")
+    if req.status != FixStatus.RUNNING:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="The PC hasn't taken this fix yet")
 
     now = datetime.now(timezone.utc)
     req.status = FixStatus(body.status)
@@ -399,6 +482,7 @@ async def agent_result(fix_request_id: str, body: AgentResult, device: Device = 
     if req.undo_of is None and body.status == "succeeded":
         req.undo_data = body.undo_data
     await req.save()
+    await _audit(req, AuditEventType.FIX_RESULT, "agent", success=body.status == "succeeded", message=body.message)
 
     if req.undo_of is not None and body.status == "succeeded":
         original = await FixRequest.get(req.undo_of)
@@ -420,5 +504,6 @@ async def agent_reverted(fix_request_id: str, device: Device = Depends(get_inges
     if req.status == FixStatus.SUCCEEDED and req.reverted_at is None:
         req.reverted_at = datetime.now(timezone.utc)
         await req.save()
+        await _audit(req, AuditEventType.FIX_REVERTED, "agent")
         await _announce(req)
     return _out(req)
