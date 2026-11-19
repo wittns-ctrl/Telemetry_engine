@@ -4,6 +4,9 @@ from beanie import Document
 from pydantic import Field
 
 
+# Readings once entered by hand in the old Metrics Studio. Nothing writes these
+# any more (every reading now comes from the agent); the model stays so that
+# deleting an account still erases any that were stored.
 class Metrics(Document):
     # Owner of the metric. Rows written before auth was required have no owner
     # and are not returned to anyone.

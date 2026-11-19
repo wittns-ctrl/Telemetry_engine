@@ -1,4 +1,4 @@
-"""Webhook delivery for alerts (device alerts and hand-submitted metric breaches)."""
+"""Webhook delivery for device alerts."""
 
 import logging
 import httpx

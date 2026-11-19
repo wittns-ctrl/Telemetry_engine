@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.rate_limit import RateLimitMiddleware
 from app.db.session import init_db
-from app.core.sockets import manager
+from app.core.websocket_manager import manager
 from app.api.v1 import auth as auth_router
 from app.api.v1 import google_auth as google_auth_router
 from app.api.v1 import websocket as websocket_router
@@ -14,7 +14,6 @@ from app.api.v1 import metrics as metrics_router
 from app.api.v1 import alerts as alerts_router
 from app.api.v1 import diagnostics as diagnostics_router
 from app.api.v1 import ingest as ingest_router
-from app.api.v1 import sensor_metrics as sensor_metrics_router
 from app.api.v1 import fixes as fixes_router
 
 
@@ -50,12 +49,9 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "Lectio",
-        "active_websockets": len(manager.active_connections),
+        "active_websockets": manager.total_connections(),
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
-
-# --- HAND-SUBMITTED SENSOR METRICS (Metrics Studio, /ws/alerts) ---
-app.include_router(sensor_metrics_router.router)
 
 # --- AUTH ROUTES ---
 app.include_router(auth_router.router, prefix="/api/v1")

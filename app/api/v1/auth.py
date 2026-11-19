@@ -25,7 +25,6 @@ from app.models.fix import FixRequest
 from app.models.metric import Metrics
 from app.services.anomaly_engine import anomaly_engine
 from app.core.websocket_manager import manager as stream_manager
-from app.core.sockets import manager as alerts_socket_manager
 from app.core.security import (
     verify_password, get_password_hash, create_access_token,
     create_refresh_token, hash_token, verify_token_hash, generate_family_id,
@@ -477,7 +476,6 @@ async def delete_account(
     for device in devices:
         await anomaly_engine.clear_device_state(user_id, str(device.id))
     await stream_manager.disconnect_user(user_id)
-    await alerts_socket_manager.disconnect_user(user_id)
 
     readings = await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.user_id == user_oid).delete()
     alerts = await AnomalyAlertDocument.find(AnomalyAlertDocument.user_id == user_oid).delete()

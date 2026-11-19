@@ -225,6 +225,10 @@ class ConnectionManager:
         except Exception as e:
             logger.error(f"Error during broadcast to user: {e}")
     
+    def total_connections(self) -> int:
+        """Open live-stream sockets across every user and device (for the health check)."""
+        return sum(len(sockets) for devices in self._connections.values() for sockets in devices.values())
+
     async def get_connection_count(self, user_id: str, device_id: Optional[str] = None) -> int:
         """
         Get the number of active connections for a user or device.

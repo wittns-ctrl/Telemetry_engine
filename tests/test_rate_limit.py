@@ -149,8 +149,8 @@ class TestMiddleware:
     async def test_429_keeps_cors_headers(self, limits, async_client):
         origin = {"Origin": settings.FRONTEND_URL}
         for _ in range(5):
-            await async_client.get("/api/v1/thresholds", headers=origin)
-        r = await async_client.get("/api/v1/thresholds", headers=origin)
+            await async_client.get("/api/v1/devices/countries", headers=origin)
+        r = await async_client.get("/api/v1/devices/countries", headers=origin)
         assert r.status_code == 429
         assert r.headers["access-control-allow-origin"] == settings.FRONTEND_URL
 
@@ -161,6 +161,6 @@ class TestMiddleware:
     async def test_disabled_setting_turns_limiting_off(self, limits, monkeypatch, async_client):
         monkeypatch.setattr(settings, "RATE_LIMIT_ENABLED", False)
         for _ in range(10):
-            r = await async_client.get("/api/v1/thresholds")
+            r = await async_client.get("/api/v1/devices/countries")
             assert r.status_code == 200
             assert "x-ratelimit-limit" not in r.headers

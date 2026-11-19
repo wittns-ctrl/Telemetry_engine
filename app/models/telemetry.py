@@ -1,5 +1,5 @@
-from typing import Annotated, Literal, Optional
-from pydantic import BaseModel, Field, PositiveFloat
+from typing import Optional
+from pydantic import BaseModel, Field
 from datetime import datetime, timezone
 from beanie import Document, Indexed
 from beanie.odm.fields import PydanticObjectId
@@ -13,42 +13,6 @@ TELEMETRY_TIMESTAMP_INDEX = "timestamp_1"
 
 def telemetry_retention_seconds() -> int:
     return settings.TELEMETRY_RETENTION_DAYS * 24 * 60 * 60
-
-
-# Base schema with shared telemetry fields
-
-class BaseTelemetryPayload(BaseModel):
-    sensor_id: str = Field(..., min_length=3, max_length=64, examples=["sensor_room_101"])
-
-
-# 1. Temperature sensor schema
-
-class TemperatureTelemetryPayload(BaseTelemetryPayload):
-    metric_type: Literal["temperature"]  # the discriminator tag
-    value: float = Field(..., ge=-50.0, le=150.0, description="Temperature in Celcius")
-    unit: Literal["C", "F", "K"] = "C"
-
-
-class CPUTelemetryPayload(BaseTelemetryPayload):
-    metric_type: Literal["cpu"]
-    value: float = Field(..., ge=0.0, le=100.0, description="CPU usage percentage")
-    core_count: int = Field(..., gt=0)
-    process_count: int = Field(..., ge=0)
-
-
-class NetworkTelemetryPayload(BaseTelemetryPayload):
-    metric_type: Literal["network"]
-    value: PositiveFloat = Field(..., description="Throughput in MB/s")
-    bytes_sent: int = Field(..., ge=0)
-    bytes_recv: int = Field(..., ge=0)
-
-
-# Discriminated Union
-
-TelemetryPayload = Annotated[
-    TemperatureTelemetryPayload | CPUTelemetryPayload | NetworkTelemetryPayload,
-    Field(discriminator="metric_type")
-]
 
 
 # ============================================================================
