@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, ChevronDown, CircleHelp, Cpu,
+  AlertTriangle, ArrowLeft, ArrowRight, ChevronDown, CircleHelp, Cpu, Download,
   HardDrive, House, LayoutGrid, MemoryStick, MonitorSmartphone, MoreHorizontal, Stethoscope,
   Thermometer, Workflow, Zap,
 } from 'lucide-react';
@@ -523,6 +523,9 @@ export default function Landing() {
           <p className="lp-lead">Lectio keeps an eye on your computer&apos;s temperatures, CPU and GPU load, memory and drives, and warns you as soon as something crosses a safe limit.</p>
           <div className="lp-actions">
             <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
+            <a className="lp-btn lp-btn-soft" href={SITE.agentDownloadUrl} download>
+              <Download size={16} /> Download for Windows
+            </a>
             <a className="lp-btn lp-btn-soft" href="#steps">See how it works</a>
           </div>
           <ul className="lp-facts" aria-label="At a glance">

@@ -10,4 +10,6 @@ export const SITE = {
   logRetention: null, // how long sign-in security logs are kept, e.g. '12 months'
   governingLaw: null, // e.g. 'Rwanda' or 'England and Wales'
   lastUpdated: '11 November 2026',
+  agentDownloadUrl: import.meta.env.VITE_AGENT_DOWNLOAD_URL
+    || 'https://github.com/wittns-ctrl/Telemetry_engine/releases/latest/download/lectio-agent.exe',
 };
