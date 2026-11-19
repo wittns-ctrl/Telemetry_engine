@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Callable
@@ -24,11 +25,21 @@ from typing import Callable
 import httpx
 
 from agent import fixes as fix_impl
+from app.core.fix_catalogue import get_fix
 
 logger = logging.getLogger("telemetry_agent.fix_worker")
 
 AGENT_VERSION = "0.2.0"
 EXIT_AUTH = 2
+# A timed fix that couldn't be ended is tried again after this long.
+REVERT_RETRY_S = 5 * 60
+# Fix request ids go into URL paths and the local undo records: plain ids only.
+_REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _describe_params(params: dict) -> str:
+    """The fix's (already checked) parameters, such as which app, for the approval prompt."""
+    return "\n".join(f"{name}: {value}" for name, value in params.items())
 
 
 class FixWorker:
@@ -89,12 +100,36 @@ class FixWorker:
         return max(5, min(int(data.get("poll_seconds") or 10), 120))
 
     async def handle(self, fix: dict) -> None:
-        request_id, fix_id = fix["id"], fix["fix_id"]
+        request_id, fix_id = fix.get("id"), fix.get("fix_id")
+        if not isinstance(request_id, str) or not _REQUEST_ID.match(request_id):
+            logger.warning("Ignoring a fix with a malformed id")
+            return
         logger.info(f"Fix requested: {fix_id} ({'undo' if fix.get('undo') else 'run'})")
 
-        if fix.get("needs_pc_approval"):
-            title = ("Undo: " if fix.get("undo") else "") + fix.get("title", fix_id)
-            allowed = await asyncio.to_thread(self.ask, title, fix.get("summary", ""))
+        # What the fix is, how big it is and how it's described on the PC all
+        # come from this agent's own catalogue, never from the server.
+        known = get_fix(fix_id) if isinstance(fix_id, str) else None
+        if known is None or known.manual:
+            await self.report(request_id, "failed", "This PC's Lectio doesn't know that fix.")
+            return
+
+        # Check the parameters before asking, so the prompt shows exactly what will run.
+        # (run_fix checks them again; undos use only the local record.)
+        params: dict = {}
+        if not fix.get("undo"):
+            try:
+                params = known.clean_params(fix.get("params") if isinstance(fix.get("params"), dict) else None)
+            except ValueError as e:
+                await self.report(request_id, "failed", f"This PC refused the fix: {e}")
+                return
+
+        if fix.get("needs_pc_approval") or known.needs_pc_approval:
+            title = ("Undo: " if fix.get("undo") else "") + known.title
+            summary = known.summary
+            details = _describe_params(params)
+            if details:
+                summary = f"{summary}\n\n{details}"
+            allowed = await asyncio.to_thread(self.ask, title, summary)
             if not allowed:
                 await self.report(request_id, "declined", "Someone at the PC chose not to allow this.")
                 return
@@ -104,7 +139,7 @@ class FixWorker:
                 message = await self._undo(fix)
                 await self.report(request_id, "succeeded", message)
             else:
-                message, undo_data = await asyncio.to_thread(fix_impl.run_fix, fix_id, fix.get("params") or {})
+                message, undo_data = await asyncio.to_thread(fix_impl.run_fix, fix_id, params)
                 if undo_data:
                     self._remember(request_id, fix_id, undo_data)
                 # The server only learns that an undo is possible, not the details.
@@ -145,8 +180,13 @@ class FixWorker:
                 try:
                     await asyncio.to_thread(fix_impl.undo_fix, record["fix_id"], record["data"])
                     logger.info(f"Timed fix {record['fix_id']} ended; settings restored")
-                except fix_impl.FixError as e:
+                except Exception as e:
+                    # Not restored: keep the record, try again later, and don't
+                    # tell the website it's over (it can still be undone there).
                     logger.warning(f"Couldn't end timed fix {request_id}: {e}")
+                    due["at"] = now + REVERT_RETRY_S
+                    self.save(self.config)
+                    continue
             self._forget(request_id)
             try:
                 await self.client.post(f"{self.api}/api/v1/agent/fixes/{request_id}/reverted", headers=self.headers)

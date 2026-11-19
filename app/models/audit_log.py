@@ -17,6 +17,12 @@ class AuditEventType(str, Enum):
     ACCOUNT_DEACTIVATION = "account_deactivation"
     TOKEN_REUSE = "token_reuse"
     SUSPICIOUS_ACTIVITY = "suspicious_activity"
+    # Remote fixes (app/api/v1/fixes.py): who asked a PC to do what, and what happened.
+    FIX_REQUESTED = "fix_requested"
+    FIX_UNDO_REQUESTED = "fix_undo_requested"
+    FIX_CANCELLED = "fix_cancelled"
+    FIX_RESULT = "fix_result"
+    FIX_REVERTED = "fix_reverted"
 
 
 class AuditLog(Document):

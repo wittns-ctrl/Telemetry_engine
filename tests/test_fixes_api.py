@@ -6,6 +6,7 @@ import pytest
 
 from app.core.security import hash_token
 from app.models.alert import AlertSeverity, AnomalyAlertDocument
+from app.models.audit_log import AuditEventType, AuditLog
 from app.models.fix import FixRequest, FixStatus
 from app.models.telemetry import Device
 
@@ -254,3 +255,149 @@ class TestFixLevel:
     async def test_unknown_level_rejected(self, async_client, auth_headers):
         r = await async_client.patch("/api/v1/auth/profile", json={"fix_level": "anything"}, headers=auth_headers)
         assert r.status_code == 422
+
+
+class TestSafety:
+    """The rules that let remote fixes ship: see the docstring of app/api/v1/fixes.py."""
+
+    async def set_level(self, client, headers, level):
+        r = await client.patch("/api/v1/auth/profile", json={"fix_level": level}, headers=headers)
+        assert r.status_code == 200
+
+    # 1. only catalogue fixes, with checked parameters
+    @pytest.mark.parametrize("fix_id, params", [
+        ("close_app", {"process": "chrome.exe & calc.exe"}),
+        ("close_app", {"process": "..\\..\\Windows\\notepad.exe"}),
+        ("disable_startup_app", {"name": "..\\..\\Run\\Evil"}),
+        ("disable_startup_app", {"name": "a/b"}),
+        ("restart_service", {"service": "Spooler; Stop-Computer"}),
+        ("cool_down", {"minutes": "60; del *"}),
+        ("cool_down", {"minutes": True}),
+    ])
+    async def test_injection_in_params_is_refused(self, async_client, auth_headers, keyed_device, fix_id, params):
+        r = await ask(async_client, auth_headers, keyed_device, fix_id, params=params)
+        assert r.status_code == 422
+        assert await FixRequest.find_all().count() == 0
+
+    # 2. big fixes always ask on the PC
+    async def test_big_fix_always_goes_out_needing_pc_approval(self, async_client, test_user, keyed_device):
+        # Even a request stored without the flag (old data, a bug) is sent out needing Allow.
+        req = FixRequest(user_id=test_user.id, device_id=keyed_device.id, fix_id="check_disk", needs_pc_approval=False)
+        await req.insert()
+        taken = (await agent_next(async_client)).json()["fix"]
+        assert taken["id"] == str(req.id) and taken["needs_pc_approval"] is True
+
+    # 3. tenant isolation
+    async def test_other_users_cannot_cancel_or_undo(self, async_client, auth_headers, other_auth_headers, keyed_device):
+        fix_id = (await ask(async_client, auth_headers, keyed_device, "cool_down")).json()["id"]
+        assert (await async_client.post(f"/api/v1/fixes/{fix_id}/cancel", headers=other_auth_headers)).status_code == 404
+        await agent_next(async_client)
+        await async_client.post(f"/api/v1/agent/fixes/{fix_id}/result", headers=AGENT,
+                                json={"status": "succeeded", "message": "Done.", "undo_data": {"recorded": True}})
+        assert (await async_client.post(f"/api/v1/fixes/{fix_id}/undo", headers=other_auth_headers)).status_code == 404
+        assert await FixRequest.find_all().count() == 1  # no undo was queued
+
+    async def test_no_access_once_the_device_belongs_to_someone_else(
+        self, async_client, auth_headers, other_user, keyed_device,
+    ):
+        fix_id = (await ask(async_client, auth_headers, keyed_device, "cool_down")).json()["id"]
+        keyed_device.user_id = other_user.id
+        await keyed_device.save()
+        assert (await async_client.post(f"/api/v1/fixes/{fix_id}/cancel", headers=auth_headers)).status_code == 404
+
+    async def test_agent_cannot_revert_another_pcs_fix(self, async_client, auth_headers, keyed_device, keyed_other_device):
+        fix_id = (await ask(async_client, auth_headers, keyed_device, "cool_down")).json()["id"]
+        r = await async_client.post(f"/api/v1/agent/fixes/{fix_id}/reverted", headers={"X-Device-Key": OTHER_KEY})
+        assert r.status_code == 404
+
+    # 4. results are only taken for fixes the PC actually took, and failures stay failures
+    async def test_result_refused_before_the_pc_takes_the_fix(self, async_client, auth_headers, keyed_device):
+        fix_id = (await ask(async_client, auth_headers, keyed_device, "cool_down")).json()["id"]
+        r = await async_client.post(f"/api/v1/agent/fixes/{fix_id}/result", headers=AGENT,
+                                    json={"status": "succeeded", "message": "Done."})
+        assert r.status_code == 409
+        assert (await FixRequest.get(fix_id)).status == FixStatus.QUEUED
+
+    async def test_failure_is_recorded_as_failure(self, async_client, auth_headers, keyed_device):
+        fix_id = (await ask(async_client, auth_headers, keyed_device, "cool_down")).json()["id"]
+        await agent_next(async_client)
+        r = await async_client.post(f"/api/v1/agent/fixes/{fix_id}/result", headers=AGENT,
+                                    json={"status": "failed", "message": "Windows said no.",
+                                          "undo_data": {"recorded": True}})
+        assert r.json()["status"] == "failed" and r.json()["can_undo"] is False
+
+    # 5. audit trail
+    async def test_requests_and_results_are_audited(self, async_client, auth_headers, test_user, keyed_device):
+        fix_id = (await ask(async_client, auth_headers, keyed_device, "cool_down")).json()["id"]
+        await agent_next(async_client)
+        await async_client.post(f"/api/v1/agent/fixes/{fix_id}/result", headers=AGENT,
+                                json={"status": "succeeded", "message": "Done.", "undo_data": {"recorded": True}})
+        undo_id = (await async_client.post(f"/api/v1/fixes/{fix_id}/undo", headers=auth_headers)).json()["id"]
+
+        logs = await AuditLog.find(AuditLog.user_id == str(test_user.id)).sort("+created_at").to_list()
+        events = [log.event_type for log in logs]
+        assert events == [AuditEventType.FIX_REQUESTED, AuditEventType.FIX_RESULT, AuditEventType.FIX_UNDO_REQUESTED]
+        requested, result, undo = logs
+        assert requested.details["actor"] == "user" and requested.details["fix_id"] == "cool_down"
+        assert requested.details["device_id"] == str(keyed_device.id)
+        assert requested.details["params"] == {"minutes": 60, "max_percent": 80}
+        assert result.details["actor"] == "agent" and result.success is True
+        assert result.details["status"] == "succeeded" and result.details["message"] == "Done."
+        assert undo.details["undo_of"] == fix_id and undo.details["fix_request_id"] == undo_id
+
+    async def test_cancel_failure_and_revert_are_audited(self, async_client, auth_headers, test_user, keyed_device):
+        cancelled = (await ask(async_client, auth_headers, keyed_device, "balanced_power")).json()["id"]
+        await async_client.post(f"/api/v1/fixes/{cancelled}/cancel", headers=auth_headers)
+        failed = (await ask(async_client, auth_headers, keyed_device, "check_disk")).json()["id"]
+        await agent_next(async_client)
+        await async_client.post(f"/api/v1/agent/fixes/{failed}/result", headers=AGENT,
+                                json={"status": "failed", "message": "No."})
+        timed = (await ask(async_client, auth_headers, keyed_device, "cool_down")).json()["id"]
+        await agent_next(async_client)
+        await async_client.post(f"/api/v1/agent/fixes/{timed}/result", headers=AGENT,
+                                json={"status": "succeeded", "message": "Done.", "undo_data": {"recorded": True}})
+        await async_client.post(f"/api/v1/agent/fixes/{timed}/reverted", headers=AGENT)
+
+        logs = await AuditLog.find(AuditLog.user_id == str(test_user.id)).to_list()
+        by = {(log.event_type, log.details["fix_request_id"]): log for log in logs}
+        assert (AuditEventType.FIX_CANCELLED, cancelled) in by
+        assert by[(AuditEventType.FIX_RESULT, failed)].success is False
+        assert (AuditEventType.FIX_REVERTED, timed) in by
+
+    # 6. the fix level is enforced by the server, including for fixes already waiting
+    async def test_switching_to_suggest_cancels_waiting_fixes(self, async_client, auth_headers, keyed_device):
+        fix_id = (await ask(async_client, auth_headers, keyed_device, "cool_down")).json()["id"]
+        await self.set_level(async_client, auth_headers, "suggest")
+        assert (await agent_next(async_client)).json()["fix"] is None
+        req = await FixRequest.get(fix_id)
+        assert req.status == FixStatus.CANCELLED and "only suggest" in req.message
+
+    async def test_suggest_still_allows_undo(self, async_client, auth_headers, keyed_device):
+        fix_id = (await ask(async_client, auth_headers, keyed_device, "cool_down")).json()["id"]
+        await agent_next(async_client)
+        await async_client.post(f"/api/v1/agent/fixes/{fix_id}/result", headers=AGENT,
+                                json={"status": "succeeded", "message": "Done.", "undo_data": {"recorded": True}})
+        await self.set_level(async_client, auth_headers, "suggest")
+        assert (await ask(async_client, auth_headers, keyed_device, "balanced_power")).status_code == 403
+        assert (await async_client.post(f"/api/v1/fixes/{fix_id}/undo", headers=auth_headers)).status_code == 201
+        taken = (await agent_next(async_client)).json()["fix"]
+        assert taken["undo"] is True and taken["undo_of"] == fix_id
+
+    async def test_switching_to_always_ask_applies_to_waiting_fixes(self, async_client, auth_headers, keyed_device):
+        r = await ask(async_client, auth_headers, keyed_device, "cool_down")
+        assert r.json()["needs_pc_approval"] is False
+        await self.set_level(async_client, auth_headers, "always_ask")
+        assert (await agent_next(async_client)).json()["fix"]["needs_pc_approval"] is True
+
+    # 7. rate limit
+    async def test_fix_requests_have_their_own_rate_limit(self, async_client, auth_headers, keyed_device):
+        from app.core.config import settings
+        codes = [
+            (await ask(async_client, auth_headers, keyed_device, "balanced_power")).status_code
+            for _ in range(settings.RATE_LIMIT_FIX_PER_MINUTE + 1)
+        ]
+        assert codes[0] == 201 and 429 not in codes[:-1] and codes[-1] == 429
+        r = await ask(async_client, auth_headers, keyed_device, "balanced_power")
+        assert r.status_code == 429 and int(r.headers["Retry-After"]) >= 1
+        # Reading still works: only asking a PC to do something is limited this tightly.
+        assert (await async_client.get(f"/api/v1/devices/{keyed_device.id}/fixes", headers=auth_headers)).status_code == 200
