@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Flame } from "lucide-react";
-import { BACKEND_DISABLED, fetchDevices, fetchLatestTelemetry, fetchTelemetryHistory } from "../services/api";
-import { SAMPLE_DEVICES, SAMPLE_SNAPSHOT, SAMPLE_PLACES, sampleWave } from "./sampleData";
+import { fetchDevices, fetchLatestTelemetry, fetchTelemetryHistory } from "../services/api";
 import { GROUPS, READING_COUNT, valueOf, maxOf, statusOf, display, show, isCharted, healthOf } from "./readings";
 import { Card, Chip, Stat, Pill, Ring, Gauge, Tabs, Seg, LineGraph, Modal, Promo, Empty } from "./ui";
 import { DeviceMap } from "./DeviceMap";
@@ -22,42 +21,13 @@ const PERIODS = [
 // Headings for the two tall cards.
 const TITLES = { cpu_util: "CPU Utilization", gpu_util: "GPU Utilization", ram_usage: "RAM Usage", disk_used: "Storage Used", cpu_power: "Package Power", gpu_vram: "VRAM Used", ram_used: "RAM Used", vrm_temp: "VRM Temperature", psu_12v: "PSU +12V Rail" };
 
-// How much each sample series wanders (share of its value); slow readings barely move.
-const SAMPLE_SWING = { psu_12v: 0.004, disk_smart: 0.003, disk_tbw: 0.01, disk_used: 0.008, cpu_clock: 0.05, ram_used: 0.05, ram_usage: 0.05, gpu_vram: 0.2 };
-
-/** A time label for every sample point, newest last. */
-function sampleLabels(period, count) {
-  const now = new Date();
-  return Array.from({ length: count }, (_, i) => {
-    const back = count - 1 - i;
-    const d = new Date(now);
-    if (period === "24h") {
-      d.setMinutes(0, 0, 0);
-      d.setHours(d.getHours() - back);
-      return back === 0 ? "Now" : d.toLocaleTimeString("en-US", { hour: "numeric" });
-    }
-    d.setDate(d.getDate() - back);
-    if (back === 0) return "Today";
-    return period === "7d"
-      ? d.toLocaleDateString("en-US", { weekday: "short" })
-      : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  });
-}
-
 /**
  * The first device's latest snapshot and its stored history for the period.
- * In frontend-only mode it returns the sample PC, with `history` null so the
- * graphs draw sample series instead.
  */
 function useTelemetry(period) {
-  const [state, setState] = useState(() => (
-    BACKEND_DISABLED
-      ? { status: "ready", device: SAMPLE_DEVICES[0], snapshot: SAMPLE_SNAPSHOT, history: null }
-      : { status: "loading" }
-  ));
+  const [state, setState] = useState({ status: "loading" });
 
   useEffect(() => {
-    if (BACKEND_DISABLED) return undefined;
     let cancelled = false;
     const span = PERIODS.find((p) => p.id === period).ms;
     const load = async () => {
@@ -90,22 +60,11 @@ function useTelemetry(period) {
 }
 
 /** A reading's values over the period, with a time label for each point. */
-function buildSeries(reading, { snapshot, history }, period) {
+function buildSeries(reading, { history }) {
   const none = { values: [], labels: [] };
   if (!isCharted(reading)) return none;
 
-  if (!history) {
-    const end = valueOf(reading, snapshot);
-    if (end === null) return none;
-    const points = PERIODS.find((p) => p.id === period).points;
-    const seed = ([...reading.id].reduce((n, c) => n + c.charCodeAt(0), 0) % 9) + points * 0.1;
-    return {
-      values: sampleWave(points, end, { seed, swing: SAMPLE_SWING[reading.id], min: reading.min ?? 0, max: maxOf(reading, snapshot), digits: Math.max(1, reading.digits || 0) }),
-      labels: sampleLabels(period, points),
-    };
-  }
-
-  if (!history.length) return none;
+  if (!history?.length) return none;
   // Average the stored snapshots into at most 30 buckets across the time they cover.
   const at = (snap) => new Date(snap.timestamp).getTime();
   const first = at(history[0]);
@@ -153,7 +112,7 @@ function ReadingDetail({ group, reading, data, period, setPeriod, onClose, onNav
   const value = valueOf(reading, data.snapshot);
   const shown = display(reading, value);
   const status = statusOf(reading, value);
-  const series = buildSeries(reading, data, period);
+  const series = buildSeries(reading, data);
   const stats = summarise(series.values);
   return (
     <Modal title={`${group.label} · ${reading.label}`} onClose={onClose}>
@@ -226,7 +185,7 @@ export function Dashboard({ onNavigate }) {
   const { snapshot, device } = data;
   const read = (reading) => {
     const value = valueOf(reading, snapshot);
-    return { value, shown: display(reading, value), status: statusOf(reading, value), stats: summarise(buildSeries(reading, data, period).values) };
+    return { value, shown: display(reading, value), status: statusOf(reading, value), stats: summarise(buildSeries(reading, data).values) };
   };
   const scale = (reading, value) => {
     const min = reading.min ?? 0;
@@ -268,11 +227,8 @@ export function Dashboard({ onNavigate }) {
   const big = group.layout.big ? byId[group.layout.big] : null;
   const bigNow = big ? read(big) : null;
 
-  // Where the PCs are. The API has no location for a device yet, so with the
-  // backend connected a device only appears once it carries a `country`.
-  const places = BACKEND_DISABLED
-    ? SAMPLE_PLACES
-    : device.country ? [{ country: device.country, health: healthOf(snapshot) }] : [];
+  // Where the PCs are: a device appears once it has a country (set on My Devices).
+  const places = device.country ? [{ country: device.country, health: healthOf(snapshot) }] : [];
 
   const pill = (id, tone) => {
     const reading = byId[id];
@@ -310,7 +266,6 @@ export function Dashboard({ onNavigate }) {
           {tab === "storage" && drive?.device_name ? ` · ${drive.device_name}` : ""}
           {` · updated ${timeAgo(snapshot.timestamp)}`}
         </span>
-        {BACKEND_DISABLED && <Chip tone="o">Sample data</Chip>}
       </div>
 
       {group.layout.stats.length > 0 && <div className="g3">{group.layout.stats.map(statCard)}</div>}
@@ -339,8 +294,7 @@ export function Dashboard({ onNavigate }) {
 
         <DeviceMap
           places={places}
-          sample={BACKEND_DISABLED}
-          emptyText="Lectio doesn't record where your PCs are yet, so there is nothing to shade on the map."
+          emptyText="Set your PC's country on My Devices to place it on the map."
           onOpen={() => onNavigate?.("devices")}
         />
       </div>

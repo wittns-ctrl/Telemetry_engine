@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Database, Thermometer, Cpu, Radio, Send } from "lucide-react";
-import { BACKEND_DISABLED, fetchMetrics, ingestMetric } from "../services/api";
-import { SAMPLE_METRICS, SAMPLE_THRESHOLDS, statsOf } from "./sampleData";
+import { fetchMetrics, ingestMetric } from "../services/api";
 import { Card, Head, Chip, Stat, Field, Empty, Modal } from "./ui";
 import { cx, METRIC_TYPES, metricType, metricValue } from "./format";
 
@@ -46,7 +45,6 @@ function TypeChips({ value, onChange, label, withAll }) {
 export function MetricsStudioView({ stats, onRefreshStats }) {
   // ---- stored readings
   const [fetched, setFetched] = useState([]);
-  const [local, setLocal] = useState(() => (BACKEND_DISABLED ? SAMPLE_METRICS : null)); // frontend-only mode
   const [loading, setLoading] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [sensorDraft, setSensorDraft] = useState("");
@@ -55,7 +53,6 @@ export function MetricsStudioView({ stats, onRefreshStats }) {
   const [inspected, setInspected] = useState(null);
 
   const loadData = useCallback(async () => {
-    if (BACKEND_DISABLED) return;
     setLoading(true);
     try {
       const data = await fetchMetrics({
@@ -76,15 +73,8 @@ export function MetricsStudioView({ stats, onRefreshStats }) {
     loadData();
   }, [loadData]);
 
-  const rows = useMemo(() => {
-    if (!local) return fetched;
-    const wanted = sensorFilter.trim().toLowerCase();
-    return local
-      .filter((m) => (typeFilter === "all" || m.metric_type === typeFilter) && (!wanted || m.sensor_id.toLowerCase().includes(wanted)))
-      .slice(0, limit);
-  }, [local, fetched, typeFilter, sensorFilter, limit]);
-
-  const totals = local ? statsOf(local) : stats;
+  const rows = fetched;
+  const totals = stats;
   const total = totals?.total_metrics || 0;
   const share = (n) => (total ? `${((n / total) * 100).toFixed(1)}%` : "0%");
 
@@ -110,16 +100,8 @@ export function MetricsStudioView({ stats, onRefreshStats }) {
     clearResult();
     const payload = buildPayload(form);
     try {
-      if (local) {
-        // Frontend-only mode: keep the reading in this page instead of sending it.
-        const { sensor_id, metric_type, value, ...payload_data } = payload;
-        const record = { id: `local-${Date.now()}`, sensor_id, metric_type, value, payload_data, timestamp: new Date().toISOString() };
-        setLocal((prev) => [record, ...prev]);
-        setLastResponse({ metric_id: record.id, alert_triggered: value > SAMPLE_THRESHOLDS[metric_type].max });
-      } else {
-        setLastResponse(await ingestMetric(payload));
-        loadData();
-      }
+      setLastResponse(await ingestMetric(payload));
+      loadData();
     } catch (err) {
       setErrorMsg(err.message || "Couldn't send the reading");
     } finally {
@@ -132,7 +114,7 @@ export function MetricsStudioView({ stats, onRefreshStats }) {
   return (
     <div className="page">
       <div className="g4">
-        <Stat label="Stored readings" value={total.toLocaleString("en-US")} sub={BACKEND_DISABLED ? "Sample data" : "On your account"} icon={Database} tone="gd" />
+        <Stat label="Stored readings" value={total.toLocaleString("en-US")} sub="On your account" icon={Database} tone="gd" />
         {METRIC_TYPES.map((t, i) => {
           const count = totals?.by_type?.[t.id] || 0;
           return <Stat key={t.id} tone={["dk", "gs", undefined][i]} label={t.label} value={count.toLocaleString("en-US")} sub={<><b>{share(count)}</b> of all</>} icon={TYPE_ICONS[t.id]} />;
@@ -143,7 +125,7 @@ export function MetricsStudioView({ stats, onRefreshStats }) {
         <Card className="pad col f1">
           <Head icon={Database} title="Stored readings">
             <TypeChips value={typeFilter} onChange={setTypeFilter} label="Reading type" withAll />
-            {!BACKEND_DISABLED && <button type="button" className="vd" onClick={loadData} disabled={loading}>{loading ? "Loading…" : "Refresh"}</button>}
+            <button type="button" className="vd" onClick={loadData} disabled={loading}>{loading ? "Loading…" : "Refresh"}</button>
           </Head>
           <form
             className="row ac"

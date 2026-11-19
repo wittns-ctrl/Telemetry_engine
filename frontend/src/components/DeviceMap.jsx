@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Chip } from "./ui";
 import { cx } from "./format";
 
 // The dashboard's map card: a list of countries on the left and a live map on
@@ -81,7 +80,7 @@ function tipElement() {
   return el;
 }
 
-export function DeviceMap({ places = [], emptyText, sample, onOpen }) {
+export function DeviceMap({ places = [], emptyText, onOpen }) {
   const boxRef = useRef(null);
   const mapRef = useRef(null);
   const pinsRef = useRef([]);
@@ -308,7 +307,6 @@ export function DeviceMap({ places = [], emptyText, sample, onOpen }) {
 
       <div className="row ac">
         <button type="button" className="vd" onClick={onOpen} aria-label="View details: devices">View details</button>
-        {sample && <Chip tone="o">Sample data</Chip>}
       </div>
     </article>
   );

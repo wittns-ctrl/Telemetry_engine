@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Monitor, Plus, RefreshCw, TriangleAlert, Info, HardDrive, ChartLine, Bell, Sparkles, ChevronUp, Terminal, MapPin, Wrench } from "lucide-react";
 import {
   API_BASE,
-  BACKEND_DISABLED,
   fetchDevices,
   fetchLatestTelemetry,
   fetchDeviceAlerts,
@@ -16,7 +15,6 @@ import {
   cancelFix,
   undoFix,
 } from "../services/api";
-import { SAMPLE_DEVICES, SAMPLE_DEVICE_ALERTS, SAMPLE_REPORT, sampleSnapshot, sampleWave } from "./sampleData";
 import { DiagnosisPanel } from "./DiagnosisPanel";
 import { Card, Head, Chip, Ico, Empty, LineGraph, Tabs } from "./ui";
 import { FixHistory, FixOptions, FixStatusLine } from "./fixes";
@@ -42,17 +40,6 @@ const pointOf = (snap) => ({
 /** A device counts as online when it reported within the last two minutes. */
 const isOnline = (device) => Boolean(device.last_seen) && Date.now() - new Date(device.last_seen).getTime() < 120000;
 
-/** Frontend-only mode: a minute of history for the sample PC, ending on its snapshot. */
-function sampleHistory(snap) {
-  const waves = Object.fromEntries(LINES.map(({ key }, k) => [key, sampleWave(30, pointOf(snap)[key], { seed: k * 2.1, max: 100, digits: 1 })]));
-  return Array.from({ length: 30 }, (_, i) => ({
-    t: timeLabel(Date.now() - (29 - i) * 2000),
-    cpu: waves.cpu[i],
-    gpu: waves.gpu[i],
-    ram: waves.ram[i],
-  }));
-}
-
 /** How to connect a PC: the agent command, shown when there are no devices or on "Add a device". */
 function AddDevice({ onRefresh }) {
   return (
@@ -74,18 +61,11 @@ uv run python -m agent.telemetry_agent --api ${API_BASE}`}</pre>
   );
 }
 
-// The country names the map can draw, loaded once. With the backend off they
-// come straight from the map's own data (world-atlas), which the API list mirrors.
+// The country names the map can draw, loaded once.
 let countriesPromise;
 function loadCountries() {
   if (!countriesPromise) {
-    countriesPromise = (BACKEND_DISABLED
-      ? import("world-atlas/countries-110m.json").then((m) => {
-          const world = m.default || m;
-          return [...new Set(world.objects.countries.geometries.map((g) => g.properties.name))].sort();
-        })
-      : fetchDeviceCountries()
-    ).catch((err) => {
+    countriesPromise = fetchDeviceCountries().catch((err) => {
       countriesPromise = null; // let the next mount try again
       throw err;
     });
@@ -119,7 +99,7 @@ function LocationCard({ device, onSaved }) {
     setStatus({ state: "saving" });
     const country = draft || null;
     try {
-      const next = BACKEND_DISABLED ? { ...device, country } : await updateDevice(device.id, { country });
+      const next = await updateDevice(device.id, { country });
       onSaved(next);
       setStatus({ state: "done", text: country ? `Saved. ${device.device_name} now shows in ${country} on the map.` : "Removed from the map." });
     } catch (err) {
@@ -208,7 +188,7 @@ export function DevicesView() {
     setLoadingDevices(true);
     setError(null);
     try {
-      const list = BACKEND_DISABLED ? SAMPLE_DEVICES : (await fetchDevices())?.devices || [];
+      const list = (await fetchDevices())?.devices || [];
       setDevices(list);
       setSelectedId((current) => (current && list.some((d) => d.id === current) ? current : list[0]?.id || null));
     } catch (err) {
@@ -231,7 +211,6 @@ export function DevicesView() {
   }, []);
 
   const loadFixes = useCallback(async (deviceId) => {
-    if (BACKEND_DISABLED) return;
     setFixesLoading(true);
     try {
       const list = await fetchFixHistory(deviceId);
@@ -267,31 +246,6 @@ export function DevicesView() {
     selectedIdRef.current = selectedId;
     loadFixes(selectedId);
 
-    if (BACKEND_DISABLED) {
-      // Sample PC: show its snapshot and let the three load figures drift every two seconds.
-      const sample = sampleSnapshot(selectedId);
-      setSnapshot(sample);
-      setAlerts(SAMPLE_DEVICE_ALERTS.filter((a) => a.device_id === selectedId));
-      setSocketState(sample ? "live" : "offline");
-      if (!sample) return undefined;
-      setHistory(sampleHistory(sample));
-      const drift = (v, lo, hi) => Math.round(Math.min(hi, Math.max(lo, v + (Math.random() - 0.5) * 6)) * 10) / 10;
-      const timer = setInterval(() => {
-        setSnapshot((prev) => {
-          const next = {
-            ...prev,
-            timestamp: new Date().toISOString(),
-            cpu: { ...prev.cpu, utilization_percent: drift(prev.cpu.utilization_percent, 12, 70) },
-            gpu: { ...prev.gpu, utilization_percent: drift(prev.gpu.utilization_percent, 4, 40) },
-            ram: { ...prev.ram, usage_percent: drift(prev.ram.usage_percent, 86, 95) },
-          };
-          pushPoint(next);
-          return next;
-        });
-      }, 2000);
-      return () => clearInterval(timer);
-    }
-
     fetchLatestTelemetry(selectedId)
       .then((snap) => {
         if (cancelled) return;
@@ -315,7 +269,7 @@ export function DevicesView() {
 
   // Live socket for the selected device.
   useEffect(() => {
-    if (!selectedId || BACKEND_DISABLED) return undefined;
+    if (!selectedId) return undefined;
     let disposed = false;
 
     const connect = () => {
@@ -378,7 +332,7 @@ export function DevicesView() {
     setDiagnoses((prev) => ({ ...prev, [alertId]: { status: "loading" } }));
     let next;
     try {
-      next = { status: "ready", report: BACKEND_DISABLED ? SAMPLE_REPORT : await requestDiagnosis(alertId, deviceId) };
+      next = { status: "ready", report: await requestDiagnosis(alertId, deviceId) };
     } catch (err) {
       next = { status: "error", error: err };
     }
@@ -391,30 +345,13 @@ export function DevicesView() {
   // While a fix is on its way, check every few seconds in case a live update is missed.
   const pendingFix = fixes.some((f) => f.status === "queued" || f.status === "running");
   useEffect(() => {
-    if (!pendingFix || !selectedId || BACKEND_DISABLED) return undefined;
+    if (!pendingFix || !selectedId) return undefined;
     const timer = setInterval(() => loadFixes(selectedId), 5000);
     return () => clearInterval(timer);
   }, [pendingFix, selectedId, loadFixes]);
 
-  const sendFix = async (alert, { fixId, option }) => {
+  const sendFix = async (alert, { fixId }) => {
     setFixActionError(null);
-    if (BACKEND_DISABLED) {
-      // Sample PC: pretend it ran, without changing anything.
-      const now = new Date().toISOString();
-      const fix = {
-        id: `sample-${Date.now()}`, device_id: selectedId, fix_id: fixId, title: option.title,
-        params: fixId === "cool_down" ? { minutes: 60, max_percent: 80 } : {}, alert_id: alert.id,
-        needs_pc_approval: option.needs_pc_approval, is_undo: false, undo_of: null, can_undo: false, undone: false,
-        status: "running", message: null, reverted_at: null, created_at: now, started_at: now, finished_at: null,
-      };
-      upsertFix(fix);
-      setOpenFixes((prev) => ({ ...prev, [alert.id]: false }));
-      setTimeout(() => upsertFix({
-        ...fix, status: "succeeded", can_undo: option.undoable, finished_at: new Date().toISOString(),
-        message: "Done. (Sample data: nothing on a real PC was changed.)",
-      }), 1800);
-      return;
-    }
     const fix = await requestFix(selectedId, { fixId, alertId: alert.id });
     upsertFix(fix);
     setOpenFixes((prev) => ({ ...prev, [alert.id]: false }));
@@ -424,10 +361,6 @@ export function DevicesView() {
     setBusyFixId(fix.id);
     setFixActionError(null);
     try {
-      if (BACKEND_DISABLED) {
-        upsertFix(action === "undo" ? { ...fix, can_undo: false, undone: true } : { ...fix, status: "cancelled" });
-        return;
-      }
       upsertFix(action === "undo" ? await undoFix(fix.id) : await cancelFix(fix.id));
     } catch (err) {
       setFixActionError(err.message);
@@ -503,7 +436,6 @@ export function DevicesView() {
             <Plus strokeWidth={2} aria-hidden="true" />
             Add a device
           </button>
-          {BACKEND_DISABLED && <Chip tone="o">Sample data</Chip>}
         </div>
 
         <div className="col f1">

@@ -1,8 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { ChartLine, ChartPie, Database, Thermometer, Cpu, Radio, Server } from "lucide-react";
-import { BACKEND_DISABLED } from "../services/api";
 import { useRecentMetrics } from "../hooks/useRecentMetrics";
-import { statsOf } from "./sampleData";
 import { Card, Head, Chip, Stat, Seg, LineGraph } from "./ui";
 import { cx, METRIC_TYPES, metricType } from "./format";
 
@@ -38,7 +36,7 @@ export function AnalyticsView({ stats, thresholds, onNavigate }) {
   const [type, setType] = useState("all");
   const { metrics, loading } = useRecentMetrics(FETCH_LIMIT);
 
-  const totals = BACKEND_DISABLED ? statsOf(metrics) : stats;
+  const totals = stats;
   const total = totals?.total_metrics || 0;
   const share = (n) => (total ? (n / total) * 100 : 0);
   const recent = metrics.length >= FETCH_LIMIT ? `latest ${FETCH_LIMIT.toLocaleString("en-US")}` : metrics.length.toLocaleString("en-US");
@@ -108,7 +106,6 @@ export function AnalyticsView({ stats, thresholds, onNavigate }) {
         />
         <p className="sub" style={{ margin: "calc(2 * var(--u)) 0 calc(4 * var(--u))" }}>
           Counted from your {recent} stored readings.
-          {BACKEND_DISABLED && " Sample data."}
         </p>
       </Card>
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ListChecks, Sparkles, Wrench } from "lucide-react";
 import { fixState } from "./fixState";
-import { BACKEND_DISABLED, fetchFixSuggestions } from "../services/api";
+import { fetchFixSuggestions } from "../services/api";
 import { Card, Chip, Head, Ico, Empty } from "./ui";
 import { cx, timeAgo } from "./format";
 
@@ -34,18 +34,6 @@ export function FixStatusLine({ fix, pc, onUndo, onCancel, busy }) {
   );
 }
 
-// Frontend-only mode: the sample PC's options for a heat alert.
-const SAMPLE_SUGGESTIONS = {
-  fix_level: "standard",
-  source: "rules",
-  options: [
-    { id: "cool_down", title: "Cool it down now", summary: "Lower the processor's top speed for a while.", reason: "Cuts the heat right away, at the cost of a little speed for an hour.", size: "small", undoable: true, needs_pc_approval: false, manual: false, recommended: true, params: ["minutes", "max_percent"] },
-    { id: "balanced_power", title: "Switch to the Balanced power plan", summary: "Stop the PC running at full power all the time.", reason: "Stops the PC running flat out when it doesn't need to.", size: "small", undoable: true, needs_pc_approval: false, manual: false, recommended: false, params: [] },
-    { id: "check_disk", title: "Check the drive for errors", summary: "Run Windows' own drive check.", reason: "Windows looks over the drive for problems without changing anything.", size: "big", undoable: false, needs_pc_approval: true, manual: false, recommended: false, params: [] },
-    { id: "clean_fans", title: "Clean the fans", summary: "Dust may be blocking the air. Switch off, unplug, and blow out the vents and fans.", reason: "Dust is the most common reason a PC slowly gets hotter.", size: "small", undoable: false, needs_pc_approval: false, manual: true, recommended: false, params: [] },
-  ],
-};
-
 /**
  * Design A: the fix options for one alert, as radio cards with "Fix it".
  * onFix({ fixId }) sends the chosen fix; it should throw on failure.
@@ -60,7 +48,7 @@ export function FixOptions({ device, alert, onFix }) {
 
   useEffect(() => {
     let cancelled = false;
-    (BACKEND_DISABLED ? Promise.resolve(SAMPLE_SUGGESTIONS) : fetchFixSuggestions(device.id, alert.id))
+    fetchFixSuggestions(device.id, alert.id)
       .then((d) => {
         if (cancelled) return;
         setData(d);

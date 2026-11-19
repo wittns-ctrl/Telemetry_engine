@@ -1,25 +1,3 @@
-// ---------------------------------------------------------------------------
-// FRONTEND-ONLY MODE
-// While BACKEND_DISABLED is true the app never talks to the API: no fetches,
-// no sockets. You land straight in the dashboard as a placeholder user, and
-// sign-in / sign-up just let you through. Set it to false to reconnect.
-// ---------------------------------------------------------------------------
-export const BACKEND_DISABLED = false;
-
-export const OFFLINE_USER = {
-  id: "offline-user",
-  full_name: "Offline User",
-  email: "offline@example.com",
-  is_verified: true,
-  email_verified: true,
-  email_alerts: true,
-  role: "owner",
-  created_at: "2026-03-12T08:30:00Z",
-  last_login_at: new Date().toISOString(),
-};
-
-const BACKEND_DISABLED_MESSAGE = "The backend is disabled (frontend-only mode).";
-
 export const API_BASE = (import.meta.env.VITE_API_BASE || "http://localhost:8000").replace(/\/$/, "");
 
 // WebSocket origin defaults to the API origin with ws:// or wss:// swapped in.
@@ -67,7 +45,6 @@ async function readError(response, fallback) {
 let refreshPromise = null;
 
 export async function refreshAccessToken() {
-  if (BACKEND_DISABLED) return null;
   if (!refreshPromise) {
     refreshPromise = (async () => {
       const response = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
@@ -92,7 +69,6 @@ export async function refreshAccessToken() {
  * the access token once and retries. If the refresh fails the session is cleared.
  */
 async function apiFetch(path, { auth = true, headers = {}, ...options } = {}) {
-  if (BACKEND_DISABLED) throw new Error(BACKEND_DISABLED_MESSAGE);
   const doFetch = () => {
     const finalHeaders = { ...headers };
     if (options.body && typeof options.body === "string" && !finalHeaders["Content-Type"]) {
@@ -130,7 +106,6 @@ async function apiJson(path, options = {}, fallbackError = "Request failed") {
 // ---------------------------------------------------------------------------
 
 export async function loginUser(email, password) {
-  if (BACKEND_DISABLED) return { access_token: null, user: OFFLINE_USER };
   const formData = new URLSearchParams();
   formData.append("username", email);
   formData.append("password", password);
@@ -153,7 +128,6 @@ export async function loginUser(email, password) {
 
 // Google sign-in is a full-page redirect: API -> Google -> API -> /signin?google=success.
 export function startGoogleSignIn() {
-  if (BACKEND_DISABLED) return;
   window.location.assign(`${API_BASE}/api/v1/auth/google/login`);
 }
 
@@ -177,7 +151,6 @@ export async function completeGoogleSignIn() {
 }
 
 export async function signupUser({ fullName, email, password, confirmPassword }) {
-  if (BACKEND_DISABLED) return { ...OFFLINE_USER, full_name: fullName || OFFLINE_USER.full_name, email };
   return apiJson(
     "/api/v1/auth/register",
     {
@@ -195,7 +168,6 @@ export async function signupUser({ fullName, email, password, confirmPassword })
 }
 
 export async function fetchCurrentUser() {
-  if (BACKEND_DISABLED) return OFFLINE_USER;
   if (!getAccessToken()) return null;
   const response = await apiFetch("/api/v1/auth/me");
   if (!response.ok) return null;
@@ -203,7 +175,6 @@ export async function fetchCurrentUser() {
 }
 
 export async function logoutUser() {
-  if (BACKEND_DISABLED) return;
   try {
     await apiFetch("/api/v1/auth/logout", { method: "POST" });
   } catch {
@@ -219,7 +190,6 @@ export async function updateProfile({ fullName, emailAlerts, fixLevel }) {
   if (fullName !== undefined) changes.full_name = fullName;
   if (emailAlerts !== undefined) changes.email_alerts = emailAlerts;
   if (fixLevel !== undefined) changes.fix_level = fixLevel;
-  if (BACKEND_DISABLED) return { ...OFFLINE_USER, ...changes };
   return apiJson(
     "/api/v1/auth/profile",
     { method: "PATCH", body: JSON.stringify(changes) },
@@ -287,7 +257,6 @@ export async function resendVerification(email) {
 // ---------------------------------------------------------------------------
 
 export async function fetchDevices() {
-  if (BACKEND_DISABLED) return { devices: [] };
   return apiJson("/api/v1/devices", {}, "Failed to load devices");
 }
 

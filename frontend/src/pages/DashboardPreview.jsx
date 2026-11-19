@@ -4,7 +4,7 @@ import { LectioMark } from '../components/LectioMark';
 import { MAIN_ITEMS, OTHER_ITEMS } from '../components/navItems';
 import { GROUPS, READING_COUNT } from '../components/readings';
 import { Gauge, PromoArt, Ring } from '../components/ui';
-import { SAMPLE_SNAPSHOT, SAMPLE_PLACES } from '../components/sampleData';
+import { SAMPLE_SNAPSHOT, SAMPLE_PLACES } from './previewData';
 import { PREVIEW_MAP } from './previewMap';
 
 /*

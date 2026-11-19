@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import { Server, Layers, Clock, Thermometer, Cpu, Radio } from "lucide-react";
-import { BACKEND_DISABLED } from "../services/api";
 import { useRecentMetrics } from "../hooks/useRecentMetrics";
 import { Card, Chip, Ico, Stat, Empty, LineGraph, Modal } from "./ui";
 import { timeAgo, metricType, metricValue } from "./format";
@@ -88,7 +87,7 @@ export function SensorsView({ stats }) {
       )}
 
       <div className="row ac">
-        {BACKEND_DISABLED ? <Chip tone="o">Sample data</Chip> : <button type="button" className="vd" onClick={reload} disabled={loading}>{loading ? "Loading…" : "Refresh"}</button>}
+        <button type="button" className="vd" onClick={reload} disabled={loading}>{loading ? "Loading…" : "Refresh"}</button>
       </div>
 
       {open && (
