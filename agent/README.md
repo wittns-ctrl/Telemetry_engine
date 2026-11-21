@@ -71,6 +71,7 @@ uv sync --extra agent --group build
 uv run python agent/build_exe.py --api https://api.your-lectio-host.com
 ```
 
-This writes `dist/lectio-agent.exe` (about 25 MB). `TELEMETRY_API` or `--api`
+This writes `dist/lectio-agent.exe` (about 25 MB) and copies it to
+`downloads/lectio-agent.exe`, which the API hands out at `/api/v1/agent/download`. `TELEMETRY_API` or `--api`
 still override the built-in URL. PyInstaller is in the `build` dependency
 group, so the server install and `requirements.txt` never include it.

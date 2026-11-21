@@ -43,6 +43,12 @@ class AnomalyAlertDocument(Document):
     is_active: bool = Field(default=True, description="Whether the alert is currently active")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Alert creation timestamp")
     resolved_at: Optional[datetime] = Field(None, description="Alert resolution timestamp (when is_active becomes False)")
+    # When the reading was last over the limit. Kept in the database so open
+    # alerts can still close on their own after the API restarts.
+    last_breach_at: Optional[datetime] = Field(None, description="When the reading was last over the limit")
+    # How the alert closed: "recovered" (back within its limit), "no_reading"
+    # (the PC stopped reporting that reading) or "closed_by_user".
+    resolved_reason: Optional[str] = Field(None, max_length=32, description="Why the alert closed")
     email_sent_at: Optional[datetime] = Field(None, description="When the alert email was sent, if one was")
     
     class Settings:

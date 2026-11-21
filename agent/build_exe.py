@@ -12,6 +12,7 @@ LECTIO_API_URL environment variable. Run this on Windows, from any folder.
 from __future__ import annotations
 
 import argparse
+import shutil
 import os
 import sys
 from pathlib import Path
@@ -75,6 +76,12 @@ def main() -> None:
     PyInstaller.__main__.run(pyi_args)
     exe = ROOT / "dist" / "lectio-agent.exe"
     print(f"Built {exe} ({exe.stat().st_size / 1_048_576:.1f} MB)")
+
+    # The API hands out downloads/lectio-agent.exe at /api/v1/agent/download.
+    published = ROOT / "downloads" / "lectio-agent.exe"
+    published.parent.mkdir(exist_ok=True)
+    shutil.copy2(exe, published)
+    print(f"Copied to {published}: deploy it with the API (see README, Deploy).")
 
 
 if __name__ == "__main__":

@@ -93,6 +93,13 @@ class Settings(BaseSettings):
     ANOMALY_ENGINE_ENABLED: bool = True
     ANOMALY_ENGINE_DEBOUNCE_ENABLED: bool = True
     ANOMALY_ENGINE_AUTO_RESOLUTION: bool = True
+    # An open alert closes by itself when its reading hasn't been reported for
+    # this long (for example a sensor that stopped answering).
+    ALERT_STALE_MINUTES: int = 15
+
+    # The Windows agent handed out at /api/v1/agent/download. agent/build_exe.py
+    # copies each new build here; replace the file to publish a new version.
+    AGENT_DOWNLOAD_PATH: str = "downloads/lectio-agent.exe"
 
     # AI Diagnostic Settings
     OPENAI_API_KEY: str = ""

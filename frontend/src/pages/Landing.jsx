@@ -6,6 +6,7 @@ import {
   Thermometer, Workflow, Zap,
 } from 'lucide-react';
 import { SITE } from '../siteInfo';
+import { AGENT_DOWNLOAD_URL, fetchAgentDownloadInfo } from '../services/api';
 import { LectioMark } from '../components/LectioMark';
 import { DashboardPreview } from './DashboardPreview';
 import './landing.css';
@@ -502,6 +503,17 @@ export default function Landing() {
   const [openFaq, setOpenFaq] = useState(1);
   useLandingMotion(rootRef);
 
+  // Only offer the download once the server has an agent to hand out, so the
+  // button never leads to an error page.
+  const [agentReady, setAgentReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchAgentDownloadInfo()
+      .then((info) => { if (!cancelled) setAgentReady(Boolean(info?.available)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     const prev = document.title;
     document.title = 'Lectio — free PC health monitoring for Windows';
@@ -523,9 +535,11 @@ export default function Landing() {
           <p className="lp-lead">Lectio keeps an eye on your computer&apos;s temperatures, CPU and GPU load, memory and drives, and warns you as soon as something crosses a safe limit.</p>
           <div className="lp-actions">
             <Link className="lp-btn lp-btn-dark" to="/signup">Create free account <ArrowRight size={16} /></Link>
-            <a className="lp-btn lp-btn-soft" href={SITE.agentDownloadUrl} download>
-              <Download size={16} /> Download for Windows
-            </a>
+            {agentReady && (
+              <a className="lp-btn lp-btn-soft" href={AGENT_DOWNLOAD_URL}>
+                <Download size={16} /> Download for Windows
+              </a>
+            )}
             <a className="lp-btn lp-btn-soft" href="#steps">See how it works</a>
           </div>
           <ul className="lp-facts" aria-label="At a glance">

@@ -32,6 +32,11 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _aware(dt: datetime) -> datetime:
+    """MongoDB hands datetimes back without a timezone; they are UTC."""
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 @dataclass
 class BreachState:
     """
@@ -174,9 +179,14 @@ class AnomalyEngine:
             # Periodic cleanup of old states
             self._cleanup_old_states()
             
-            # Get or create device state
+            # Get or create device state. A device seen for the first time since
+            # the API started picks up its open alerts from the database, so
+            # they still close once readings are back to normal.
+            is_new = self._get_device_key(user_id, device_id) not in self._device_states
             device_state = self._get_or_create_device_state(user_id, device_id)
             device_state.last_updated = datetime.now(timezone.utc)
+            if is_new:
+                await self._restore_open_alerts(device_state)
             
             new_alerts = []
             updated_alerts = []
@@ -188,7 +198,13 @@ class AnomalyEngine:
                     metric_value = rule.metric_extractor(snapshot)
                     
                     if metric_value is None:
-                        # Metric not available, skip this rule
+                        # Not reported in this snapshot. An open alert for it
+                        # closes once the reading has been missing long enough.
+                        stale = await self._close_if_stale(
+                            device_state.breach_states.get(rule.name), snapshot.timestamp
+                        )
+                        if stale:
+                            updated_alerts.append(stale)
                         continue
                     
                     # Check if threshold is breached
@@ -297,6 +313,7 @@ class AnomalyEngine:
                 alert = await AnomalyAlertDocument.get(breach_state.alert_id)
                 if alert and alert.is_active:
                     alert.trigger_value = metric_value
+                    alert.last_breach_at = current_time
                     alert.message = rule.message_template.format(
                         value=metric_value,
                         threshold=rule.threshold
@@ -325,7 +342,8 @@ class AnomalyEngine:
                     threshold=rule.threshold
                 ),
                 is_active=True,
-                created_at=current_time
+                created_at=current_time,
+                last_breach_at=current_time,
             )
             
             await alert.insert()
@@ -374,6 +392,11 @@ class AnomalyEngine:
         # Update normal tracking
         breach_state.last_normal_time = current_time
         breach_state.consecutive_breaches = 0
+        # A breach that hasn't raised an alert yet starts over: the reading has
+        # to stay over the limit for the rule's whole duration, not just spike
+        # now and then across it.
+        if not breach_state.is_triggered:
+            breach_state.breach_start_time = None
         
         # Check if alert should be auto-resolved
         if not self._auto_resolution:
@@ -400,6 +423,7 @@ class AnomalyEngine:
             if alert and alert.is_active:
                 alert.is_active = False
                 alert.resolved_at = current_time
+                alert.resolved_reason = "recovered"
                 await alert.save()
                 
                 # Reset breach state
@@ -418,6 +442,82 @@ class AnomalyEngine:
         
         return None
     
+    async def _restore_open_alerts(self, device_state: DeviceState) -> None:
+        """
+        Load a device's open alerts into its breach states.
+
+        Breach tracking lives in memory, so after a restart the engine would
+        otherwise not know these alerts exist: normal readings could never
+        close them, and a renewed breach would open a duplicate.
+        """
+        try:
+            open_alerts = await AnomalyAlertDocument.find(
+                AnomalyAlertDocument.user_id == PydanticObjectId(device_state.user_id),
+                AnomalyAlertDocument.device_id == PydanticObjectId(device_state.device_id),
+                AnomalyAlertDocument.is_active == True,  # noqa: E712 (query expression)
+            ).sort("-created_at").to_list()
+        except Exception as e:
+            logger.error(f"Could not restore open alerts for device {device_state.device_id}: {e}")
+            return
+
+        now = datetime.now(timezone.utc)
+        for alert in open_alerts:
+            if alert.rule_name in device_state.breach_states:
+                # An older duplicate of a rule that already has a newer open
+                # alert can never be tracked, so close it.
+                alert.is_active = False
+                alert.resolved_at = now
+                alert.resolved_reason = "recovered"
+                await alert.save()
+                continue
+            last = _aware(alert.last_breach_at or alert.created_at)
+            device_state.breach_states[alert.rule_name] = BreachState(
+                breach_start_time=last,
+                last_breach_time=last,
+                is_triggered=True,
+                alert_id=str(alert.id),
+            )
+
+    async def _close_if_stale(
+        self, breach_state: Optional[BreachState], now: datetime
+    ) -> Optional[AnomalyAlertDocument]:
+        """Close an open alert whose reading has not been reported for a while."""
+        if not self._auto_resolution or not breach_state or not breach_state.is_triggered:
+            return None
+        last = breach_state.last_breach_time
+        if last and (_aware(now) - _aware(last)) < timedelta(minutes=settings.ALERT_STALE_MINUTES):
+            return None
+        alert_id = breach_state.alert_id
+        breach_state.is_triggered = False
+        breach_state.alert_id = None
+        breach_state.breach_start_time = None
+        breach_state.consecutive_breaches = 0
+        try:
+            alert = await AnomalyAlertDocument.get(alert_id)
+            if not alert or not alert.is_active:
+                return None
+            alert.is_active = False
+            alert.resolved_at = _aware(now)
+            alert.resolved_reason = "no_reading"
+            await alert.save()
+        except Exception as e:
+            logger.error(f"Error closing stale alert {alert_id}: {e}")
+            return None
+        logger.info(f"Alert closed, reading no longer reported: {alert.rule_name} (alert {alert.id})")
+        return alert
+
+    async def forget_rule(self, user_id: str, device_id: str, rule_name: str) -> None:
+        """
+        Reset one rule's breach tracking after its alert was closed by hand.
+
+        If the reading is still over the limit, a new alert then needs the
+        rule's full duration again instead of reopening on the next reading.
+        """
+        async with self._lock:
+            state = self._device_states.get(self._get_device_key(user_id, device_id))
+            if state:
+                state.breach_states.pop(rule_name, None)
+
     async def get_device_state(self, user_id: str, device_id: str) -> Optional[DeviceState]:
         """
         Get the current state tracking for a device.

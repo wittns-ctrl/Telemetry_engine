@@ -1,5 +1,17 @@
 export const API_BASE = (import.meta.env.VITE_API_BASE || "http://localhost:8000").replace(/\/$/, "");
 
+// The Windows agent, served by the API itself (app/api/v1/agent_download.py).
+// VITE_AGENT_DOWNLOAD_URL points the buttons somewhere else instead.
+export const AGENT_DOWNLOAD_URL = import.meta.env.VITE_AGENT_DOWNLOAD_URL || `${API_BASE}/api/v1/agent/download`;
+
+/** Whether this server has an agent to hand out: { available, size_mb, updated_at, sha256 }. */
+export async function fetchAgentDownloadInfo() {
+  if (import.meta.env.VITE_AGENT_DOWNLOAD_URL) return { available: true };
+  const response = await fetch(`${API_BASE}/api/v1/agent/download/info`);
+  if (!response.ok) throw new Error("Could not check the agent download");
+  return response.json();
+}
+
 // WebSocket origin defaults to the API origin with ws:// or wss:// swapped in.
 export const WS_ORIGIN = (import.meta.env.VITE_WS_ORIGIN || API_BASE.replace(/^http/, "ws")).replace(/\/$/, "");
 
@@ -299,6 +311,32 @@ export async function undoFix(fixRequestId) {
 /** Country names a device can be placed in: exactly the names the dashboard map draws. */
 export async function fetchDeviceCountries() {
   return apiJson("/api/v1/devices/countries", {}, "Failed to load countries");
+}
+
+// Fired after an alert is closed or a device removed, so the header's open
+// alert count updates at once instead of on its next 30-second refresh.
+export const ALERTS_CHANGED_EVENT = "lectio:alerts-changed";
+const alertsChanged = () => window.dispatchEvent(new Event(ALERTS_CHANGED_EVENT));
+
+/** Close an alert by hand. If the reading is still over its limit, Lectio raises it again later. */
+export async function closeAlert(alertId) {
+  const result = await apiJson(
+    `/api/v1/alerts/${encodeURIComponent(alertId)}/acknowledge`,
+    { method: "PATCH", body: JSON.stringify({ acknowledged: true }) },
+    "Could not close this alert",
+  );
+  alertsChanged();
+  return result;
+}
+
+/** Remove a device with its readings, alerts and fix history. Its agent stops being accepted. */
+export async function deleteDevice(deviceId) {
+  await apiJson(
+    `/api/v1/devices/${encodeURIComponent(deviceId)}`,
+    { method: "DELETE" },
+    "Could not remove this device",
+  );
+  alertsChanged();
 }
 
 /** Rename a device and/or set its country (country: null takes it off the map). */

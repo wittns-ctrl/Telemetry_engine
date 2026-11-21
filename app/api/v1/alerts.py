@@ -111,7 +111,8 @@ async def list_alerts(
                 message=alert.message,
                 is_active=alert.is_active,
                 created_at=alert.created_at,
-                resolved_at=alert.resolved_at
+                resolved_at=alert.resolved_at,
+                resolved_reason=alert.resolved_reason
             )
             for alert in alerts
         ]
@@ -251,7 +252,8 @@ async def get_alert(
             message=alert.message,
             is_active=alert.is_active,
             created_at=alert.created_at,
-            resolved_at=alert.resolved_at
+            resolved_at=alert.resolved_at,
+            resolved_reason=alert.resolved_reason
         )
     
     except HTTPException:
@@ -450,7 +452,8 @@ async def get_alerts_by_rule(
                 message=alert.message,
                 is_active=alert.is_active,
                 created_at=alert.created_at,
-                resolved_at=alert.resolved_at
+                resolved_at=alert.resolved_at,
+                resolved_reason=alert.resolved_reason
             )
             for alert in alerts
         ]

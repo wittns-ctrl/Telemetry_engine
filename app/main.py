@@ -14,6 +14,7 @@ from app.api.v1 import metrics as metrics_router
 from app.api.v1 import alerts as alerts_router
 from app.api.v1 import diagnostics as diagnostics_router
 from app.api.v1 import ingest as ingest_router
+from app.api.v1 import agent_download as agent_download_router
 from app.api.v1 import fixes as fixes_router
 
 
@@ -77,4 +78,7 @@ app.include_router(ingest_router.router, prefix="/api/v1")
 
 # --- FIXES (website asks, the PC's agent runs them) ---
 app.include_router(fixes_router.router, prefix="/api/v1")
+
+# --- WINDOWS AGENT DOWNLOAD ---
+app.include_router(agent_download_router.router, prefix="/api/v1")
 

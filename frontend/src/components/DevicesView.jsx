@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Monitor, Plus, RefreshCw, TriangleAlert, Info, HardDrive, ChartLine, Bell, Sparkles, ChevronUp, Terminal, MapPin, Wrench } from "lucide-react";
+import { Monitor, Plus, RefreshCw, TriangleAlert, Info, HardDrive, ChartLine, Bell, Sparkles, ChevronUp, Download, MapPin, Wrench, Check, Trash2 } from "lucide-react";
 import {
-  API_BASE,
+  AGENT_DOWNLOAD_URL,
+  fetchAgentDownloadInfo,
+  closeAlert,
+  deleteDevice,
   fetchDevices,
   fetchLatestTelemetry,
   fetchDeviceAlerts,
@@ -16,7 +19,7 @@ import {
   undoFix,
 } from "../services/api";
 import { DiagnosisPanel } from "./DiagnosisPanel";
-import { Card, Head, Chip, Ico, Empty, LineGraph, Tabs } from "./ui";
+import { Card, Head, Chip, Ico, Empty, LineGraph, Tabs, Modal } from "./ui";
 import { FixHistory, FixOptions, FixStatusLine } from "./fixes";
 import { cx, fmt, timeAgo } from "./format";
 
@@ -40,21 +43,39 @@ const pointOf = (snap) => ({
 /** A device counts as online when it reported within the last two minutes. */
 const isOnline = (device) => Boolean(device.last_seen) && Date.now() - new Date(device.last_seen).getTime() < 120000;
 
-/** How to connect a PC: the agent command, shown when there are no devices or on "Add a device". */
+/** How to connect a PC: download the agent and run it. Shown when there are no devices or on "Add a device". */
 function AddDevice({ onRefresh }) {
+  // null while checking; false when this server has no agent to hand out yet.
+  const [download, setDownload] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchAgentDownloadInfo()
+      .then((info) => { if (!cancelled) setDownload(info?.available ? info : false); })
+      .catch(() => { if (!cancelled) setDownload(false); });
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <Card className="pad col dk">
-      <Head icon={Terminal} title="Connect a PC" />
-      <p className="txt">
-        Run the telemetry agent on the computer you want to monitor. It signs in once, registers the
-        machine to your account, then sends hardware readings every few seconds.
-      </p>
-      <pre className="code">{`# from a copy of the telemetry_engine repo on that machine
-uv sync --extra agent
-uv run python -m agent.telemetry_agent --api ${API_BASE}`}</pre>
-      <div>
+      <Head icon={Download} title="Connect a PC" />
+      <ol className="txt steps">
+        <li>On the Windows PC you want to watch, download the Lectio agent{download?.size_mb ? ` (${download.size_mb} MB)` : ""}.</li>
+        <li>
+          Right-click <b>lectio-agent.exe</b> and choose <b>Run as administrator</b>, so it can read temperatures and
+          fan speeds. If Windows says it protected your PC, choose <b>More info</b>, then <b>Run anyway</b>.
+        </li>
+        <li>Sign in with your Lectio email and password. Your password is only used this once and isn&apos;t saved.</li>
+      </ol>
+      <div className="row ac wrap" style={{ gap: "calc(4 * var(--u))" }}>
+        {download === false ? (
+          <p className="note w" role="status">The Windows agent isn&apos;t available on this server yet. Please try again later.</p>
+        ) : (
+          <a className="bk lt" href={AGENT_DOWNLOAD_URL}>
+            <Download strokeWidth={1.9} aria-hidden="true" /> Download for Windows
+          </a>
+        )}
         <button type="button" className="bk gr" onClick={onRefresh}>
-          <RefreshCw strokeWidth={1.9} aria-hidden="true" /> I've started the agent, refresh
+          <RefreshCw strokeWidth={1.9} aria-hidden="true" /> I&apos;ve started the agent, refresh
         </button>
       </div>
     </Card>
@@ -180,6 +201,13 @@ export function DevicesView() {
   const [busyFixId, setBusyFixId] = useState(null);
   const [fixActionError, setFixActionError] = useState(null);
 
+  // Closing alerts by hand, and removing a device (asked first in a dialog).
+  const [closingId, setClosingId] = useState(null);
+  const [alertError, setAlertError] = useState(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState(null);
+
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
   const attemptsRef = useRef(0);
@@ -300,8 +328,11 @@ export function DevicesView() {
         }
         if (Array.isArray(data.alerts) && data.alerts.length) {
           setAlerts((prev) => {
-            const seen = new Set(prev.map((a) => a.id));
-            return [...data.alerts.filter((a) => !seen.has(a.id)), ...prev].slice(0, 50);
+            // The socket sends new, updated and just-closed alerts alike.
+            const incoming = new Map(data.alerts.map((a) => [a.id, a]));
+            const kept = prev.map((a) => (incoming.has(a.id) ? { ...a, ...incoming.get(a.id) } : a));
+            const added = data.alerts.filter((a) => !prev.some((p) => p.id === a.id));
+            return [...added, ...kept].filter((a) => a.is_active !== false).slice(0, 50);
           });
         }
       };
@@ -381,6 +412,38 @@ export function DevicesView() {
     }
   };
 
+  const close = async (alertId) => {
+    setClosingId(alertId);
+    setAlertError(null);
+    try {
+      await closeAlert(alertId);
+      setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+    } catch (err) {
+      setAlertError(err.message);
+    } finally {
+      setClosingId(null);
+    }
+  };
+
+  const removeSelected = async () => {
+    setRemoving(true);
+    setRemoveError(null);
+    try {
+      await deleteDevice(selectedId);
+      const rest = devices.filter((d) => d.id !== selectedId);
+      setConfirmRemove(false);
+      setSnapshot(null);
+      setHistory([]);
+      setAlerts([]);
+      setDevices(rest);
+      setSelectedId(rest[0]?.id || null);
+    } catch (err) {
+      setRemoveError(err.message);
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   const selected = devices.find((d) => d.id === selectedId);
 
   if (loadingDevices && !devices.length) {
@@ -447,8 +510,29 @@ export function DevicesView() {
                 {selected.os_info ? `${selected.os_info} · ` : ""}
                 {live && snapshot ? "reporting now" : `last seen ${timeAgo(snapshot?.timestamp || selected.last_seen)}`}
               </span>
-              <button type="button" className="vd r" onClick={loadDevices} disabled={loadingDevices}>Refresh</button>
+              <span className="row ac r" style={{ gap: "calc(3 * var(--u))" }}>
+                <button type="button" className="vd" onClick={loadDevices} disabled={loadingDevices}>Refresh</button>
+                <button type="button" className="vd" onClick={() => { setRemoveError(null); setConfirmRemove(true); }}>
+                  Remove
+                </button>
+              </span>
             </div>
+          )}
+
+          {confirmRemove && selected && (
+            <Modal title={`Remove ${selected.device_name}?`} onClose={() => { if (!removing) setConfirmRemove(false); }}>
+              <p className="txt">
+                This deletes the PC&apos;s readings, alerts and fix history from Lectio, and can&apos;t be undone. If the agent
+                is still running on that PC, Lectio stops accepting it. To add the PC again, run the agent there and sign in.
+              </p>
+              {removeError && <p className="note w" role="alert">{removeError}</p>}
+              <div className="row ac" style={{ gap: "calc(4 * var(--u))" }}>
+                <button type="button" className="bk rs" onClick={removeSelected} disabled={removing}>
+                  <Trash2 strokeWidth={1.9} aria-hidden="true" /> {removing ? "Removing…" : "Remove PC"}
+                </button>
+                <button type="button" className="bk ol" onClick={() => setConfirmRemove(false)} disabled={removing}>Cancel</button>
+              </div>
+            </Modal>
           )}
 
           {selected && (
@@ -553,6 +637,7 @@ export function DevicesView() {
               <Head icon={Bell} title="Active alerts">
                 {alerts.length > 0 && <Chip tone="w">{alerts.length} open</Chip>}
               </Head>
+              {alertError && <p className="note w" role="alert" style={{ marginTop: "calc(3 * var(--u))" }}>{alertError}</p>}
               {alerts.length === 0 ? (
                 <p className="txt" style={{ marginTop: "calc(5 * var(--u))" }}>No active alerts for this device.</p>
               ) : (
@@ -580,6 +665,16 @@ export function DevicesView() {
                             <button type="button" className={cx("bk", open && "ol")} onClick={() => toggleDiagnosis(a.id)} aria-expanded={open}>
                               {open ? <ChevronUp strokeWidth={2} aria-hidden="true" /> : <Sparkles strokeWidth={1.9} aria-hidden="true" />}
                               {open ? "Hide diagnosis" : "Diagnose"}
+                            </button>
+                            <button
+                              type="button"
+                              className="bk ol"
+                              onClick={() => close(a.id)}
+                              disabled={closingId === a.id}
+                              title="Mark this alert as dealt with. If the reading is still over its limit, Lectio raises it again."
+                            >
+                              <Check strokeWidth={2} aria-hidden="true" />
+                              {closingId === a.id ? "Closing…" : "Close"}
                             </button>
                           </span>
                         </div>

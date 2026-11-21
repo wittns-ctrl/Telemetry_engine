@@ -312,6 +312,15 @@ export function LineGraph({ series, labels = [], min = 0, max = 100, unit = "", 
     })
     .filter(Boolean)
     .sort((a, b) => a.top - b.top);
+  // A series with a single reading has no line to draw (for example a PC's
+  // first hour on an hourly graph), so it is shown as a dot instead.
+  const lone = !hasData ? [] : series
+    .map((s) => {
+      const idx = s.values.flatMap((v, i) => (v === null || v === undefined ? [] : [i]));
+      return idx.length === 1 ? { s, at: (count > 1 ? idx[0] / (count - 1) : 0.5) * 100, top: (1 - share(s.values[idx[0]])) * 100 } : null;
+    })
+    .filter((d) => d && !tags.some((t) => t.s.name === d.s.name));
+
   const GAP = 13; // the least room between two labels, in percent of the plot's height
   tags.forEach((t, i) => { t.labelTop = i ? Math.max(t.top, tags[i - 1].labelTop + GAP) : t.top; });
   for (let i = tags.length - 1; i >= 0; i -= 1) {
@@ -369,6 +378,9 @@ export function LineGraph({ series, labels = [], min = 0, max = 100, unit = "", 
             <span>Limit {Number.isInteger(limit) ? fmt(limit, 0, unit) : show(limit)}</span>
           </i>
         )}
+        {lone.map((d) => (
+          <i key={d.s.name} className="pt" style={{ left: `${d.at}%`, top: `${d.top}%`, borderColor: d.s.colour }} aria-hidden="true" />
+        ))}
         {tags.map((t) => (
           <React.Fragment key={t.s.name}>
             <i className="pt" style={{ left: `${t.at}%`, top: `${t.top}%`, borderColor: t.s.colour }} aria-hidden="true" />
@@ -476,7 +488,7 @@ export function Promo({ onOpen, note }) {
       </svg>
       <span className="promo-title">Let Lectio diagnose<br />your PC</span>
       <span className="tag a" aria-hidden="true">AI Diagnosis</span>
-      <span className="tag b" aria-hidden="true">Health Report</span>
+      <span className="tag b" aria-hidden="true">Fixes</span>
       {note && <span className="promo-foot">{note}</span>}
     </button>
   );

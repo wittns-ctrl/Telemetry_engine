@@ -288,8 +288,13 @@ class AlertService:
             if alert and alert.is_active:
                 alert.is_active = False
                 alert.resolved_at = datetime.now(timezone.utc)
+                alert.resolved_reason = "closed_by_user"
                 await alert.save()
-                
+
+                # Imported here: the engine module depends on this one's models.
+                from app.services.anomaly_engine import anomaly_engine
+                await anomaly_engine.forget_rule(user_id, str(alert.device_id), alert.rule_name)
+
                 logger.info(f"Manually resolved alert {alert_id}")
                 return True
             

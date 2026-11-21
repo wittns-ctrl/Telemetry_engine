@@ -28,6 +28,9 @@ RUN useradd --system --uid 10001 --home-dir /app lectio
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 COPY app ./app
+# The Windows agent handed out at /api/v1/agent/download, if one was built
+# (agent/build_exe.py). docker-compose.yml mounts the folder instead.
+COPY downloads ./downloads
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \

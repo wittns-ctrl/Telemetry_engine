@@ -27,6 +27,7 @@ import { PrivacyPage, TermsPage } from './pages/Legal';
 
 import {
   fetchOpenAlertCount,
+  ALERTS_CHANGED_EVENT,
   fetchCurrentUser,
   logoutUser,
   getAccessToken,
@@ -58,7 +59,8 @@ function App() {
       .catch(() => {});
     load();
     const timer = setInterval(load, 30000);
-    return () => { cancelled = true; clearInterval(timer); };
+    window.addEventListener(ALERTS_CHANGED_EVENT, load);
+    return () => { cancelled = true; clearInterval(timer); window.removeEventListener(ALERTS_CHANGED_EVENT, load); };
   }, [isAuthenticated, activeNav]);
 
   // Load initial metadata

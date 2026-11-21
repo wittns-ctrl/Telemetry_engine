@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lectio page options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px; background: #dcdcd8; font-family: "Inter", system-ui, sans-serif; color: #0e0e10; -webkit-font-smoothing: antialiased; }
+  .pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 auto 18px; width: fit-content; font-size: 13px; font-weight: 600; }
+  .pick button { height: 30px; padding: 0 14px; border: 1px solid #8e8e96; border-radius: 999px; background: #fff; font: inherit; cursor: pointer; }
+  .pick button.on { background: #0e0e10; border-color: #0e0e10; color: #fff; }
+  .opt { margin: 0 auto 34px; width: fit-content; }
+  .opt-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 10px 2px; }
+  .opt-head h2 { margin: 0; font-size: 19px; font-weight: 700; }
+  .opt-head p { margin: 0; font-size: 13px; color: #45454c; }
+
+  /* Everything inside .frame is in reference pixels (640 wide), zoomed up. */
+  .frame { position: relative; display: flow-root; width: 640px; min-height: 403px; border-radius: 10px; overflow: hidden; background: #0e0e10; zoom: var(--zoom, 2); }
+  .frame svg { display: block; flex: none; }
+  .rail { position: absolute; left: 0; top: 0; width: 125px; height: 403px; padding: 18px 8px 14px; display: flex; flex-direction: column; color: #d9d9dc; }
+  .brand { display: flex; align-items: center; gap: 6px; padding-left: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
+  .cap { margin: 20px 0 7px 5px; font-size: 4.2px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #8e8e96; }
+  .nav { display: flex; flex-direction: column; gap: 3px; }
+  .nav a { display: flex; align-items: center; gap: 7px; height: 22px; padding: 0 5px; border-radius: 8px; font-size: 6.2px; font-weight: 500; }
+  .nav a span { display: grid; place-items: center; width: 14px; height: 14px; border-radius: 4.5px; background: rgba(255,255,255,.08); }
+  .nav a svg { width: 7.5px; height: 7.5px; }
+  .nav a.on { background: #232327; color: #fff; font-weight: 600; }
+  .nav a.on span { background: #5cc061; color: #0e0e10; }
+  .acct { margin-top: auto; }
+  .acct .cap { margin-top: 0; }
+  .who { display: flex; align-items: center; gap: 6px; padding-left: 4px; }
+  .ava { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: #dcefe0; color: #176b22; font-size: 6.5px; font-weight: 700; flex: none; }
+  .who b { display: block; font-size: 6.2px; font-weight: 600; color: #fff; }
+  .who small { display: block; margin-top: 1px; font-size: 4.8px; color: #8e8e96; }
+
+  .panel { font-size: 5.4px; line-height: 1.3; margin: 8px 5px 8px 125px; min-height: 387px; padding: 15px 10px 10px 12px; border-radius: 12px; background: #f4f4f2; display: flex; flex-direction: column; gap: 9px; }
+  .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+  .title { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -.02em; }
+  .tools { display: flex; gap: 5px; }
+  .search { display: flex; align-items: center; gap: 5px; width: 132px; height: 20px; padding: 0 8px; border-radius: 999px; background: #fff; border: .5px solid #e9e9e6; font-size: 5.4px; color: #8e8e96; }
+  .search svg { width: 7px; height: 7px; color: #45454c; }
+  .bell { position: relative; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #0e0e10; color: #fff; }
+  .bell svg { width: 8px; height: 8px; }
+  .bell i { position: absolute; right: 5px; top: 5px; width: 3.5px; height: 3.5px; border-radius: 50%; background: #ec003f; box-shadow: 0 0 0 1px #0e0e10; }
+
+  /* building blocks */
+  .card { border-radius: 8px; background: #fff; min-width: 0; }
+  .pad { padding: 10px; }
+  .dk { background: #0e0e10; color: #fff; }
+  .gs { background: #dcefe0; }
+  .row { display: flex; gap: 8px; }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+  .ac { align-items: center; }
+  .f1 { flex: 1; min-width: 0; }
+  .r { margin-left: auto; }
+  .g2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .h { display: flex; align-items: center; gap: 5px; font-size: 6.6px; font-weight: 600; }
+  .h > svg { width: 8px; height: 8px; color: #1c7a2e; }
+  .dk .h > svg { color: #5cc061; }
+  .t7 { display: block; font-size: 7px; font-weight: 600; }
+  .t9 { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: -.01em; }
+  .sub { font-size: 4.8px; font-weight: 400; color: #8e8e96; }
+  .p { margin: 0; font-size: 5px; line-height: 1.6; color: #5f5f68; }
+  .dk .p, .dk .sub { color: #b9b9bf; }
+  .mono { font-family: ui-monospace, Consolas, monospace; }
+  .vd { display: inline-grid; place-items: center; height: 11.5px; padding: 0 6px; border-radius: 3.5px; border: .6px solid #8e8e96; font-size: 4.5px; font-weight: 600; white-space: nowrap; }
+  .btn { margin: 8px 3px 0; display: grid; place-items: center; height: 15px; border-radius: 4px; border: .6px solid #45454c; font-size: 5px; font-weight: 600; }
+  .bk { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 18px; padding: 0 9px; border-radius: 5px; background: #0e0e10; color: #fff; font-size: 5.2px; font-weight: 600; white-space: nowrap; }
+  .bk svg { width: 7px; height: 7px; }
+  .bk.gr { background: #1c7a2e; }
+  .bk.rs { background: #c70036; }
+  .chip { display: inline-flex; align-items: center; gap: 2.5px; padding: 2px 5px; border-radius: 99px; background: #eaf5ec; font-size: 4.4px; font-weight: 600; color: #176b22; white-space: nowrap; }
+  .chip.w { background: #fff1f2; color: #c70036; }
+  .chip.n { background: #f5f5f6; color: #45454c; }
+  .chip.o { background: #fff; border: .5px solid #d9d9dc; color: #45454c; font-weight: 500; }
+  .chip.k { background: #0e0e10; color: #fff; }
+  .ico { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 5.5px; background: #f5f5f6; flex: none; }
+  .ico svg { width: 8.5px; height: 8.5px; }
+  .ico.g { background: #dcefe0; color: #176b22; }
+  .ico.k { background: #0e0e10; color: #fff; }
+  .ico.w { background: #fff1f2; color: #c70036; }
+  .ico.d { background: #232327; color: #5cc061; }
+  .bar { height: 4px; border-radius: 99px; background: #ebebed; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 99px; background: #1c7a2e; }
+  .li { display: flex; align-items: center; gap: 7px; padding: 6px 0; border-top: .5px solid #f0f0ee; font-size: 5.4px; font-weight: 500; }
+  .li:first-of-type { border-top: 0; }
+  .li > svg { width: 8px; height: 8px; }
+  .li small { display: block; margin-top: 1.5px; font-size: 4.6px; font-weight: 400; color: #8e8e96; }
+  .dk .li { border-color: #232327; }
+  .tb { width: 100%; border-collapse: collapse; font-size: 5px; }
+  .tb th { padding: 4px 6px; border-bottom: .5px solid #ebebed; text-align: left; font-size: 4.4px; font-weight: 500; color: #8e8e96; }
+  .tb td { padding: 5.5px 6px; border-bottom: .5px solid #f5f5f6; white-space: nowrap; }
+  .fld label { display: block; margin-bottom: 2.5px; font-size: 4.6px; font-weight: 500; color: #5f5f68; }
+  .fld div { display: flex; align-items: center; height: 17px; padding: 0 6px; border: .6px solid #d9d9dc; border-radius: 5px; font-size: 5.2px; }
+  .fld.off div { background: #f5f5f6; color: #8e8e96; }
+  .code { margin: 0; padding: 8px; border-radius: 6px; background: #0e0e10; color: #d9d9dc; font-family: ui-monospace, Consolas, monospace; font-size: 4.5px; line-height: 1.75; white-space: pre; overflow: hidden; }
+  .dk .code { background: #1c1c1f; }
+  .code b { color: #5cc061; font-weight: 400; }
+  .sl label { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 4.8px; font-weight: 500; }
+  .sl label b { font-weight: 600; color: #176b22; }
+  .sl div { position: relative; height: 3px; border-radius: 99px; background: #ebebed; }
+  .sl div i { position: absolute; left: 0; top: 0; height: 100%; border-radius: 99px; background: #1c7a2e; }
+  .sl div u { position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%; background: #fff; border: 1.6px solid #1c7a2e; transform: translate(-50%, -50%); }
+  .sl p { display: flex; justify-content: space-between; margin: 4px 0 0; font-size: 4.2px; color: #8e8e96; }
+  .mini { padding: 5px 6px; border-radius: 5px; background: #f5f5f6; }
+  .mini > span:not(.ico) { display: block; font-size: 4.4px; color: #5f5f68; }
+  .mini b { display: block; margin-top: 2px; font-size: 8px; font-weight: 600; }
+  .mini small { display: block; margin-top: 1.5px; font-size: 4.4px; color: #8e8e96; }
+  .dash svg { width: 9px; height: 9px; }
+  .dash { display: grid; place-items: center; gap: 5px; align-content: center; border: .8px dashed #8e8e96; border-radius: 8px; font-size: 5.4px; font-weight: 600; color: #45454c; }
+
+  /* reference pieces */
+  .stat { padding: 9px 10px; display: flex; justify-content: space-between; }
+  .stat h3 { margin: 0; font-size: 5.2px; font-weight: 500; color: #5f5f68; }
+  .v { margin-top: 5px; font-size: 13px; font-weight: 600; letter-spacing: -.02em; }
+  .v small { font-size: 8px; font-weight: 500; color: #5f5f68; letter-spacing: 0; }
+  .stat .d { margin-top: 5px; font-size: 4.5px; color: #8e8e96; }
+  .stat .d b { font-weight: 600; color: var(--tone, #1c7a2e); }
+  .stat .vd { margin-top: 6px; }
+  .bars { display: flex; align-items: flex-end; gap: 2.5px; height: 24px; margin-top: 6px; }
+  .bars i { width: 4px; border-radius: 1.2px; background: var(--tone, #1c7a2e); }
+  .bars i:nth-child(even) { background: var(--tone-soft, #b5dfbe); }
+  .gmid { display: grid; grid-template-columns: 116px 120px 1fr; gap: 8px; }
+  .r2 { padding: 11px 10px 9px; display: flex; flex-direction: column; }
+  .r2 h3 { margin: 0; font-size: 6.6px; font-weight: 600; text-align: center; }
+  .big { margin-top: 10px; text-align: center; font-size: 25px; font-weight: 500; letter-spacing: -.03em; line-height: 1; }
+  .big small { font-size: 15px; color: #5f5f68; letter-spacing: 0; }
+  .gauge { margin: 8px auto 0; width: 80px; }
+  .foot { margin: 5px 0 7px; text-align: center; font-size: 4.5px; color: #5f5f68; }
+  .foot b { color: #0e0e10; }
+  .rows { margin: 11px 3px 0; display: grid; gap: 6px; }
+  .rows div { display: flex; align-items: center; gap: 5px; font-size: 5.2px; font-weight: 500; }
+  .rows i { width: 4px; height: 4px; border-radius: 50%; background: #1c7a2e; }
+  .rows em { margin-left: auto; font-style: normal; font-weight: 400; color: #8e8e96; }
+  .r2 .btn { margin-top: auto; }
+  .chart { padding: 10px 10px 5px; display: flex; flex-direction: column; }
+  .seg { margin-left: auto; display: flex; padding: 1px; border-radius: 99px; background: #f5f5f6; }
+  .seg em { font-style: normal; font-size: 4.4px; font-weight: 500; padding: 2.2px 5.5px; border-radius: 99px; color: #5f5f68; }
+  .seg em.on { background: #0e0e10; color: #fff; }
+  .ch-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px 8px; margin-top: 7px; }
+  .tabs { display: flex; gap: 3px; }
+  .tabs em { display: flex; align-items: center; gap: 2.5px; font-style: normal; font-size: 4.4px; font-weight: 500; padding: 2.4px 5px; border-radius: 99px; border: .5px solid #d9d9dc; color: #45454c; white-space: nowrap; }
+  .tabs em i { width: 3.5px; height: 3.5px; border-radius: 50%; }
+  .tabs em.on { border-color: #1c7a2e; background: #eaf5ec; color: #176b22; font-weight: 600; }
+  .st { display: flex; gap: 7px; font-size: 4.4px; color: #8e8e96; }
+  .st b { font-weight: 600; color: #0e0e10; }
+  .ch-plot { flex: 1; min-height: 58px; display: grid; grid-template-columns: 16px 1fr; grid-template-rows: 1fr 10px; margin-top: 8px; }
+  .ch-y, .ch-area, .ch-x { position: relative; }
+  .ch-y span { position: absolute; right: 4px; transform: translateY(-50%); font-size: 4px; color: #8e8e96; white-space: nowrap; }
+  .ch-area svg, .spark svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .gl { position: absolute; left: 0; right: 0; height: .5px; background: #ebebed; }
+  .lim { position: absolute; left: 0; right: 0; border-top: .7px dashed #ec003f; }
+  .lim span { position: absolute; right: 0; bottom: 1.5px; padding: 1px 3.5px; border-radius: 99px; background: #fff1f2; font-size: 3.8px; font-weight: 500; color: #c70036; }
+  .ch-x { grid-column: 2; }
+  .ch-x span { position: absolute; top: 3.5px; transform: translateX(-50%); font-size: 4px; color: #8e8e96; white-space: nowrap; }
+  .ch-x span:first-child { transform: none; }
+  .ch-x span:last-child { transform: translateX(-100%); }
+  .spark { position: relative; height: 34px; margin-top: 6px; }
+  .glow { display: grid; grid-template-columns: 240px 1fr; gap: 7px; }
+  .pills { display: grid; gap: 9px; }
+  .pill { display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 14px 0 12px; border-radius: 999px; }
+  .pill b { display: block; font-size: 7.4px; font-weight: 600; }
+  .pill small { display: block; margin-top: 4px; font-size: 5px; }
+  .pill > .vd, .pill > .bk, .pill > .chip { margin-left: auto; }
+  .pill.dark { background: #0e0e10; color: #fff; }
+  .pill.dark small { color: #b9b9bf; }
+  .pill.soft { background: #dcefe0; }
+  .pill.soft small { color: #5f5f68; }
+  .pill.soft .vd { border-color: #1c7a2e; color: #176b22; }
+  .pill.white { background: #fff; }
+  .pill.white small { color: #5f5f68; }
+  .ring { position: relative; width: 32px; height: 32px; flex: none; }
+  .ring span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 5.8px; font-weight: 600; }
+  .ring span svg { width: 10px; height: 10px; }
+  .promo { position: relative; min-height: 109px; border-radius: 12px; overflow: hidden; background: #176b22; color: #fff; }
+  .promo > * { position: absolute; }
+  .promo .pb { left: 12px; top: 11px; display: flex; align-items: center; gap: 4px; font-size: 6.4px; font-weight: 600; }
+  .promo h3 { left: 12px; top: 36px; margin: 0; font-size: 10.6px; font-weight: 600; line-height: 1.25; letter-spacing: -.01em; }
+  .promo .ppl { left: 12px; bottom: 9px; display: flex; align-items: center; gap: 5px; font-size: 5.4px; font-weight: 500; }
+  .promo .go { right: 12px; top: 10px; width: 15px; height: 15px; }
+  .promo .art { right: 0; bottom: 0; width: 135px; height: 110px; }
+  .promo .find { left: 12px; bottom: 12px; display: flex; align-items: center; gap: 5px; width: 190px; height: 20px; padding: 0 8px; border-radius: 99px; background: #fff; font-size: 5.2px; color: #8e8e96; }
+  .promo .find svg { width: 7px; height: 7px; color: #45454c; }
+  .tag { padding: 3.5px 6px; border-radius: 4px; font-size: 4.4px; font-weight: 600; }
+  .tag.a { right: 62px; bottom: 42px; background: #5cc061; color: #0e0e10; transform: rotate(-5deg); }
+  .tag.b { right: 70px; bottom: 26px; background: #fff; color: #0e0e10; transform: rotate(4deg); }
+  .ctabs { display: flex; gap: 4px; }
+  .ctabs em { display: flex; align-items: center; gap: 4px; height: 17px; padding: 0 9px; border-radius: 99px; background: #fff; font-style: normal; font-size: 5.6px; font-weight: 500; color: #45454c; white-space: nowrap; }
+  .ctabs em svg { width: 7px; height: 7px; }
+  .ctabs em.on { background: #0e0e10; color: #fff; font-weight: 600; }
+  .ctabs em b { font-weight: 500; color: #8e8e96; }
+  .dotg, .doto { width: 4px; height: 4px; border-radius: 50%; background: #5cc061; flex: none; }
+  .doto { background: #b9b9bf; }
+  .num { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; background: #0e0e10; color: #fff; font-size: 6.4px; font-weight: 700; flex: none; }
+  .stack { display: flex; height: 9px; border-radius: 99px; overflow: hidden; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+(() => {
+const ic = (n) => `<i data-lucide="${n}"></i>`;
+const H = (icon, title, right = "") => `<div class="h">${icon ? ic(icon) : ""}${title}${right ? `<span class="r row ac" style="gap:4px">${right}</span>` : ""}</div>`;
+const chip = (t, k = "") => `<span class="chip ${k}">${t}</span>`;
+const vd = (t = "View details") => `<span class="vd">${t}</span>`;
+const bk = (t, i, k = "") => `<span class="bk ${k}">${i ? ic(i) : ""}${t}</span>`;
+const ico = (n, k = "") => `<span class="ico ${k}">${ic(n)}</span>`;
+const mark = (letter, ribbon, h) => `<svg viewBox="0 0 32.5 45" style="height:${h}px;width:auto"><path fill="${letter}" d="M0 0H13V32.5H32.5V45H0Z"/><path fill="${ribbon}" d="M19 0H32.5V25.4L25.75 20.4L19 25.4Z"/></svg>`;
+const topBar = (t) => `<div class="top"><h1 class="title">${t}</h1><div class="tools"><div class="search">${ic("search")}Search devices, metrics, alerts...</div><div class="bell">${ic("bell")}<i></i></div></div></div>`;
+const fld = (label, val, off) => `<div class="fld${off ? " off" : ""}"><label>${label}</label><div>${val}</div></div>`;
+const slider = (label, val, lo, hi, pct) => `<div class="sl"><label>${label}<b>${val}</b></label><div><i style="width:${pct}%"></i><u style="left:${pct}%"></u></div><p><span>${lo}</span><span>${hi}</span></p></div>`;
+const table = (heads, rows) => `<table class="tb"><tr>${heads.map((h) => `<th>${h}</th>`).join("")}</tr>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</table>`;
+const mini = (k, v, s = "") => `<div class="mini"><span>${k}</span><b>${v}</b><small>${s}</small></div>`;
+const usage = (name, pct, note) => `<div><div class="row ac" style="margin-bottom:3px"><span style="font-size:5px;font-weight:500">${name}</span><span class="sub r">${note}</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+
+function st(label, v, u, sub, o = {}) {
+  const tone = o.warn ? "--tone:#ec003f;--tone-soft:#fecdd3" : "";
+  return `<article class="card stat" style="${tone}"><div><h3>${label}</h3><div class="v">${v} <small>${u}</small></div><div class="d">${sub}</div>${o.vd ? vd(o.vd === true ? undefined : o.vd) : ""}</div>
+    ${o.bars ? `<div class="bars">${o.bars.map((b) => `<i style="height:${b}px"></i>`).join("")}</div>` : o.icon ? ico(o.icon, o.warn ? "w" : "g") : ""}</article>`;
+}
+function ring(pct, track, stroke, label, color) {
+  const c = 2 * Math.PI * 13;
+  return `<div class="ring"><svg viewBox="0 0 32 32" width="32" height="32"><circle cx="16" cy="16" r="13" fill="none" stroke="${track}" stroke-width="3.4"/>
+    <circle cx="16" cy="16" r="13" fill="none" stroke="${stroke}" stroke-width="3.4" stroke-linecap="round" stroke-dasharray="${c * pct} ${c}" transform="rotate(-90 16 16)"/></svg><span style="color:${color}">${label}</span></div>`;
+}
+const pill = (kind, pct, label, title, sub, action = vd()) => {
+  const [track, stroke, col] = kind === "dark" ? ["rgba(255,255,255,.16)", "#5cc061", "#fff"] : ["#b5dfbe", "#1c7a2e", "#0e0e10"];
+  return `<article class="pill ${kind}">${ring(pct, kind === "white" ? "#ebebed" : track, stroke, label, col)}<span><b>${title}</b><small>${sub}</small></span>${action}</article>`;
+};
+function gaugeCard(title, pct, foot) {
+  const len = Math.PI * 34;
+  return `<article class="card r2"><h3>${title}</h3><div class="big">${pct}<small>%</small></div>
+    <svg class="gauge" viewBox="0 0 84 44"><path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke="#0e0e10" stroke-width="13"/>
+    <path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke="#5cc061" stroke-width="13" stroke-dasharray="${len * pct / 100} ${len}"/></svg>
+    <div class="foot">${foot}</div><div class="btn">View Details</div></article>`;
+}
+const listCard = (title, big, unit, rows) => `<article class="card r2"><h3>${title}</h3><div class="big">${big}<small>${unit}</small></div>
+  <div class="rows">${rows.map(([k, v]) => `<div><i></i>${k}<em>${v}</em></div>`).join("")}</div><div class="btn">View Details</div></article>`;
+
+function wave(points, base, amp, seed, end) {
+  const raw = Array.from({ length: points }, (_, i) => base + amp * Math.sin(i * 0.55 + seed) + amp * 0.45 * Math.sin(i * 1.7 + seed * 2));
+  const drift = end - raw[points - 1];
+  return raw.map((v, i) => Math.round(v + drift * (i / (points - 1))));
+}
+const DEF = `<defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5cc061" stop-opacity=".35"/><stop offset="1" stop-color="#5cc061" stop-opacity=".02"/></linearGradient></defs>`;
+function lines(series) {
+  return series.map(([b, a, s, e, c], k) => {
+    const pts = wave(24, b, a, s, e).map((v, i) => `${(i / 23 * 1000).toFixed(1)},${(300 - v * 3).toFixed(1)}`);
+    return (k ? "" : `<path d="M0,300 L${pts.join(" L")} L1000,300 Z" fill="url(#fill)"/>`) +
+      `<polyline points="${pts.join(" ")}" fill="none" stroke="${c}" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+  }).join("");
+}
+const LIVE_X = ["60 s ago", "50 s", "40 s", "30 s", "20 s", "10 s", "Now"];
+const DAY_X = ["4 PM", "8 PM", "12 AM", "4 AM", "8 AM", "12 PM", "Now"];
+const TRIO = [[38, 10, 0.4, 38, "#1c7a2e"], [20, 9, 2.1, 12, "#0e0e10"], [80, 6, 4.2, 92, "#ec003f"]];
+function chart(title, tabs, o = {}) {
+  const unit = o.unit ?? "%", series = o.series || [[50, 8, 0.4, 45, "#1c7a2e"]];
+  return `<article class="card chart${o.cls ? " " + o.cls : ""}" style="${o.style || ""}">
+    <div class="h">${ic(o.icon || "chart-line")}${title}${o.seg ? `<span class="seg">${o.seg.map((s, i) => `<em class="${i ? "" : "on"}">${s}</em>`).join("")}</span>` : o.right ? `<span class="r">${o.right}</span>` : ""}</div>
+    <div class="ch-bar"><span class="tabs">${tabs.map((t, i) => `<em class="${o.legend ? "" : i ? "" : "on"}">${o.legend ? `<i style="background:${series[i][4]}"></i>` : ""}${t}</em>`).join("")}</span>
+      ${o.stats ? `<span class="st">${o.stats.map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join("")}</span>` : ""}</div>
+    <div class="ch-plot"><div class="ch-y">${[100, 75, 50, 25, 0].map((v) => `<span style="top:${100 - v}%">${v}${unit}</span>`).join("")}</div>
+      <div class="ch-area">${[0, 25, 50, 75, 100].map((v) => `<i class="gl" style="top:${v}%"></i>`).join("")}
+        <svg viewBox="0 0 1000 300" preserveAspectRatio="none">${DEF}${lines(series)}</svg>${o.limit ? `<i class="lim" style="top:${100 - o.limit}%"><span>Limit ${o.limit}${unit}</span></i>` : ""}</div>
+      <div class="ch-x">${(o.x || DAY_X).map((l, i, a) => `<span style="left:${i / (a.length - 1) * 100}%">${l}</span>`).join("")}</div></div></article>`;
+}
+const spark = (s) => `<div class="spark"><svg viewBox="0 0 1000 300" preserveAspectRatio="none">${DEF}${lines([s])}</svg></div>`;
+const promoArt = `<svg class="art" viewBox="0 0 135 110"><path d="M136 112C104 96 84 70 80 34c22 18 44 40 56 78Z" fill="#1c7a2e"/><path d="M136 112C120 82 116 50 126 16c14 28 16 62 10 96Z" fill="#5cc061"/>
+  <path d="M136 112C98 106 72 92 54 64c30 2 60 18 82 48Z" fill="#3a9542"/><path d="M136 112C110 112 84 108 62 92c26-6 52 2 74 20Z" fill="#b5dfbe"/><circle cx="112" cy="66" r="9" fill="#fff" fill-opacity=".22"/><circle cx="112" cy="66" r="4.5" fill="#fff"/></svg>`;
+const promo = () => `<article class="promo">${promoArt}<div class="pb">${mark("#fff", "#5cc061", 8)}Lectio AI</div>
+  <svg class="go" viewBox="0 0 15 15" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12 12 3M5 3h7v7"/></svg>
+  <h3>Let Lectio diagnose<br>your PC</h3><span class="tag a">AI Diagnosis</span><span class="tag b">Health Report</span><div class="ppl">27 readings checked</div></article>`;
+
+const alertRow = (warn, title, sub, when, action) => `<div class="li">${ico(warn ? "triangle-alert" : "circle-check", warn ? "w" : "g")}<span class="f1">${title}<small>${sub}</small></span><span class="sub">${when}</span>${action || ""}</div>`;
+const ALERTS = [[1, "Memory usage is high", "RAM at 92% for 5 minutes · My Windows PC", "2 min ago"], [1, "CPU core temperature above 80 °C", "Reached 84 °C under load · My Windows PC", "18 min ago"], [0, "GPU utilization back to normal", "Was above 90% for 3 minutes", "1 h ago"]];
+const READINGS = [["14:02:11", "sensor_room_101", "Temperature", "24.5 °C", "unit: C"], ["14:02:08", "cpu_node_alpha", "CPU", "38 %", "cores: 6 · processes: 212"], ["14:02:05", "net_gateway_01", "Network", "12.4 MB/s", "sent: 1.2 GB · recv: 4.8 GB"], ["14:01:58", "sensor_room_101", "Temperature", "24.6 °C", "unit: C"], ["14:01:52", "cpu_node_alpha", "CPU", "91 %", "cores: 6 · processes: 240"]];
+const readingRows = (n) => READINGS.slice(0, n).map(([t, s, ty, v, x]) => [`<span class="sub">${t}</span>`, `<span class="mono">${s}</span>`, chip(ty, "n"), `<b>${v}</b>`, `<span class="sub">${x}</span>`, vd("Inspect")]);
+const PAYLOAD = `{\n  <b>"sensor_id"</b>: "sensor_room_101",\n  <b>"metric_type"</b>: "temperature",\n  <b>"value"</b>: 24.5,\n  <b>"unit"</b>: "C"\n}`;
+const SENSORS = [["sensor_room_101", "Temperature", "24.5 °C", "12 s ago", "thermometer"], ["cpu_node_alpha", "CPU", "38 %", "15 s ago", "cpu"], ["net_gateway_01", "Network", "12.4 MB/s", "18 s ago", "radio"], ["sensor_rack_b2", "Temperature", "31.2 °C", "2 min ago", "thermometer"], ["cpu_node_beta", "CPU", "64 %", "4 min ago", "cpu"], ["net_uplink_02", "Network", "3.1 MB/s", "9 min ago", "radio"]];
+const TOPICS = [["cpu", "Monitor a computer", "Run the telemetry agent on the machine you want to watch. It registers the machine and sends hardware readings every few seconds.", "Open My Devices"], ["database", "Send a metric by hand", "Metrics Studio lets you submit a single temperature, CPU or network reading and browse the stored ones.", "Open Metrics Studio"], ["radio", "Watch readings live", "Live Monitor charts readings as they arrive and lists alerts in real time. The simulator sends test readings.", "Open Live Monitor"], ["settings", "Manage your account", "Change your name or password, resend the verification email, or delete your account from Settings.", "Open Settings"]];
+const AGENT = `<b>$</b> uv sync --extra agent\n<b>$</b> uv run python -m agent.telemetry_agent \\\n    --api https://api.lectio.app`;
+const ALERT_FAQ = "A reading that goes over its limit raises an alert. The current limits are shown on the Dashboard cards. Alerts reach this app immediately while it is open.";
+const storage = `<article class="card pad col" style="width:150px">${H("hard-drive", "Storage")}${usage("C: ST2000DM008", 83, "83% · 340 GB free")}${usage("D: Samsung 980", 41, "41% · 590 GB free")}<div class="row ac" style="margin-top:auto">${chip("S.M.A.R.T. 96%")}<span class="r">${vd()}</span></div></article>`;
+const deviceStats = (bars) => `<div class="g4">${st("CPU", 38, "%", "Core <b>45 °C</b>", bars ? { bars: [14, 9, 12, 7, 10] } : {})}${st("GPU", 12, "%", "Core <b>32 °C</b>", bars ? { bars: [6, 11, 8, 14, 9] } : {})}${st("Memory", 92, "%", "<b>29.4</b> of 32 GB", bars ? { bars: [9, 11, 13, 10, 17], warn: 1 } : { warn: 1 })}${st("PSU 12V", 12.08, "V", "<b>In range</b>", bars ? { bars: [12, 12, 13, 12, 12] } : {})}</div>`;
+const alertsCard = (n, action, extra = "") => `<article class="card pad f1" style="${extra}">${H("bell", "Active alerts", chip(n + " open", "w"))}<div style="margin-top:4px">${ALERTS.slice(0, n).map(([w, t, s, wh]) => alertRow(w, t, s, wh, action)).join("")}</div></article>`;
+
+const PAGES = [
+  { id: "dashboard", nav: 0, name: "Dashboard", opts: [{ name: "Chosen layout with the black sidebar", note: "Option 2 from before: one screen, a tab per component.", body: () => `${topBar("Dashboard")}
+      <div class="ctabs">${[["cpu", "CPU", 7], ["monitor", "GPU", 6], ["memory-stick", "Memory", 4], ["hard-drive", "Storage", 6], ["zap", "Power and board", 4]].map(([i, n, c], k) => `<em class="${k ? "" : "on"}">${ic(i)}${n} <b>${c}</b></em>`).join("")}</div>
+      <div class="g3">${st("CPU · Core temperature", 45, "°C", "<b>▲ 1.3%</b> than last hour", { bars: [20, 10, 15, 8, 12], vd: true })}${st("CPU · Package temperature", 48, "°C", "<b>▲ 2.1%</b> than last hour", { bars: [9, 17, 11, 22, 14], vd: true })}${st("CPU · Clock speed", 4.7, "GHz", "<b>▲ 1.5%</b> than last hour", { bars: [11, 12, 16, 9, 21], vd: true })}</div>
+      <div class="gmid">${gaugeCard("CPU Utilization", 38, "Average today <b>31%</b>")}${listCard("Package Power", 65, " W", [["Low today", "18 W"], ["Average", "52 W"], ["High today", "88 W"]])}${chart("Statistics", ["Core temp", "Package", "Load", "Power", "Fan"], { unit: "°C", limit: 80, seg: ["24h", "7d", "30d"], stats: [["Low", "37°C"], ["Avg", "45°C"], ["High", "58°C"], ["Now", "45°C"]] })}</div>
+      <div class="glow"><div class="pills">${pill("dark", .5, "1,250", "CPU Fan Speed", "Revolutions per minute, of 2,500 max")}${pill("soft", 1, "Off", "Thermal Throttling", "The CPU is not slowing down to cool off")}</div>${promo()}</div>` }] },
+
+  { id: "devices", nav: 1, name: "My Devices", opts: [
+    { name: "A tab per device", note: "Same shape as the dashboard: device tabs on top, then readings, live graph, storage and alerts.", body: () => `${topBar("My Devices")}
+      <div class="row ac"><div class="ctabs"><em class="on">${ic("monitor")}My Windows PC <i class="dotg"></i></em><em>${ic("laptop")}Office Laptop <i class="doto"></i></em></div><span class="sub">Windows 11 · Desktop · last reading 3 s ago</span><span class="r row" style="gap:5px">${vd("Refresh")}${bk("Add device", "plus")}</span></div>
+      ${deviceStats(true)}
+      <div class="row">${chart("Live readings", ["CPU %", "GPU %", "RAM %"], { legend: 1, series: TRIO, x: LIVE_X, cls: "f1", style: "min-height:118px", right: chip("Live") })}${storage}</div>
+      <div class="row">${alertsCard(2, bk("Diagnose", "sparkles", "gr"))}</div>` },
+    { name: "Device list beside the details", note: "Your devices stay listed on the left; the selected one opens on the right.", body: () => `${topBar("My Devices")}
+      <div class="row" style="flex:1"><div class="col" style="width:132px">
+        <article class="card pad dk"><div class="row ac" style="gap:6px">${ico("monitor", "d")}<span class="f1"><b class="t7">My Windows PC</b><span class="sub">Windows 11 · Desktop</span></span></div><div class="row ac" style="margin-top:8px">${chip("Online")}<span class="sub r">3 s ago</span></div></article>
+        <article class="card pad"><div class="row ac" style="gap:6px">${ico("laptop")}<span class="f1"><b class="t7">Office Laptop</b><span class="sub">Windows 11 · Laptop</span></span></div><div class="row ac" style="margin-top:8px">${chip("Offline", "n")}<span class="sub r">2 h ago</span></div></article>
+        <div class="dash" style="height:44px">${ic("plus")}Add a device</div></div>
+        <div class="col f1"><div class="row ac"><b class="t9">My Windows PC</b>${chip("Online")}<span class="r">${vd("Refresh")}</span></div>
+          <div class="g4" style="gap:6px">${mini("CPU", "38%", "45 °C")}${mini("GPU", "12%", "32 °C")}${mini("Memory", "92%", "29.4 of 32 GB")}${mini("PSU 12V", "12.08 V", "In range")}</div>
+          ${chart("Live readings", ["CPU %", "GPU %", "RAM %"], { legend: 1, series: TRIO, x: LIVE_X, style: "min-height:112px", right: chip("Live") })}
+          <div class="row"><article class="card pad col f1">${H("hard-drive", "Storage")}${usage("C: ST2000DM008", 83, "83%")}${usage("D: Samsung 980", 41, "41%")}</article>${alertsCard(1, bk("Diagnose", "sparkles", "gr"), "flex:1.5")}</div></div></div>` },
+    { name: "A card per device", note: "Every device at a glance in its own card; View details opens the full readings.", body: () => {
+      const dev = (i, n, os, on, vals, pct, al) => `<article class="card pad col" style="gap:7px"><div class="row ac" style="gap:6px">${ico(i, on ? "k" : "")}<span class="f1"><b class="t7">${n}</b><span class="sub">${os}</span></span>${chip(on ? "Online" : "Offline", on ? "" : "n")}</div>
+        <div class="g2" style="gap:5px">${vals.map((v) => mini(...v)).join("")}</div>${usage("Storage", pct, pct + "% used")}<div class="row ac">${al ? chip(al, "w") : chip("No alerts")}<span class="r">${vd()}</span></div></article>`;
+      return `${topBar("My Devices")}<div class="row ac"><span class="sub" style="font-size:5.4px">2 devices · 1 online · last reading 3 s ago</span><span class="r row" style="gap:5px">${vd("Refresh")}${bk("Add device", "plus")}</span></div>
+      <div class="g3">${dev("monitor", "My Windows PC", "Windows 11 · Desktop", 1, [["CPU", "38%", "45 °C"], ["GPU", "12%", "32 °C"], ["Memory", "92%", "of 32 GB"], ["PSU 12V", "12.08 V", "In range"]], 83, "2 active alerts")}
+        ${dev("laptop", "Office Laptop", "Windows 11 · Laptop", 0, [["CPU", "—", "2 h ago"], ["GPU", "—", "2 h ago"], ["Memory", "—", "of 16 GB"], ["PSU 12V", "—", "No sensor"]], 56, "")}
+        <div class="dash">${ico("plus", "k")}Add a device<span class="sub" style="text-align:center;padding:0 14px">Run the Lectio agent on the PC you want to watch</span></div></div>
+      <div class="row">${alertsCard(2, bk("Diagnose", "sparkles", "gr"))}</div>`; } },
+  ] },
+
+  { id: "metrics", nav: 2, name: "Metrics Studio", opts: [
+    { name: "Form and payload side by side", note: "Send a reading on top with its payload beside it; the stored readings table sits below.", body: () => `${topBar("Metrics Studio")}
+      <div class="row"><article class="card pad col f1">${H("send", "Send a reading", `<span class="sub">Presets</span>${chip("Normal temp", "o")}${chip("Temp breach", "o")}`)}
+          <div class="ctabs"><em class="on">${ic("thermometer")}Temperature</em><em style="background:#f5f5f6">${ic("cpu")}CPU usage</em><em style="background:#f5f5f6">${ic("radio")}Network</em></div>
+          <div class="g3">${fld("Sensor ID", "sensor_room_101")}${fld("Value", "24.5")}${fld("Unit", "°C")}</div><div class="row ac">${bk("Send reading", "send")}<span class="sub">Stored in your account and charted on Live Monitor.</span></div></article>
+        <article class="card pad col dk" style="width:170px">${H("braces", "Payload inspector", chip("Valid"))}<pre class="code f1">${PAYLOAD}</pre></article></div>
+      <article class="card pad">${H("database", "Stored readings", `<span class="sub">Show</span>${chip("25", "o")}${vd("Refresh")}`)}<div style="margin-top:5px">${table(["Timestamp", "Sensor ID", "Type", "Value", "Specific fields", ""], readingRows(4))}</div></article>` },
+    { name: "Two tabs", note: "One job at a time: a Send tab and a Stored readings tab. Shown on Send.", body: () => `${topBar("Metrics Studio")}
+      <div class="ctabs"><em class="on">${ic("send")}Send a reading</em><em>${ic("database")}Stored readings <b>128</b></em></div>
+      <div class="row" style="flex:1"><article class="card pad col f1" style="gap:9px">${H("", "1. Pick a reading type")}
+          <div class="g3">${[["thermometer", "Temperature", "°C, °F or K", 1], ["cpu", "CPU usage", "Percent, cores, processes"], ["radio", "Network", "Throughput in MB/s"]].map(([i, t, s, on]) => `<div class="mini row ac" style="gap:6px;${on ? "background:#eaf5ec;box-shadow:inset 0 0 0 .7px #1c7a2e" : ""}">${ico(i, on ? "g" : "")}<span><b style="font-size:5.6px;margin:0">${t}</b><small>${s}</small></span></div>`).join("")}</div>
+          ${H("", "2. Fill it in", `<span class="sub">Start from</span>${chip("Normal temp", "o")}${chip("Temp breach", "o")}`)}<div class="g3">${fld("Sensor ID", "sensor_room_101")}${fld("Value", "24.5")}${fld("Unit", "°C")}</div>
+          <div class="row ac" style="margin-top:auto">${bk("Send reading", "send")}<span class="sub">Goes over its limit? An alert appears on Live Monitor.</span></div></article>
+        <div class="col" style="width:170px"><article class="card pad col dk f1">${H("braces", "Payload inspector", chip("Valid"))}<pre class="code f1">${PAYLOAD}</pre></article>
+          <article class="pill soft" style="height:38px;gap:7px;padding:0 12px">${ico("circle-check", "k")}<span><b style="font-size:5.8px">Reading stored</b><small style="margin-top:2px">sensor_room_101 · 14:02:11</small></span></article></div></div>` },
+    { name: "Table first", note: "Totals and the stored readings lead; the send form is a narrow panel on the right.", body: () => `${topBar("Metrics Studio")}
+      <div class="g4">${st("Stored readings", 128, "", "<b>+12</b> in the last hour", { icon: "database" })}${st("Temperature", 67, "", "<b>52%</b> of all", { icon: "thermometer" })}${st("CPU usage", 41, "", "<b>32%</b> of all", { icon: "cpu" })}${st("Network", 20, "", "<b>16%</b> of all", { icon: "radio" })}</div>
+      <div class="row" style="flex:1"><article class="card pad f1">${H("database", "Stored readings", `${chip("All", "k")}${chip("Temperature", "o")}${chip("CPU", "o")}${chip("Network", "o")}${vd("Refresh")}`)}<div style="margin-top:5px">${table(["Timestamp", "Sensor ID", "Type", "Value", ""], readingRows(5).map((r) => [r[0], r[1], r[2], r[3], r[5]]))}</div></article>
+        <article class="card pad col" style="width:138px">${H("send", "Send a reading")}<div class="row" style="gap:3px">${chip("Temperature", "k")}${chip("CPU", "o")}${chip("Network", "o")}</div>${fld("Sensor ID", "sensor_room_101")}<div class="g2" style="gap:5px">${fld("Value", "24.5")}${fld("Unit", "°C")}</div><span class="sub">Presets: Normal temp · Temp breach</span>${bk("Send reading", "send")}</article></div>` },
+  ] },
+
+  { id: "live", nav: 3, name: "Live Monitor", opts: [
+    { name: "Graph with alerts beside it", note: "Simulator controls on top, the live graph in the middle, alerts in a column on the right.", body: () => `${topBar("Live Monitor")}
+      <div class="row"><article class="pill dark" style="width:232px">${ring(.7, "rgba(255,255,255,.16)", "#5cc061", ic("activity"), "#5cc061")}<span><b>Simulator is running</b><small>A test reading every 1.0 s</small></span>${bk("Pause", "pause", "gr")}</article>
+        <article class="card f1 g2" style="padding:9px 12px;gap:14px">${slider("Speed", "1.0 s", "Fast (300 ms)", "Slow (3.0 s)", 28)}${slider("Breach rate", "20%", "Normal (0%)", "Heavy (80%)", 25)}</article></div>
+      <div class="row" style="flex:1">${chart("Live readings", ["All charts", "Temperature", "CPU (%)", "Network"], { series: TRIO, x: LIVE_X, cls: "f1", limit: 85, right: chip("248 received") })}
+        <article class="card pad" style="width:165px">${H("bell", "Alerts", vd("Clear"))}<div style="margin-top:4px">${ALERTS.map(([w, t, s, wh]) => `<div class="li">${ico(w ? "triangle-alert" : "circle-check", w ? "w" : "g")}<span class="f1">${t}<small>${wh}</small></span></div>`).join("")}<div class="li">${ico("triangle-alert", "w")}<span class="f1">Network throughput spike<small>2 h ago</small></span></div></div></article></div>` },
+    { name: "One graph per reading type", note: "A slim control bar, three small graphs side by side, and the alert list across the bottom.", body: () => {
+      const g = (i, t, v, u, s) => `<article class="card pad">${H(i, t, chip("Live"))}<div class="v">${v} <small>${u}</small></div>${spark(s)}<div class="row ac" style="margin-top:5px"><span class="sub">Last 60 seconds</span><span class="r">${vd()}</span></div></article>`;
+      return `${topBar("Live Monitor")}
+      <article class="card row ac" style="padding:8px 10px;gap:14px">${bk("Pause simulator", "pause")}<div class="f1">${slider("Speed", "1.0 s", "Fast", "Slow", 28)}</div><div class="f1">${slider("Breach rate", "20%", "Normal", "Heavy", 25)}</div><span class="sub">Sent <b style="color:#0e0e10">248</b> · Breaches <b style="color:#c70036">12</b></span></article>
+      <div class="g3">${g("thermometer", "Temperature", 24.5, "°C", [55, 9, 0.4, 49, "#1c7a2e"])}${g("cpu", "CPU", 38, "%", [45, 14, 2.2, 38, "#1c7a2e"])}${g("radio", "Network", 12.4, "MB/s", [40, 12, 4.1, 46, "#1c7a2e"])}</div>
+      <article class="card pad f1">${H("bell", "Alerts", `${chip("3 open", "w")}${vd("Clear stream")}`)}<div style="margin-top:4px">${ALERTS.map(([w, t, s, wh]) => alertRow(w, t, s, wh, vd("Dismiss"))).join("")}</div></article>`; } },
+    { name: "Totals first", note: "Stream totals lead like the dashboard's top row; the graph and simulator sit side by side below.", body: () => `${topBar("Live Monitor")}
+      <div class="g4">${st("Readings received", 248, "", "<b>60</b> per minute", { icon: "activity" })}${st("Active sensors", 3, "", "<b>3</b> types reporting", { icon: "server" })}${st("Open alerts", 3, "", "<b>12</b> breaches sent", { icon: "bell", warn: 1 })}${st("Stream", "Live", "", "<b>Connected</b> · 1.0 s", { icon: "radio" })}</div>
+      <div class="row" style="flex:1">${chart("Live readings", ["All charts", "Temperature", "CPU (%)", "Network"], { series: TRIO, x: LIVE_X, cls: "f1", limit: 85 })}
+        <article class="card pad col" style="width:150px">${H("sliders-horizontal", "Simulator", chip("Running"))}${slider("Speed", "1.0 s", "Fast", "Slow", 28)}${slider("Breach rate", "20%", "Normal", "Heavy", 25)}<span class="bk" style="margin-top:auto">${ic("pause")}Pause simulator</span></article></div>
+      <article class="card pad">${H("bell", "Alerts", vd("Clear stream"))}<div style="margin-top:4px">${ALERTS.slice(0, 2).map(([w, t, s, wh]) => alertRow(w, t, s, wh, vd("Dismiss"))).join("")}</div></article>` },
+  ] },
+
+  { id: "analytics", nav: 4, name: "Analytics", opts: [
+    { name: "Dashboard shape", note: "The same three rows as the dashboard: totals, big numbers with a graph, then service status.", body: () => `${topBar("Analytics")}
+      <div class="g3">${st("Temperature readings", 67, "", "<b>52.3%</b> of all readings", { bars: [20, 10, 15, 8, 12], vd: true })}${st("CPU readings", 41, "", "<b>32.0%</b> of all readings", { bars: [9, 17, 11, 22, 14], vd: true })}${st("Network readings", 20, "", "<b>15.7%</b> of all readings", { bars: [11, 12, 16, 9, 21], vd: true })}</div>
+      <div class="gmid">${gaugeCard("Within Limits", 91, "<b>12</b> readings breached a limit")}${listCard("Total Readings", 128, "", [["Temperature", "67"], ["CPU usage", "41"], ["Network", "20"]])}${chart("Readings per hour", ["All", "Temperature", "CPU", "Network"], { unit: "", seg: ["24h", "7d", "30d"], series: [[30, 12, 0.9, 42, "#1c7a2e"]] })}</div>
+      <div class="glow"><div class="pills">${pill("dark", 1, ic("server"), "API Backend", "FastAPI and Beanie · responding", chip("Online"))}${pill("soft", 1, ic("database"), "Database", "MongoDB instance · connected", chip("Connected", "k"))}</div>${promo()}</div>` },
+    { name: "Graph first", note: "A wide graph of readings over time leads; totals and service status follow.", body: () => `${topBar("Analytics")}
+      ${chart("Readings over time", ["All", "Temperature", "CPU", "Network"], { unit: "", seg: ["24h", "7d", "30d"], series: [[30, 12, 0.9, 42, "#1c7a2e"]], style: "min-height:150px", stats: [["Total", "128"], ["Busiest hour", "2 PM"], ["Breaches", "12"]] })}
+      <div class="g4">${st("All readings", 128, "", "<b>+12</b> in the last hour", { icon: "database" })}${st("Temperature", 67, "", "<b>52.3%</b> of all", { icon: "thermometer" })}${st("CPU usage", 41, "", "<b>32.0%</b> of all", { icon: "cpu" })}${st("Network", 20, "", "<b>15.7%</b> of all", { icon: "radio" })}</div>
+      <div class="g2">${pill("dark", 1, ic("server"), "API Backend", "FastAPI and Beanie · responding", chip("Online"))}${pill("soft", 1, ic("database"), "Database", "MongoDB instance · connected", chip("Connected", "k"))}</div>` },
+    { name: "Breakdown and health", note: "A share-of-readings breakdown and the busiest sensors on the left, engine health on the right.", body: () => {
+      const share = (c, n, v, p) => `<div class="li"><i style="width:5px;height:5px;border-radius:2px;background:${c}"></i><span class="f1">${n}</span><b>${v}</b><span class="sub" style="width:26px;text-align:right">${p}</span></div>`;
+      return `${topBar("Analytics")}
+      <div class="row" style="flex:1"><div class="col f1"><article class="card pad">${H("chart-pie", "Readings by type", `<span class="sub">128 in total</span>`)}
+          <div class="stack" style="margin:8px 0 5px"><i style="width:52.3%;background:#1c7a2e"></i><i style="width:32%;background:#5cc061"></i><i style="width:15.7%;background:#0e0e10"></i></div>
+          ${share("#1c7a2e", "Temperature", 67, "52.3%")}${share("#5cc061", "CPU usage", 41, "32.0%")}${share("#0e0e10", "Network", 20, "15.7%")}</article>
+          <article class="card pad f1">${H("server", "Busiest sensors", vd("View all"))}<div style="margin-top:5px">${table(["Sensor ID", "Type", "Readings", "Last seen"], SENSORS.slice(0, 4).map(([s, t, , w], i) => [`<span class="mono">${s}</span>`, chip(t, "n"), `<b>${[42, 31, 20, 14][i]}</b>`, `<span class="sub">${w}</span>`]))}</div></article></div>
+        <div class="col" style="width:168px"><article class="card pad dk f1">${H("heart-pulse", "Engine health", chip("All good"))}<div style="margin-top:5px">
+            ${[["server", "API backend", "FastAPI and Beanie"], ["database", "Database", "MongoDB instance"], ["radio", "Live stream", "WebSocket connected"]].map(([i, t, s]) => `<div class="li">${ico(i, "d")}<span class="f1">${t}<small>${s}</small></span><i class="dotg"></i></div>`).join("")}</div></article>
+          ${pill("soft", .91, "91%", "Within limits", "12 breaches", "")}</div></div>`; } },
+  ] },
+
+  { id: "sensors", nav: 5, name: "Sensors", opts: [
+    { name: "A card per sensor", note: "Totals on top, then each sensor in its own card with its latest value.", body: () => `${topBar("Sensors")}
+      <div class="g3">${st("Sensors reporting", 6, "", "Among your last <b>100</b> readings", { icon: "server" })}${st("Reading types", 3, "", "<b>Temperature, CPU, Network</b>", { icon: "layers" })}${st("Latest reading", 12, "s ago", "<b>sensor_room_101</b>", { icon: "clock" })}</div>
+      <div class="g3">${SENSORS.map(([s, t, v, w, i]) => `<article class="card pad"><div class="row ac" style="gap:6px">${ico(i, "g")}<span class="f1 mono" style="font-size:5.4px;font-weight:600">${s}</span></div><div class="row ac" style="margin-top:7px;align-items:flex-end"><span><span class="sub">${t}</span><b class="t9" style="margin-top:2px">${v}</b></span><span class="sub r">${w}</span></div><div class="row ac" style="margin-top:7px">${chip("Reporting")}<span class="r">${vd()}</span></div></article>`).join("")}</div>` },
+    { name: "One table", note: "Every sensor as a row you can filter by type; the densest of the three.", body: () => `${topBar("Sensors")}
+      <article class="card pad f1">${H("server", "Recently active sensors", `<span class="sub">6 reporting</span>${chip("All", "k")}${chip("Temperature", "o")}${chip("CPU", "o")}${chip("Network", "o")}`)}
+        <div style="margin-top:6px">${table(["Sensor ID", "Type", "Latest value", "Last seen", "Status", ""], SENSORS.map(([s, t, v, w, i]) => [`<span class="row ac" style="gap:6px">${ico(i, "g")}<span class="mono" style="font-weight:600">${s}</span></span>`, chip(t, "n"), `<b>${v}</b>`, `<span class="sub">${w}</span>`, chip("Reporting"), vd()]))}</div></article>` },
+    { name: "Grouped by reading type", note: "Three columns (Temperature, CPU, Network), each listing its sensors as pills.", body: () => `${topBar("Sensors")}
+      <div class="row ac"><span class="sub" style="font-size:5.4px">6 sensors reported among your 100 most recent readings</span><span class="r">${vd("Refresh")}</span></div>
+      <div class="g3" style="flex:1">${[["thermometer", "Temperature"], ["cpu", "CPU"], ["radio", "Network"]].map(([i, t]) => `<article class="card pad col" style="gap:7px">${H(i, t, chip("2 sensors", "n"))}
+        ${SENSORS.filter((s) => s[1] === t).map(([s, , v, w], k) => `<div class="pill ${k ? "white" : "soft"}" style="height:44px;gap:7px;padding:0 10px;${k ? "box-shadow:inset 0 0 0 .6px #d9d9dc" : ""}">${ico("radio", k ? "" : "k")}<span><b class="mono" style="font-size:5.2px">${s}</b><small style="margin-top:2.5px">${w}</small></span><b class="r" style="font-size:7px">${v}</b></div>`).join("")}
+        <span class="vd" style="margin-top:auto">View details</span></article>`).join("")}</div>` },
+  ] },
+
+  { id: "settings", nav: 6, name: "Settings", opts: [
+    { name: "Profile card beside the forms", note: "A black profile card on the left; name, password and delete account stacked on the right.", body: () => `${topBar("Settings")}
+      <div class="row" style="flex:1"><article class="card pad dk col" style="width:140px;align-items:flex-start"><span class="ava" style="width:38px;height:38px;border-radius:11px;font-size:12px">MW</span><span><b class="t9">Mugisha Witness</b><span class="sub">name@example.com</span></span>${chip("Email verified")}
+          <div style="align-self:stretch;margin-top:auto">${[["Member since", "12 Mar 2026"], ["Last sign-in", "Today, 09:24"], ["Role", "Owner"]].map(([k, v]) => `<div class="li"><span class="f1 sub">${k}</span>${v}</div>`).join("")}</div></article>
+        <div class="col f1"><article class="card pad col">${H("user", "Personal information")}<div class="g2">${fld("Full name", "Mugisha Witness")}${fld("Email (can't be changed here)", "name@example.com", 1)}</div><div>${bk("Save changes")}</div></article>
+          <article class="card pad col">${H("lock", "Login and password", `<span class="sub">Secure your account</span>`)}<div class="g3">${fld("Current password", "••••••••")}${fld("New password", "Enter new password")}${fld("Confirm", "Confirm new password")}</div><div>${bk("Update password")}</div></article>
+          <article class="card pad row ac" style="box-shadow:inset 0 0 0 .6px #fecdd3">${ico("trash-2", "w")}<span class="f1"><b class="t7">Delete account</b><span class="sub">Permanently removes your account, devices and readings.</span></span>${bk("Delete account", "", "rs")}</article></div></div>` },
+    { name: "Three tabs", note: "Profile, Password and Delete account each get their own tab. Shown on Profile.", body: () => `${topBar("Settings")}
+      <div class="ctabs"><em class="on">${ic("user")}Profile</em><em>${ic("lock")}Password</em><em>${ic("trash-2")}Delete account</em></div>
+      <div class="g3">${st("Member since", "12 Mar", "2026", "<b>8 months</b> with Lectio", { icon: "calendar" })}${st("Last sign-in", "09:24", "today", "<b>This device</b>", { icon: "clock" })}${st("Role", "Owner", "", "<b>Full access</b> to this account", { icon: "shield-check" })}</div>
+      <article class="card pad col f1" style="gap:10px"><div class="row ac" style="gap:8px"><span class="ava" style="width:34px;height:34px;border-radius:10px;font-size:11px">MW</span><span><b class="t9">Mugisha Witness</b><span class="sub">name@example.com</span></span><span class="r">${chip("Email verified")}</span></div>
+        ${H("user", "Personal information")}<div class="g2">${fld("Full name", "Mugisha Witness")}${fld("Email (can't be changed here)", "name@example.com", 1)}</div><div style="margin-top:auto">${bk("Save changes")}</div></article>` },
+    { name: "Labelled sections", note: "One column: each section's title and explanation on the left, its form on the right.", body: () => {
+      const sec = (t, s, inner) => `<div class="row"><div style="width:120px;padding-top:4px"><b class="t7">${t}</b><p class="p" style="margin-top:3px">${s}</p></div><article class="card pad col f1">${inner}</article></div>`;
+      return `${topBar("Settings")}
+      ${sec("Personal information", "The name shown across Lectio. Member since 12 Mar 2026 · Role: Owner.", `<div class="g2">${fld("Full name", "Mugisha Witness")}${fld("Email (can't be changed here)", "name@example.com", 1)}</div><div class="row ac">${bk("Save changes")}<span class="sub">Last sign-in today, 09:24</span></div>`)}
+      ${sec("Login and password", "Changing your password signs you out of every session.", `<div class="g3">${fld("Current password", "••••••••")}${fld("New password", "Enter new password")}${fld("Confirm", "Confirm new password")}</div><div>${bk("Update password")}</div>`)}
+      ${sec("Delete account", "Permanent. Your devices, readings and alerts are removed.", `<div class="row ac">${ico("trash-2", "w")}<span class="f1 sub">Type DELETE to confirm, then delete your account.</span>${bk("Delete account", "", "rs")}</div>`)}`; } },
+  ] },
+
+  { id: "help", nav: 7, name: "Help", opts: [
+    { name: "Topic cards with the agent command", note: "Four topic cards on the left; the agent command and the alerts note stay visible on the right.", body: () => `${topBar("Help")}
+      <div class="row" style="flex:1"><div class="g2 f1">${TOPICS.map(([i, t, b, a]) => `<article class="card pad col" style="gap:6px">${ico(i, "g")}<b class="t7">${t}</b><p class="p f1">${b}</p><div>${vd(a)}</div></article>`).join("")}</div>
+        <div class="col" style="width:172px"><article class="card pad col dk">${H("terminal", "Starting the agent")}<p class="p">Run this on the computer you want to monitor:</p><pre class="code">${AGENT}</pre><p class="p">Your password is used once to register and is not stored.</p></article>
+          <article class="card pad col gs f1">${H("triangle-alert", "When do alerts fire?")}<p class="p" style="color:#45454c">${ALERT_FAQ}</p></article></div></div>` },
+    { name: "Numbered steps", note: "Reads as a getting-started guide: four steps across, then the command and the alerts note.", body: () => `${topBar("Help")}
+      <div class="g4">${TOPICS.map(([i, t, b, a], k) => `<article class="card pad col" style="gap:6px"><div class="row ac"><span class="num">${k + 1}</span><span class="r">${ico(i, "g")}</span></div><b class="t7">${t}</b><p class="p f1">${b}</p><div>${vd(a)}</div></article>`).join("")}</div>
+      <div class="row" style="flex:1"><article class="card pad col dk f1">${H("terminal", "Starting the agent", chip("Run once per PC"))}<p class="p">From the project folder on the computer you want to monitor, run:</p><pre class="code">${AGENT}</pre><p class="p">The agent asks for your email and password the first time only.</p></article>
+        <article class="card pad col gs" style="width:190px">${H("triangle-alert", "When do alerts fire?")}<p class="p" style="color:#45454c">${ALERT_FAQ}</p><div style="margin-top:auto">${bk("Open Live Monitor")}</div></article></div>` },
+    { name: "Search banner and questions", note: "A green help banner with search on top, then questions that open one at a time.", body: () => `${topBar("Help")}
+      <article class="promo" style="min-height:92px">${promoArt}<div class="pb">${mark("#fff", "#5cc061", 8)}Lectio Help</div><h3 style="top:30px">How can we help?</h3><div class="find">${ic("search")}Search help: agent, alerts, password...</div></article>
+      <article class="card pad f1"><div class="li"><span class="f1"><b class="t7">How do I start the agent?</b></span>${ic("chevron-up")}</div><p class="p" style="margin:0 0 6px">From the project folder on the computer you want to monitor, run:</p><pre class="code">${AGENT}</pre>
+        ${[...TOPICS.map((t) => t[1]), "When do alerts fire?"].map((t) => `<div class="li"><span class="f1"><b class="t7" style="font-weight:500">${t}</b></span>${ic("chevron-down")}</div>`).join("")}</article>` },
+  ] },
+];
+
+function frame(p, o, k) {
+  const nav = [["layout-grid", "Dashboard"], ["cpu", "My Devices"], ["database", "Metrics Studio"], ["radio", "Live Monitor"], ["chart-spline", "Analytics"], ["server", "Sensors"]];
+  const other = [["settings", "Settings"], ["headset", "Help"]];
+  const item = ([i, n], idx) => `<a class="${idx === p.nav ? "on" : ""}"><span>${ic(i)}</span>${n}</a>`;
+  return `<section class="opt"><div class="opt-head"><h2>${p.name}${p.opts.length > 1 ? ` · Option ${k + 1}` : ""} · ${o.name}</h2><p>${o.note}</p></div>
+    <div class="frame"><aside class="rail"><div class="brand">${mark("#d9d9d9", "#3a9542", 13)}Lectio</div><div class="cap">Main menu</div>
+        <nav class="nav">${nav.map((n, i) => item(n, i)).join("")}</nav><div class="cap">Others</div><nav class="nav">${other.map((n, i) => item(n, i + 6)).join("")}</nav>
+        <div class="acct"><div class="cap">User account</div><div class="who"><span class="ava">MW</span><span><b>Mugisha Witness</b><small>Account settings</small></span></div></div></aside>
+      <main class="panel">${o.body()}</main></div></section>`;
+}
+
+const q = new URLSearchParams(location.search);
+let page = q.get("p") || "devices";
+function draw() {
+  const only = q.get("l"), p = PAGES.find((x) => x.id === page);
+  const pick = only ? "" : `<div class="pick">Page: ${PAGES.map((x) => `<button data-k="${x.id}" class="${x.id === page ? "on" : ""}">${x.name}</button>`).join("")}</div>`;
+  document.getElementById("root").innerHTML = pick + p.opts.map((o, k) => (!only || +only === k + 1 ? frame(p, o, k) : "")).join("");
+  lucide.createIcons({ attrs: { "stroke-width": 1.9 } });
+  document.querySelectorAll(".pick button").forEach((b) => b.onclick = () => { page = b.dataset.k; draw(); scrollTo(0, 0); });
+}
+draw();
+const fit = () => document.documentElement.style.setProperty("--zoom", Math.min(2.2, (innerWidth - 40) / 640).toFixed(3));
+fit(); addEventListener("resize", fit);
+})();
+</script>
+</body>
+</html>

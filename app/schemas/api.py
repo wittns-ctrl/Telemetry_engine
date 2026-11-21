@@ -172,6 +172,7 @@ class AlertResponse(BaseModel):
     is_active: bool = Field(..., description="Whether alert is still active")
     created_at: datetime = Field(..., description="Alert creation timestamp")
     resolved_at: Optional[datetime] = Field(None, description="Alert resolution timestamp")
+    resolved_reason: Optional[str] = Field(None, description="Why it closed: recovered, no_reading or closed_by_user")
     
     model_config = ConfigDict(from_attributes=True)
 

@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lectio dashboard options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px; background: #dcdcd8; font-family: "Inter", system-ui, sans-serif; color: #0e0e10; -webkit-font-smoothing: antialiased; }
+  .pick { display: flex; align-items: center; gap: 8px; margin: 0 auto 18px; width: fit-content; font-size: 13px; font-weight: 600; }
+  .pick button { height: 30px; padding: 0 14px; border: 1px solid #8e8e96; border-radius: 999px; background: #fff; font: inherit; cursor: pointer; }
+  .pick button.on { background: #0e0e10; border-color: #0e0e10; color: #fff; }
+  .opt { margin: 0 auto 34px; width: fit-content; }
+  .opt-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 10px 2px; }
+  .opt-head h2 { margin: 0; font-size: 19px; font-weight: 700; }
+  .opt-head p { margin: 0; font-size: 13px; color: #45454c; }
+
+  /* Everything inside .frame is in reference pixels (640 wide), zoomed up. */
+  .frame { position: relative; display: flow-root; width: 640px; min-height: 403px; border-radius: 10px; overflow: hidden; background: var(--bg); zoom: var(--zoom, 2); }
+  .frame svg { display: block; flex: none; }
+
+  /* sidebar */
+  .rail { position: absolute; left: 0; top: 0; width: 125px; height: 403px; padding: 18px 8px 14px; display: flex; flex-direction: column; color: var(--rail-fg); }
+  .brand { display: flex; align-items: center; gap: 6px; padding-left: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: -.01em; color: var(--rail-strong); }
+  .cap { margin: 20px 0 7px 5px; font-size: 4.2px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--rail-muted); }
+  .nav { display: flex; flex-direction: column; gap: 3px; }
+  .nav a { display: flex; align-items: center; gap: 7px; height: 22px; padding: 0 5px; border-radius: 8px; font-size: 6.2px; font-weight: 500; color: var(--rail-fg); }
+  .nav a span { display: grid; place-items: center; width: 14px; height: 14px; border-radius: 4.5px; background: var(--rail-chip); }
+  .nav a svg { width: 7.5px; height: 7.5px; }
+  .nav a.on { background: var(--rail-on); color: var(--rail-strong); font-weight: 600; }
+  .nav a.on span { background: var(--rail-on-chip); color: var(--rail-on-icon); }
+  .acct { margin-top: auto; }
+  .acct .cap { margin-top: 0; }
+  .who { display: flex; align-items: center; gap: 6px; padding-left: 4px; }
+  .ava { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: #dcefe0; color: #176b22; font-size: 6.5px; font-weight: 700; }
+  .who b { display: block; font-size: 6.2px; font-weight: 600; color: var(--rail-strong); }
+  .who small { display: block; margin-top: 1px; font-size: 4.8px; color: var(--rail-muted); }
+
+  /* content panel */
+  .panel { margin: 8px 5px 8px 125px; min-height: 387px; padding: 15px 10px 10px 12px; border-radius: 12px; background: var(--panel); display: flex; flex-direction: column; gap: 9px; }
+  .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+  .title { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -.02em; }
+  .tools { display: flex; gap: 5px; }
+  .search { display: flex; align-items: center; gap: 5px; width: 132px; height: 20px; padding: 0 8px; border-radius: 999px; background: #fff; border: .5px solid #e9e9e6; font-size: 5.4px; color: #8e8e96; }
+  .search svg { width: 7px; height: 7px; color: #45454c; }
+  .bell { position: relative; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #0e0e10; color: #fff; }
+  .bell svg { width: 8px; height: 8px; }
+  .bell i { position: absolute; right: 5px; top: 5px; width: 3.5px; height: 3.5px; border-radius: 50%; background: #ec003f; box-shadow: 0 0 0 1px #0e0e10; }
+  .card { border-radius: 8px; background: #fff; min-width: 0; }
+  .vd { display: inline-grid; place-items: center; height: 11.5px; padding: 0 6px; border-radius: 3.5px; border: .6px solid #8e8e96; font-size: 4.5px; font-weight: 600; white-space: nowrap; }
+  .btn { margin: 8px 3px 0; display: grid; place-items: center; height: 15px; border-radius: 4px; border: .6px solid #45454c; font-size: 5px; font-weight: 600; }
+
+  /* stat cards (reference row 1) */
+  .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { padding: 9px 10px; display: flex; justify-content: space-between; }
+  .stat h3, .sm h3 { margin: 0; font-size: 5.2px; font-weight: 500; color: #5f5f68; }
+  .v { margin-top: 5px; font-size: 13px; font-weight: 600; letter-spacing: -.02em; }
+  .v small { font-size: 8px; font-weight: 500; color: #5f5f68; letter-spacing: 0; }
+  .stat .d { margin: 5px 0 6px; font-size: 4.5px; color: #8e8e96; }
+  .stat .d b { font-weight: 600; color: var(--tone); }
+  .bars { display: flex; align-items: flex-end; gap: 2.5px; height: 24px; margin-top: 8px; }
+  .bars i { width: 4px; border-radius: 1.2px; background: var(--tone); }
+  .bars i:nth-child(even) { background: var(--tone-soft); }
+
+  /* reference row 2 */
+  .gmid { display: grid; grid-template-columns: 116px 120px 1fr; gap: 8px; }
+  .r2 { padding: 11px 10px 9px; display: flex; flex-direction: column; }
+  .r2 h3 { margin: 0; font-size: 6.6px; font-weight: 600; text-align: center; }
+  .big { margin-top: 10px; text-align: center; font-size: 25px; font-weight: 500; letter-spacing: -.03em; line-height: 1; }
+  .big small { font-size: 15px; color: #5f5f68; letter-spacing: 0; }
+  .gauge { margin: 8px auto 0; width: 80px; }
+  .foot { margin: 5px 0 7px; text-align: center; font-size: 4.5px; color: #5f5f68; }
+  .foot b { color: #0e0e10; }
+  .rows { margin: 11px 3px 0; display: grid; gap: 6px; }
+  .rows div { display: flex; align-items: center; gap: 5px; font-size: 5.2px; font-weight: 500; }
+  .rows i { width: 4px; height: 4px; border-radius: 50%; background: #1c7a2e; }
+  .rows em { margin-left: auto; font-style: normal; font-weight: 400; color: #8e8e96; }
+  .r2 .btn { margin-top: auto; }
+
+  /* line graph */
+  .chart { padding: 10px 10px 5px; display: flex; flex-direction: column; }
+  .ch-head { display: flex; align-items: center; gap: 5px; font-size: 6.6px; font-weight: 600; }
+  .ch-head svg { width: 8px; height: 8px; color: #1c7a2e; }
+  .seg { margin-left: auto; display: flex; padding: 1px; border-radius: 99px; background: #f5f5f6; }
+  .seg em { font-style: normal; font-size: 4.4px; font-weight: 500; padding: 2.2px 5.5px; border-radius: 99px; color: #5f5f68; }
+  .seg em.on { background: #0e0e10; color: #fff; }
+  .ch-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px 8px; margin-top: 7px; }
+  .tabs { display: flex; gap: 3px; }
+  .tabs em { display: flex; align-items: center; gap: 2.5px; font-style: normal; font-size: 4.4px; font-weight: 500; padding: 2.4px 5px; border-radius: 99px; border: .5px solid #d9d9dc; color: #45454c; white-space: nowrap; }
+  .tabs em.on { border-color: #1c7a2e; background: #eaf5ec; color: #176b22; font-weight: 600; }
+  .st { display: flex; gap: 7px; font-size: 4.4px; color: #8e8e96; }
+  .st b { font-weight: 600; color: #0e0e10; }
+  .ch-plot { flex: 1; min-height: 58px; display: grid; grid-template-columns: 16px 1fr; grid-template-rows: 1fr 10px; margin-top: 8px; }
+  .ch-y, .ch-area, .ch-x { position: relative; }
+  .ch-y span { position: absolute; right: 4px; transform: translateY(-50%); font-size: 4px; color: #8e8e96; white-space: nowrap; }
+  .ch-area svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .gl { position: absolute; left: 0; right: 0; height: .5px; background: #ebebed; }
+  .lim { position: absolute; left: 0; right: 0; border-top: .7px dashed #ec003f; }
+  .lim span { position: absolute; right: 0; bottom: 1.5px; padding: 1px 3.5px; border-radius: 99px; background: #fff1f2; font-size: 3.8px; font-weight: 500; color: #c70036; }
+  .dot { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #fff; border: 1.3px solid #1c7a2e; transform: translate(-50%, -50%); }
+  .ctip { position: absolute; transform: translate(-50%, -140%); padding: 2.5px 5px; border-radius: 4px; background: #0e0e10; color: #b9b9bf; font-size: 4px; white-space: nowrap; }
+  .ctip b { display: block; font-size: 4.8px; color: #fff; }
+  .ch-x { grid-column: 2; }
+  .ch-x span { position: absolute; top: 3.5px; transform: translateX(-50%); font-size: 4px; color: #8e8e96; white-space: nowrap; }
+  .ch-x span:first-child { transform: none; }
+  .ch-x span:last-child { transform: translateX(-100%); }
+
+  /* reference row 3 */
+  .glow { display: grid; grid-template-columns: 240px 1fr; gap: 7px; }
+  .pills { display: grid; gap: 9px; }
+  .pill { display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 14px 0 12px; border-radius: 999px; }
+  .pill b { display: block; font-size: 7.4px; font-weight: 600; }
+  .pill small { display: block; margin-top: 4px; font-size: 5px; }
+  .pill .vd { margin-left: auto; }
+  .pill.dark { background: var(--dark); color: #fff; }
+  .pill.dark small { color: #b9b9bf; }
+  .pill.dark .vd { border-color: #8e8e96; }
+  .pill.soft { background: var(--soft); }
+  .pill.soft small { color: #5f5f68; }
+  .pill.soft .vd { border-color: #1c7a2e; color: #176b22; }
+  .ring { position: relative; width: 32px; height: 32px; flex: none; }
+  .ring span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 5.8px; font-weight: 600; }
+  .promo { position: relative; min-height: 109px; border-radius: 12px; overflow: hidden; background: var(--promo); color: #fff; }
+  .promo > * { position: absolute; }
+  .promo .pb { left: 12px; top: 11px; display: flex; align-items: center; gap: 4px; font-size: 6.4px; font-weight: 600; }
+  .promo h3 { left: 12px; top: 36px; margin: 0; font-size: 10.6px; font-weight: 600; line-height: 1.25; letter-spacing: -.01em; }
+  .promo .ppl { left: 12px; bottom: 9px; display: flex; align-items: center; gap: 5px; font-size: 5.4px; font-weight: 500; }
+  .promo .ppl span { display: flex; }
+  .promo .ppl span i { display: grid; place-items: center; width: 11px; height: 11px; margin-right: -2.5px; border-radius: 50%; background: #dcefe0; color: #176b22; box-shadow: 0 0 0 1px var(--promo); }
+  .promo .ppl svg { width: 6px; height: 6px; }
+  .promo .go { right: 12px; top: 10px; width: 15px; height: 15px; }
+  .promo .art { right: 0; bottom: 0; width: 135px; height: 110px; }
+  .tag { padding: 3.5px 6px; border-radius: 4px; font-size: 4.4px; font-weight: 600; }
+  .tag.a { right: 62px; bottom: 42px; background: #5cc061; color: #0e0e10; transform: rotate(-5deg); }
+  .tag.b { right: 70px; bottom: 26px; background: #fff; color: #0e0e10; transform: rotate(4deg); }
+
+  /* small value cards */
+  .sec { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+  .sec h2 { margin: 0; font-size: 8px; font-weight: 700; letter-spacing: -.01em; }
+  .sec > .si { display: grid; place-items: center; width: 15px; height: 15px; border-radius: 5px; background: #0e0e10; color: #fff; }
+  .sec > .si svg { width: 8px; height: 8px; }
+  .sec small { font-size: 5px; color: #8e8e96; }
+  .chips { margin-left: auto; display: flex; gap: 3px; }
+  .chips em { font-style: normal; font-size: 4.6px; font-weight: 500; padding: 3px 6.5px; border-radius: 99px; background: #fff; color: #45454c; }
+  .chips em.on { background: #0e0e10; color: #fff; }
+  .g5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+  .sm { padding: 8px 8px 7px; display: flex; flex-direction: column; align-items: flex-start; }
+  .sm .grp { margin-bottom: 4px; padding: 1.6px 4.5px; border-radius: 99px; background: #eaf5ec; font-size: 3.9px; font-weight: 600; color: #176b22; }
+  .sm .v { font-size: 12px; }
+  .bdg { display: flex; align-items: center; gap: 2.5px; margin: 4px 0 7px; font-size: 4.4px; font-weight: 500; color: #176b22; }
+  .bdg::before { content: ""; width: 3.5px; height: 3.5px; border-radius: 50%; background: #5cc061; }
+  .bdg.w { color: #c70036; }
+  .bdg.w::before { background: #ec003f; }
+  .sm .vd { align-self: stretch; margin-top: auto; }
+
+  /* option 2: component tabs */
+  .ctabs { display: flex; gap: 4px; }
+  .ctabs em { display: flex; align-items: center; gap: 4px; height: 17px; padding: 0 9px; border-radius: 99px; background: #fff; font-style: normal; font-size: 5.6px; font-weight: 500; color: #45454c; }
+  .ctabs em svg { width: 7px; height: 7px; }
+  .ctabs em.on { background: #0e0e10; color: #fff; font-weight: 600; }
+  .ctabs em b { font-weight: 500; color: #8e8e96; }
+  /* option 3: hero row */
+  .ghero { display: grid; grid-template-columns: 1fr 178px; gap: 8px; }
+  .ghero .chart { min-height: 150px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+const THEMES = {
+  A: { name: "Deep forest", bg: "#0d3a15", railFg: "#cfe6d3", railStrong: "#ffffff", railMuted: "#7fae88", railChip: "rgba(255,255,255,.08)",
+    railOn: "#176b22", railOnChip: "#5cc061", railOnIcon: "#0e0e10", dark: "#0e0e10", promo: "#176b22", letter: "#d9d9d9", ribbon: "#5cc061" },
+  B: { name: "Lectio green", bg: "#176b22", railFg: "#dcefe0", railStrong: "#ffffff", railMuted: "#b5dfbe", railChip: "rgba(255,255,255,.1)",
+    railOn: "#1c7a2e", railOnChip: "#ffffff", railOnIcon: "#176b22", dark: "#0e0e10", promo: "#0e0e10", letter: "#ffffff", ribbon: "#5cc061" },
+  C: { name: "Charcoal", bg: "#1c1c1f", railFg: "#d9d9dc", railStrong: "#ffffff", railMuted: "#8e8e96", railChip: "rgba(255,255,255,.07)",
+    railOn: "#303036", railOnChip: "#5cc061", railOnIcon: "#0e0e10", dark: "#0e0e10", promo: "#176b22", letter: "#d9d9d9", ribbon: "#3a9542" },
+  D: { name: "Light", bg: "#ffffff", railFg: "#45454c", railStrong: "#0e0e10", railMuted: "#8e8e96", railChip: "#f5f5f6",
+    railOn: "#eaf5ec", railOnChip: "#1c7a2e", railOnIcon: "#ffffff", dark: "#1c1c1f", promo: "#176b22", letter: "#414142", ribbon: "#2e8b37" },
+};
+
+// Every value the backend's telemetry snapshot carries: [label, value, unit, status, warn]
+const G = {
+  cpu: { name: "CPU", icon: "cpu", sub: "Ryzen 5 7600X", items: [
+    ["Core temperature", "45", "°C"], ["Package temperature", "48", "°C"], ["Utilization", "38", "%"],
+    ["Clock speed", "4.7", "GHz"], ["Package power", "65", "W"], ["Fan speed", "1,250", "RPM"], ["Thermal throttling", "Off", "", "Not throttling"]] },
+  gpu: { name: "GPU", icon: "monitor", sub: "RTX 3070", items: [
+    ["Core temperature", "32", "°C"], ["Hotspot temperature", "41", "°C"], ["Utilization", "12", "%"],
+    ["Fan speed", "30", "%"], ["VRAM used", "2.1", "/ 8 GB"], ["Board power", "48", "W"]] },
+  ram: { name: "Memory", icon: "memory-stick", sub: "32 GB DDR5", items: [
+    ["RAM usage", "92", "%", "High usage", 1], ["RAM used", "29.4", "/ 32 GB", "High usage", 1], ["Pagefile usage", "34", "%"], ["WHEA errors", "0", "", "None logged"]] },
+  disk: { name: "Storage", icon: "hard-drive", sub: "ST2000DM008", items: [
+    ["Capacity used", "83", "%"], ["S.M.A.R.T. health", "96", "%", "Healthy"], ["Data written", "12.4", "TBW"],
+    ["Drive temperature", "34", "°C"], ["Reallocated sectors", "0", "", "Healthy"], ["Bad sectors", "0", "", "Healthy"]] },
+  board: { name: "Power and board", icon: "zap", sub: "Motherboard and PSU", items: [
+    ["VRM temperature", "52", "°C"], ["PSU +12V rail", "12.08", "V", "In range"], ["Chipset temperature", "44", "°C"], ["Chassis fan", "900", "RPM"]] },
+};
+const TOTAL = Object.values(G).reduce((n, g) => n + g.items.length, 0);
+
+const ic = (n) => `<i data-lucide="${n}"></i>`;
+const mark = (t, h) => `<svg viewBox="0 0 32.5 45" style="height:${h}px;width:auto"><path fill="${t.letter}" d="M0 0H13V32.5H32.5V45H0Z"/><path fill="${t.ribbon}" d="M19 0H32.5V25.4L25.75 20.4L19 25.4Z"/></svg>`;
+const VD = `<span class="vd">View details</span>`;
+
+function statBig(g, it, bars, warn) {
+  const tone = warn ? "--tone:#ec003f;--tone-soft:#fecdd3" : "--tone:#1c7a2e;--tone-soft:#b5dfbe";
+  return `<article class="card stat" style="${tone}"><div><h3>${g.name} · ${it[0]}</h3><div class="v">${it[1]} <small>${it[2]}</small></div>
+    <div class="d"><b>▲ ${(bars[1] / 8).toFixed(1)}%</b> than last hour</div>${VD}</div><div class="bars">${bars.map((v) => `<i style="height:${v}px"></i>`).join("")}</div></article>`;
+}
+function small(g, it, tag) {
+  return `<article class="card sm">${tag ? `<span class="grp">${g.name}</span>` : ""}<h3>${it[0]}</h3><div class="v">${it[1]} <small>${it[2]}</small></div>
+    <span class="bdg${it[4] ? " w" : ""}">${it[3] || "Normal"}</span>${VD}</article>`;
+}
+function gaugeCard(title, pct, foot) {
+  const len = Math.PI * 34;
+  return `<article class="card r2"><h3>${title}</h3><div class="big">${pct}<small>%</small></div>
+    <svg class="gauge" viewBox="0 0 84 44"><path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke="#0e0e10" stroke-width="13"/>
+    <path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke="#5cc061" stroke-width="13" stroke-dasharray="${len * pct / 100} ${len}"/></svg>
+    <div class="foot">${foot}</div><div class="btn">View Details</div></article>`;
+}
+function listCard(title, big, unit, rows) {
+  return `<article class="card r2"><h3>${title}</h3><div class="big">${big}<small>${unit}</small></div>
+    <div class="rows">${rows.map(([k, v]) => `<div><i></i>${k}<em>${v}</em></div>`).join("")}</div><div class="btn">View Details</div></article>`;
+}
+function ring(pct, track, stroke, label, color) {
+  const c = 2 * Math.PI * 13;
+  return `<div class="ring"><svg viewBox="0 0 32 32" width="32" height="32"><circle cx="16" cy="16" r="13" fill="none" stroke="${track}" stroke-width="3.4"/>
+    <circle cx="16" cy="16" r="13" fill="none" stroke="${stroke}" stroke-width="3.4" stroke-linecap="round" stroke-dasharray="${c * pct} ${c}" transform="rotate(-90 16 16)"/></svg><span style="color:${color}">${label}</span></div>`;
+}
+const pillDark = (pct, label, title, sub) => `<article class="pill dark">${ring(pct, "rgba(255,255,255,.16)", "#5cc061", label, "#fff")}<span><b>${title}</b><small>${sub}</small></span>${VD}</article>`;
+const pillSoft = (pct, label, title, sub) => `<article class="pill soft">${ring(pct, "#b5dfbe", "#1c7a2e", label, "#0e0e10")}<span><b>${title}</b><small>${sub}</small></span>${VD}</article>`;
+
+// The same statistics graph the current dashboard has, drawn on a white card.
+function wave(points, base, amp, seed, end) {
+  const raw = Array.from({ length: points }, (_, i) => base + amp * Math.sin(i * 0.55 + seed) + amp * 0.45 * Math.sin(i * 1.7 + seed * 2));
+  const drift = end - raw[points - 1];
+  return raw.map((v, i) => Math.round(v + drift * (i / (points - 1))));
+}
+function chart(tabs) {
+  const d = wave(24, 50, 8, 0.4, 45), n = d.length;
+  const pts = d.map((v, i) => `${(i / (n - 1) * 1000).toFixed(1)},${(300 - v * 3).toFixed(1)}`);
+  const low = Math.min(...d), high = Math.max(...d), avg = Math.round(d.reduce((s, v) => s + v, 0) / n), f = 15;
+  return `<article class="card chart">
+    <div class="ch-head">${ic("chart-line")}Statistics<span class="seg"><em class="on">24h</em><em>7d</em><em>30d</em></span></div>
+    <div class="ch-bar"><span class="tabs">${tabs.map((t, i) => `<em class="${i ? "" : "on"}">${t}</em>`).join("")}</span>
+      <span class="st"><span>Low <b>${low}°C</b></span><span>Avg <b>${avg}°C</b></span><span>High <b>${high}°C</b></span><span>Now <b>45°C</b></span></span></div>
+    <div class="ch-plot"><div class="ch-y">${[100, 75, 50, 25, 0].map((v) => `<span style="top:${100 - v}%">${v}°C</span>`).join("")}</div>
+      <div class="ch-area">${[0, 25, 50, 75, 100].map((v) => `<i class="gl" style="top:${v}%"></i>`).join("")}
+        <svg viewBox="0 0 1000 300" preserveAspectRatio="none"><defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5cc061" stop-opacity=".35"/><stop offset="1" stop-color="#5cc061" stop-opacity=".02"/></linearGradient></defs>
+          <path d="M0,300 L${pts.join(" L")} L1000,300 Z" fill="url(#fill)"/><polyline points="${pts.join(" ")}" fill="none" stroke="#1c7a2e" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
+        <i class="lim" style="top:20%"><span>Limit 80°C</span></i>
+        <i class="dot" style="left:${f / (n - 1) * 100}%;top:${100 - d[f]}%"></i><span class="ctip" style="left:${f / (n - 1) * 100}%;top:${100 - d[f]}%"><b>${d[f]}°C</b>3 PM</span></div>
+      <div class="ch-x">${["4 PM", "8 PM", "12 AM", "4 AM", "8 AM", "12 PM", "Now"].map((l, i) => `<span style="left:${i / 6 * 100}%">${l}</span>`).join("")}</div></div>
+  </article>`;
+}
+function promo() {
+  return `<article class="promo">
+    <svg class="art" viewBox="0 0 135 110">
+      <path d="M136 112C104 96 84 70 80 34c22 18 44 40 56 78Z" fill="#1c7a2e"/><path d="M136 112C120 82 116 50 126 16c14 28 16 62 10 96Z" fill="#5cc061"/>
+      <path d="M136 112C98 106 72 92 54 64c30 2 60 18 82 48Z" fill="#3a9542"/><path d="M136 112C110 112 84 108 62 92c26-6 52 2 74 20Z" fill="#b5dfbe"/>
+      <circle cx="112" cy="66" r="9" fill="#fff" fill-opacity=".22"/><circle cx="112" cy="66" r="4.5" fill="#fff"/></svg>
+    <div class="pb">${mark({ letter: "#ffffff", ribbon: "#5cc061" }, 8)}Lectio AI</div>
+    <svg class="go" viewBox="0 0 15 15" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12 12 3M5 3h7v7"/></svg>
+    <h3>Let Lectio diagnose<br>your PC</h3><span class="tag a">AI Diagnosis</span><span class="tag b">Health Report</span>
+    <div class="ppl"><span><i>${ic("cpu")}</i><i>${ic("memory-stick")}</i><i>${ic("hard-drive")}</i></span>${TOTAL} readings checked</div></article>`;
+}
+const topBar = () => `<div class="top"><h1 class="title">Dashboard</h1><div class="tools"><div class="search">${ic("search")}Search devices, metrics, alerts...</div><div class="bell">${ic("bell")}<i></i></div></div></div>`;
+const METRIC_TABS = ["CPU", "GPU", "RAM", "Storage", "Power"];
+
+const LAYOUTS = [
+  { key: "1", name: "Reference screen, then all readings", note: `First screen matches the reference; the other readings follow in a grid as you scroll. ${TOTAL} cards.`,
+    body() {
+      const used = new Set([G.cpu.items[0], G.gpu.items[0], G.ram.items[0], G.disk.items[0], G.cpu.items[2], G.disk.items[1], G.cpu.items[1]]);
+      const rest = Object.values(G).flatMap((g) => g.items.filter((it) => !used.has(it)).map((it) => small(g, it, true)));
+      return `${topBar()}
+        <div class="g3">${statBig(G.cpu, G.cpu.items[0], [20, 10, 15, 8, 12])}${statBig(G.gpu, G.gpu.items[0], [9, 17, 11, 22, 14])}${statBig(G.ram, G.ram.items[0], [11, 12, 16, 9, 21], 1)}</div>
+        <div class="gmid">${gaugeCard("Storage Used", 83, "Free space <b>340 GB</b> of 2 TB")}${listCard("CPU Utilization", 38, "%", [["Low today", "12%"], ["Average", "31%"], ["High today", "64%"]])}${chart(METRIC_TABS)}</div>
+        <div class="glow"><div class="pills">${pillDark(.96, "96%", "Drive Health", "S.M.A.R.T. health of ST2000DM008")}${pillSoft(.48, "48°C", "CPU Package Temperature", "Hottest point across the processor")}</div>${promo()}</div>
+        <div class="sec"><h2>All readings</h2><small>${rest.length} more</small><span class="chips"><em class="on">All</em>${Object.values(G).map((g) => `<em>${g.name}</em>`).join("")}</span></div>
+        <div class="g5">${rest.join("")}</div>`;
+    } },
+  { key: "2", name: "One screen, a tab per component", note: "No scrolling: tabs swap the cards between CPU, GPU, Memory, Storage and Power. Shown on the CPU tab.",
+    body() {
+      const c = G.cpu.items;
+      return `${topBar()}
+        <div class="ctabs">${Object.values(G).map((g, i) => `<em class="${i ? "" : "on"}">${ic(g.icon)}${g.name} <b>${g.items.length}</b></em>`).join("")}</div>
+        <div class="g3">${statBig(G.cpu, c[0], [20, 10, 15, 8, 12])}${statBig(G.cpu, c[1], [9, 17, 11, 22, 14])}${statBig(G.cpu, c[3], [11, 12, 16, 9, 21])}</div>
+        <div class="gmid">${gaugeCard("CPU Utilization", 38, "Average today <b>31%</b>")}${listCard("Package Power", 65, " W", [["Low today", "18 W"], ["Average", "52 W"], ["High today", "88 W"]])}${chart(["Core temp", "Package", "Load", "Power", "Fan"])}</div>
+        <div class="glow"><div class="pills">${pillDark(.5, "1,250", "CPU Fan Speed", "Revolutions per minute, of 2,500 max")}${pillSoft(1, "Off", "Thermal Throttling", "The CPU is not slowing down to cool off")}</div>${promo()}</div>`;
+    } },
+  { key: "3", name: "A section per component", note: `Graph on top, then every reading grouped under its component. ${TOTAL} cards, the easiest to scan.`,
+    body() {
+      return `${topBar()}<div class="ghero">${chart(METRIC_TABS)}${promo()}</div>
+        ${Object.values(G).map((g) => `<div class="sec"><span class="si">${ic(g.icon)}</span><h2>${g.name}</h2><small>${g.sub} · ${g.items.length} readings</small></div>
+          <div class="g5">${g.items.map((it) => small(g, it)).join("")}</div>`).join("")}`;
+    } },
+];
+
+function frame(l, t) {
+  const nav = [["layout-grid", "Dashboard"], ["cpu", "My Devices"], ["database", "Metrics Studio"], ["radio", "Live Monitor"], ["chart-spline", "Analytics"], ["server", "Sensors"]];
+  return `<section class="opt"><div class="opt-head"><h2>Option ${l.key} · ${l.name}</h2><p>${l.note}</p></div>
+    <div class="frame" style="--bg:${t.bg};--rail-fg:${t.railFg};--rail-strong:${t.railStrong};--rail-muted:${t.railMuted};--rail-chip:${t.railChip};--rail-on:${t.railOn};--rail-on-chip:${t.railOnChip};--rail-on-icon:${t.railOnIcon};--panel:#f4f4f2;--dark:${t.dark};--soft:#dcefe0;--promo:${t.promo}">
+      <aside class="rail"><div class="brand">${mark(t, 13)}Lectio</div><div class="cap">Main menu</div>
+        <nav class="nav">${nav.map(([i, n], k) => `<a class="${k ? "" : "on"}"><span>${ic(i)}</span>${n}</a>`).join("")}</nav>
+        <div class="cap">Others</div><nav class="nav"><a><span>${ic("settings")}</span>Settings</a><a><span>${ic("headset")}</span>Help</a></nav>
+        <div class="acct"><div class="cap">User account</div><div class="who"><span class="ava">MW</span><span><b>Mugisha Witness</b><small>Account settings</small></span></div></div></aside>
+      <main class="panel">${l.body()}</main></div></section>`;
+}
+
+const q = new URLSearchParams(location.search);
+let colour = q.get("o") || "A";
+function draw() {
+  const only = q.get("l");
+  const pick = only ? "" : `<div class="pick">Sidebar colour: ${Object.entries(THEMES).map(([k, t]) => `<button data-k="${k}" class="${k === colour ? "on" : ""}">${k} · ${t.name}</button>`).join("")}</div>`;
+  document.getElementById("root").innerHTML = pick + LAYOUTS.filter((l) => !only || l.key === only).map((l) => frame(l, THEMES[colour])).join("");
+  lucide.createIcons({ attrs: { "stroke-width": 1.9 } });
+  document.querySelectorAll(".pick button").forEach((b) => b.onclick = () => { colour = b.dataset.k; draw(); });
+}
+draw();
+const fit = () => document.documentElement.style.setProperty("--zoom", Math.min(2.2, (innerWidth - 40) / 640).toFixed(3));
+fit(); addEventListener("resize", fit);
+</script>
+</body>
+</html>

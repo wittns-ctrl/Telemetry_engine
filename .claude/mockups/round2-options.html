@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lectio options, round 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 20px; background: #dcdcd8; font-family: "Inter", system-ui, sans-serif; color: #0e0e10; -webkit-font-smoothing: antialiased; }
+  .pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 auto 18px; width: fit-content; font-size: 13px; font-weight: 600; }
+  .pick button { height: 30px; padding: 0 14px; border: 1px solid #8e8e96; border-radius: 999px; background: #fff; font: inherit; cursor: pointer; }
+  .pick button.on { background: #0e0e10; border-color: #0e0e10; color: #fff; }
+  .opt { margin: 0 auto 34px; width: fit-content; }
+  .opt-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 10px 2px; }
+  .opt-head h2 { margin: 0; font-size: 19px; font-weight: 700; }
+  .opt-head p { margin: 0; font-size: 13px; color: #45454c; }
+
+  /* Everything inside .frame is in reference pixels (640 wide), zoomed up. */
+  .frame { position: relative; display: flow-root; width: 640px; min-height: 403px; border-radius: 10px; overflow: hidden; background: #0e0e10; zoom: var(--zoom, 2); }
+  .frame svg { display: block; flex: none; }
+  .rail { position: absolute; left: 0; top: 0; width: 125px; height: 403px; padding: 18px 8px 14px; display: flex; flex-direction: column; color: #d9d9dc; }
+  .brand { display: flex; align-items: center; gap: 6px; padding-left: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: -.01em; color: #fff; }
+  .cap { margin: 20px 0 7px 5px; font-size: 4.2px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: #8e8e96; }
+  .nav { display: flex; flex-direction: column; gap: 3px; }
+  .nav a { display: flex; align-items: center; gap: 7px; height: 22px; padding: 0 5px; border-radius: 8px; font-size: 6.2px; font-weight: 500; }
+  .nav a span { display: grid; place-items: center; width: 14px; height: 14px; border-radius: 4.5px; background: rgba(255,255,255,.08); }
+  .nav a svg { width: 7.5px; height: 7.5px; }
+  .nav a.on { background: #232327; color: #fff; font-weight: 600; }
+  .nav a.on span { background: #5cc061; color: #0e0e10; }
+  .acct { margin-top: auto; }
+  .acct .cap { margin-top: 0; }
+  .who { display: flex; align-items: center; gap: 6px; padding-left: 4px; }
+  .ava { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; background: #dcefe0; color: #176b22; font-size: 6.5px; font-weight: 700; flex: none; }
+  .who b { display: block; font-size: 6.2px; font-weight: 600; color: #fff; }
+  .who small { display: block; margin-top: 1px; font-size: 4.8px; color: #8e8e96; }
+
+  .panel { font-size: 5.4px; line-height: 1.3; margin: 8px 5px 8px 125px; min-height: 387px; padding: 15px 10px 10px 12px; border-radius: 12px; background: #f4f4f2; display: flex; flex-direction: column; gap: 9px; }
+  .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+  .title { margin: 0; font-size: 14px; font-weight: 700; letter-spacing: -.02em; }
+  .tools { display: flex; gap: 5px; }
+  .search { display: flex; align-items: center; gap: 5px; width: 132px; height: 20px; padding: 0 8px; border-radius: 999px; background: #fff; border: .5px solid #e9e9e6; font-size: 5.4px; color: #8e8e96; }
+  .search svg { width: 7px; height: 7px; color: #45454c; }
+  .bell { position: relative; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: #0e0e10; color: #fff; }
+  .bell svg { width: 8px; height: 8px; }
+  .bell i { position: absolute; right: 5px; top: 5px; width: 3.5px; height: 3.5px; border-radius: 50%; background: #ec003f; box-shadow: 0 0 0 1px #0e0e10; }
+
+  /* building blocks */
+  .card { border-radius: 8px; background: #fff; min-width: 0; }
+  .pad { padding: 10px; }
+  .dk { background: #0e0e10; color: #fff; }
+  .gs { background: #dcefe0; }
+  .row { display: flex; gap: 8px; }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+  .ac { align-items: center; }
+  .f1 { flex: 1; min-width: 0; }
+  .r { margin-left: auto; }
+  .g2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .h { display: flex; align-items: center; gap: 5px; font-size: 6.6px; font-weight: 600; }
+  .h > svg { width: 8px; height: 8px; color: #1c7a2e; }
+  .dk .h > svg { color: #5cc061; }
+  .t7 { display: block; font-size: 7px; font-weight: 600; }
+  .t9 { display: block; font-size: 9.5px; font-weight: 600; letter-spacing: -.01em; }
+  .sub { font-size: 4.8px; font-weight: 400; color: #8e8e96; }
+  .p { margin: 0; font-size: 5px; line-height: 1.6; color: #5f5f68; }
+  .dk .p, .dk .sub { color: #b9b9bf; }
+  .mono { font-family: ui-monospace, Consolas, monospace; }
+  .vd { display: inline-grid; place-items: center; height: 11.5px; padding: 0 6px; border-radius: 3.5px; border: .6px solid #8e8e96; font-size: 4.5px; font-weight: 600; white-space: nowrap; }
+  .btn { margin: 8px 3px 0; display: grid; place-items: center; height: 15px; border-radius: 4px; border: .6px solid #45454c; font-size: 5px; font-weight: 600; }
+  .bk { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 18px; padding: 0 9px; border-radius: 5px; background: #0e0e10; color: #fff; font-size: 5.2px; font-weight: 600; white-space: nowrap; }
+  .bk svg { width: 7px; height: 7px; }
+  .bk.gr { background: #1c7a2e; }
+  .bk.rs { background: #c70036; }
+  .chip { display: inline-flex; align-items: center; gap: 2.5px; padding: 2px 5px; border-radius: 99px; background: #eaf5ec; font-size: 4.4px; font-weight: 600; color: #176b22; white-space: nowrap; }
+  .chip.w { background: #fff1f2; color: #c70036; }
+  .chip.n { background: #f5f5f6; color: #45454c; }
+  .chip.o { background: #fff; border: .5px solid #d9d9dc; color: #45454c; font-weight: 500; }
+  .chip.k { background: #0e0e10; color: #fff; }
+  .ico { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 5.5px; background: #f5f5f6; flex: none; }
+  .ico svg { width: 8.5px; height: 8.5px; }
+  .ico.g { background: #dcefe0; color: #176b22; }
+  .ico.k { background: #0e0e10; color: #fff; }
+  .ico.w { background: #fff1f2; color: #c70036; }
+  .ico.d { background: #232327; color: #5cc061; }
+  .bar { height: 4px; border-radius: 99px; background: #ebebed; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 99px; background: #1c7a2e; }
+  .li { display: flex; align-items: center; gap: 7px; padding: 6px 0; border-top: .5px solid #f0f0ee; font-size: 5.4px; font-weight: 500; }
+  .li:first-of-type { border-top: 0; }
+  .li > svg { width: 8px; height: 8px; }
+  .li small { display: block; margin-top: 1.5px; font-size: 4.6px; font-weight: 400; color: #8e8e96; }
+  .dk .li { border-color: #232327; }
+  .tb { width: 100%; border-collapse: collapse; font-size: 5px; }
+  .tb th { padding: 4px 6px; border-bottom: .5px solid #ebebed; text-align: left; font-size: 4.4px; font-weight: 500; color: #8e8e96; }
+  .tb td { padding: 5.5px 6px; border-bottom: .5px solid #f5f5f6; white-space: nowrap; }
+  .fld label { display: block; margin-bottom: 2.5px; font-size: 4.6px; font-weight: 500; color: #5f5f68; }
+  .fld div { display: flex; align-items: center; height: 17px; padding: 0 6px; border: .6px solid #d9d9dc; border-radius: 5px; font-size: 5.2px; }
+  .fld.off div { background: #f5f5f6; color: #8e8e96; }
+  .code { margin: 0; padding: 8px; border-radius: 6px; background: #0e0e10; color: #d9d9dc; font-family: ui-monospace, Consolas, monospace; font-size: 4.5px; line-height: 1.75; white-space: pre; overflow: hidden; }
+  .dk .code { background: #1c1c1f; }
+  .code b { color: #5cc061; font-weight: 400; }
+  .sl label { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 4.8px; font-weight: 500; }
+  .sl label b { font-weight: 600; color: #176b22; }
+  .sl div { position: relative; height: 3px; border-radius: 99px; background: #ebebed; }
+  .sl div i { position: absolute; left: 0; top: 0; height: 100%; border-radius: 99px; background: #1c7a2e; }
+  .sl div u { position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%; background: #fff; border: 1.6px solid #1c7a2e; transform: translate(-50%, -50%); }
+  .sl p { display: flex; justify-content: space-between; margin: 4px 0 0; font-size: 4.2px; color: #8e8e96; }
+  .mini { padding: 5px 6px; border-radius: 5px; background: #f5f5f6; }
+  .mini > span:not(.ico) { display: block; font-size: 4.4px; color: #5f5f68; }
+  .mini b { display: block; margin-top: 2px; font-size: 8px; font-weight: 600; }
+  .mini small { display: block; margin-top: 1.5px; font-size: 4.4px; color: #8e8e96; }
+  .dash svg { width: 9px; height: 9px; }
+  .dash { display: grid; place-items: center; gap: 5px; align-content: center; border: .8px dashed #8e8e96; border-radius: 8px; font-size: 5.4px; font-weight: 600; color: #45454c; }
+
+  /* reference pieces */
+  .stat { padding: 9px 10px; display: flex; justify-content: space-between; }
+  .stat h3 { margin: 0; font-size: 5.2px; font-weight: 500; color: #5f5f68; }
+  .v { margin-top: 5px; font-size: 13px; font-weight: 600; letter-spacing: -.02em; }
+  .v small { font-size: 8px; font-weight: 500; color: #5f5f68; letter-spacing: 0; }
+  .stat .d { margin-top: 5px; font-size: 4.5px; color: #8e8e96; }
+  .stat .d b { font-weight: 600; color: var(--tone, #1c7a2e); }
+  .stat .vd { margin-top: 6px; }
+  .bars { display: flex; align-items: flex-end; gap: 2.5px; height: 24px; margin-top: 6px; }
+  .bars i { width: 4px; border-radius: 1.2px; background: var(--tone, #1c7a2e); }
+  .bars i:nth-child(even) { background: var(--tone-soft, #b5dfbe); }
+  .gmid { display: grid; grid-template-columns: 116px 120px 1fr; gap: 8px; }
+  .r2 { padding: 11px 10px 9px; display: flex; flex-direction: column; }
+  .r2 h3 { margin: 0; font-size: 6.6px; font-weight: 600; text-align: center; }
+  .big { margin-top: 10px; text-align: center; font-size: 25px; font-weight: 500; letter-spacing: -.03em; line-height: 1; }
+  .big small { font-size: 15px; color: #5f5f68; letter-spacing: 0; }
+  .gauge { margin: 8px auto 0; width: 80px; }
+  .foot { margin: 5px 0 7px; text-align: center; font-size: 4.5px; color: #5f5f68; }
+  .foot b { color: #0e0e10; }
+  .rows { margin: 11px 3px 0; display: grid; gap: 6px; }
+  .rows div { display: flex; align-items: center; gap: 5px; font-size: 5.2px; font-weight: 500; }
+  .rows i { width: 4px; height: 4px; border-radius: 50%; background: #1c7a2e; }
+  .rows em { margin-left: auto; font-style: normal; font-weight: 400; color: #8e8e96; }
+  .r2 .btn { margin-top: auto; }
+  .chart { padding: 10px 10px 5px; display: flex; flex-direction: column; }
+  .seg { margin-left: auto; display: flex; padding: 1px; border-radius: 99px; background: #f5f5f6; }
+  .seg em { font-style: normal; font-size: 4.4px; font-weight: 500; padding: 2.2px 5.5px; border-radius: 99px; color: #5f5f68; }
+  .seg em.on { background: #0e0e10; color: #fff; }
+  .ch-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 5px 8px; margin-top: 7px; }
+  .tabs { display: flex; gap: 3px; }
+  .tabs em { display: flex; align-items: center; gap: 2.5px; font-style: normal; font-size: 4.4px; font-weight: 500; padding: 2.4px 5px; border-radius: 99px; border: .5px solid #d9d9dc; color: #45454c; white-space: nowrap; }
+  .tabs em i { width: 3.5px; height: 3.5px; border-radius: 50%; }
+  .tabs em.on { border-color: #1c7a2e; background: #eaf5ec; color: #176b22; font-weight: 600; }
+  .st { display: flex; gap: 7px; font-size: 4.4px; color: #8e8e96; }
+  .st b { font-weight: 600; color: #0e0e10; }
+  .ch-plot { flex: 1; min-height: 58px; display: grid; grid-template-columns: 16px 1fr; grid-template-rows: 1fr 10px; margin-top: 8px; }
+  .ch-y, .ch-area, .ch-x { position: relative; }
+  .ch-y span { position: absolute; right: 4px; transform: translateY(-50%); font-size: 4px; color: #8e8e96; white-space: nowrap; }
+  .ch-area svg, .spark svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .gl { position: absolute; left: 0; right: 0; height: .5px; background: #ebebed; }
+  .lim { position: absolute; left: 0; right: 0; border-top: .7px dashed #ec003f; }
+  .lim span { position: absolute; right: 0; bottom: 1.5px; padding: 1px 3.5px; border-radius: 99px; background: #fff1f2; font-size: 3.8px; font-weight: 500; color: #c70036; }
+  .ch-x { grid-column: 2; }
+  .ch-x span { position: absolute; top: 3.5px; transform: translateX(-50%); font-size: 4px; color: #8e8e96; white-space: nowrap; }
+  .ch-x span:first-child { transform: none; }
+  .ch-x span:last-child { transform: translateX(-100%); }
+  .spark { position: relative; height: 34px; margin-top: 6px; }
+  .glow { display: grid; grid-template-columns: 240px 1fr; gap: 7px; }
+  .pills { display: grid; gap: 9px; }
+  .pill { display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 14px 0 12px; border-radius: 999px; }
+  .pill b { display: block; font-size: 7.4px; font-weight: 600; }
+  .pill small { display: block; margin-top: 4px; font-size: 5px; }
+  .pill > .vd, .pill > .bk, .pill > .chip { margin-left: auto; }
+  .pill.dark { background: #0e0e10; color: #fff; }
+  .pill.dark small { color: #b9b9bf; }
+  .pill.soft { background: #dcefe0; }
+  .pill.soft small { color: #5f5f68; }
+  .pill.soft .vd { border-color: #1c7a2e; color: #176b22; }
+  .pill.white { background: #fff; }
+  .pill.white small { color: #5f5f68; }
+  .ring { position: relative; width: 32px; height: 32px; flex: none; }
+  .ring span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 5.8px; font-weight: 600; }
+  .ring span svg { width: 10px; height: 10px; }
+  .promo { position: relative; min-height: 109px; border-radius: 12px; overflow: hidden; background: #176b22; color: #fff; }
+  .promo > * { position: absolute; }
+  .promo .pb { left: 12px; top: 11px; display: flex; align-items: center; gap: 4px; font-size: 6.4px; font-weight: 600; }
+  .promo h3 { left: 12px; top: 36px; margin: 0; font-size: 10.6px; font-weight: 600; line-height: 1.25; letter-spacing: -.01em; }
+  .promo .ppl { left: 12px; bottom: 9px; display: flex; align-items: center; gap: 5px; font-size: 5.4px; font-weight: 500; }
+  .promo .go { right: 12px; top: 10px; width: 15px; height: 15px; }
+  .promo .art { right: 0; bottom: 0; width: 135px; height: 110px; }
+  .promo .find { left: 12px; bottom: 12px; display: flex; align-items: center; gap: 5px; width: 190px; height: 20px; padding: 0 8px; border-radius: 99px; background: #fff; font-size: 5.2px; color: #8e8e96; }
+  .promo .find svg { width: 7px; height: 7px; color: #45454c; }
+  .tag { padding: 3.5px 6px; border-radius: 4px; font-size: 4.4px; font-weight: 600; }
+  .tag.a { right: 62px; bottom: 42px; background: #5cc061; color: #0e0e10; transform: rotate(-5deg); }
+  .tag.b { right: 70px; bottom: 26px; background: #fff; color: #0e0e10; transform: rotate(4deg); }
+  .ctabs { display: flex; gap: 4px; }
+  .ctabs em { display: flex; align-items: center; gap: 4px; height: 17px; padding: 0 9px; border-radius: 99px; background: #fff; font-style: normal; font-size: 5.6px; font-weight: 500; color: #45454c; white-space: nowrap; }
+  .ctabs em svg { width: 7px; height: 7px; }
+  .ctabs em.on { background: #0e0e10; color: #fff; font-weight: 600; }
+  .ctabs em b { font-weight: 500; color: #8e8e96; }
+  .dotg, .doto { width: 4px; height: 4px; border-radius: 50%; background: #5cc061; flex: none; }
+  .doto { background: #b9b9bf; }
+  .num { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 6px; background: #0e0e10; color: #fff; font-size: 6.4px; font-weight: 700; flex: none; }
+  .stack { display: flex; height: 9px; border-radius: 99px; overflow: hidden; }
+
+  h1.sect { margin: 26px auto 4px; width: fit-content; min-width: 60%; font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+  p.sect { margin: 0 auto 16px; width: fit-content; min-width: 60%; max-width: 1100px; font-size: 14px; color: #45454c; }
+  .strip { width: 640px; padding: 12px; border-radius: 10px; background: #f4f4f2; font-size: 5.4px; line-height: 1.3; zoom: var(--zoom, 2); }
+  .strip svg { display: block; flex: none; }
+  .ico.xl { width: 22px; height: 22px; border-radius: 7px; }
+  .ico.xl svg { width: 11px; height: 11px; }
+  .ico.gw { background: #fff; color: #176b22; }
+  .side { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 5px; }
+  .stat { padding: 8px 10px; }
+  .gauge { width: 66px; margin-top: 5px; }
+  .big { margin-top: 5px; }
+  .pill { height: 43px; }
+
+  /* the map card */
+  .mapcard { position: relative; padding: 11px 12px 9px; }
+  .mapcard h3 { text-align: left; }
+  .mapcard > p { margin: 4px 0 0; width: 100px; font-size: 4.6px; line-height: 1.5; color: #5f5f68; }
+  .places { margin-top: 7px; display: grid; gap: 5.6px; }
+  .places div { display: flex; align-items: center; gap: 5px; font-size: 5.2px; font-weight: 500; }
+  .places i { width: 4px; height: 4px; border-radius: 50%; }
+  .map { position: absolute; right: 5px; top: 24px; width: 150px; height: 104px; }
+  .tip { position: absolute; display: flex; align-items: center; gap: 10px; padding: 5px 7px; border-radius: 6px; background: #0e0e10; color: #fff; }
+  .tip b { display: block; font-size: 5.4px; font-weight: 600; }
+  .tip small { display: block; margin-top: 2px; font-size: 4.4px; color: #b9b9bf; }
+  .tip em { font-style: normal; font-size: 5.4px; font-weight: 600; }
+  .mapcard .vd { position: absolute; left: 12px; bottom: 9px; }
+
+  /* contrast: card fills */
+  .card.k { background: #0e0e10; color: #fff; }
+  .card.k h3, .card.k .d, .card.k .foot, .card.k .rows em, .card.k .v small, .card.k .big small, .card.k > p { color: #b9b9bf; }
+  .card.k .r2h, .card.k.r2 h3 { color: #fff; }
+  .card.k .foot b { color: #fff; }
+  .card.k .d b { color: #5cc061; }
+  .card.k .vd, .card.k .btn { border-color: #8e8e96; color: #fff; }
+  .card.k .rows i { background: #5cc061; }
+  .card.k .tip { background: #fff; color: #0e0e10; }
+  .card.k .tip small { color: #5f5f68; }
+  .card.gd { background: #176b22; color: #fff; }
+  .card.gd h3, .card.gd .d, .card.gd .foot, .card.gd .rows em, .card.gd .v small, .card.gd .big small { color: #dcefe0; }
+  .card.gd.r2 h3 { color: #fff; }
+  .card.gd .d b, .card.gd .foot b { color: #fff; }
+  .card.gd .vd, .card.gd .btn { border-color: #b5dfbe; color: #fff; }
+  .card.gd .rows i { background: #5cc061; }
+  .card.sg { background: #dcefe0; }
+  .card.sg h3, .card.sg .d, .card.sg .foot { color: #45454c; }
+  .card.sg .btn, .card.sg .vd { border-color: #1c7a2e; color: #176b22; }
+  .c2 .panel { background: #d9d9dc; }
+  .c2 .stat h3, .c2 .d, .c2 .foot, .c2 .rows em { color: #45454c; }
+  .c2 .card { box-shadow: 0 0 0 .6px #b9b9bf; }
+  .c2 .ctabs em { box-shadow: 0 0 0 .6px #b9b9bf; }
+  .c1 .panel { background: #ebebed; }
+  .c4 .panel { background: #1c1c1f; color: #fff; }
+  .c4 .title { color: #fff; }
+  .c4 .card { background: #2a2a2f; color: #fff; }
+  .c4 .card h3, .c4 .d, .c4 .foot, .c4 .rows em, .c4 .v small, .c4 .big small, .c4 .mapcard > p { color: #b9b9bf; }
+  .c4 .card.r2 h3 { color: #fff; }
+  .c4 .foot b { color: #fff; }
+  .c4 .d b { color: #5cc061; }
+  .c4 .vd, .c4 .btn { border-color: #8e8e96; color: #fff; }
+  .c4 .rows i { background: #5cc061; }
+  .c4 .ctabs em { background: #2a2a2f; color: #d9d9dc; }
+  .c4 .ctabs em.on { background: #5cc061; color: #0e0e10; }
+  .c4 .search { background: #2a2a2f; border-color: #45454c; color: #b9b9bf; }
+  .c4 .search svg { color: #b9b9bf; }
+  .c4 .bell { background: #5cc061; color: #0e0e10; }
+  .c4 .bell i { box-shadow: 0 0 0 1px #5cc061; }
+  .c4 .pill.dark { background: #0e0e10; }
+  .c4 .tip { background: #fff; color: #0e0e10; }
+  .c4 .tip small { color: #5f5f68; }
+  .c4 .pill.soft .vd { border-color: #1c7a2e; color: #176b22; }
+  .c4 .pill.soft { color: #0e0e10; }
+  #geo { overflow: hidden; border-radius: 6px; }
+
+  /* small option strips */
+  .opts { display: grid; gap: 10px; }
+  .opts.two { grid-template-columns: 1fr 1fr; }
+  .opts h4 { margin: 0 0 5px; font-size: 7px; font-weight: 700; }
+  .opts h4 span { font-weight: 400; color: #5f5f68; font-size: 5.4px; margin-left: 5px; }
+  .f-tight, .f-tight * { font-family: "Inter Tight", system-ui, sans-serif; }
+  .f-pop, .f-pop * { font-family: "Poppins", system-ui, sans-serif; }
+  .sysmap text { font-family: inherit; font-size: 5px; font-weight: 600; }
+  .sysmap .s { font-size: 4.2px; font-weight: 500; }
+
+  .ico.gs2 { background: #1c7a2e; color: #fff; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script>
+(() => {
+const ic = (n) => `<i data-lucide="${n}"></i>`;
+const H = (icon, title, right = "") => `<div class="h">${icon ? ic(icon) : ""}${title}${right ? `<span class="r row ac" style="gap:4px">${right}</span>` : ""}</div>`;
+const chip = (t, k = "") => `<span class="chip ${k}">${t}</span>`;
+const vd = (t = "View details") => `<span class="vd">${t}</span>`;
+const bk = (t, i, k = "") => `<span class="bk ${k}">${i ? ic(i) : ""}${t}</span>`;
+const ico = (n, k = "") => `<span class="ico ${k}">${ic(n)}</span>`;
+const mark = (letter, ribbon, h) => `<svg viewBox="0 0 32.5 45" style="height:${h}px;width:auto"><path fill="${letter}" d="M0 0H13V32.5H32.5V45H0Z"/><path fill="${ribbon}" d="M19 0H32.5V25.4L25.75 20.4L19 25.4Z"/></svg>`;
+const topBar = (t) => `<div class="top"><h1 class="title">${t}</h1><div class="tools"><div class="search">${ic("search")}Search devices, metrics, alerts...</div><div class="bell">${ic("bell")}<i></i></div></div></div>`;
+const fld = (label, val, off) => `<div class="fld${off ? " off" : ""}"><label>${label}</label><div>${val}</div></div>`;
+const slider = (label, val, lo, hi, pct) => `<div class="sl"><label>${label}<b>${val}</b></label><div><i style="width:${pct}%"></i><u style="left:${pct}%"></u></div><p><span>${lo}</span><span>${hi}</span></p></div>`;
+const table = (heads, rows) => `<table class="tb"><tr>${heads.map((h) => `<th>${h}</th>`).join("")}</tr>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</table>`;
+const mini = (k, v, s = "") => `<div class="mini"><span>${k}</span><b>${v}</b><small>${s}</small></div>`;
+const usage = (name, pct, note) => `<div><div class="row ac" style="margin-bottom:3px"><span style="font-size:5px;font-weight:500">${name}</span><span class="sub r">${note}</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+
+function st(label, v, u, sub, o = {}) {
+  const tone = o.warn ? "--tone:#ec003f;--tone-soft:#fecdd3" : "";
+  return `<article class="card stat" style="${tone}"><div><h3>${label}</h3><div class="v">${v} <small>${u}</small></div><div class="d">${sub}</div>${o.vd ? vd(o.vd === true ? undefined : o.vd) : ""}</div>
+    ${o.bars ? `<div class="bars">${o.bars.map((b) => `<i style="height:${b}px"></i>`).join("")}</div>` : o.icon ? ico(o.icon, o.warn ? "w" : "g") : ""}</article>`;
+}
+function ring(pct, track, stroke, label, color) {
+  const c = 2 * Math.PI * 13;
+  return `<div class="ring"><svg viewBox="0 0 32 32" width="32" height="32"><circle cx="16" cy="16" r="13" fill="none" stroke="${track}" stroke-width="3.4"/>
+    <circle cx="16" cy="16" r="13" fill="none" stroke="${stroke}" stroke-width="3.4" stroke-linecap="round" stroke-dasharray="${c * pct} ${c}" transform="rotate(-90 16 16)"/></svg><span style="color:${color}">${label}</span></div>`;
+}
+const pill = (kind, pct, label, title, sub, action = vd()) => {
+  const [track, stroke, col] = kind === "dark" ? ["rgba(255,255,255,.16)", "#5cc061", "#fff"] : ["#b5dfbe", "#1c7a2e", "#0e0e10"];
+  return `<article class="pill ${kind}">${ring(pct, kind === "white" ? "#ebebed" : track, stroke, label, col)}<span><b>${title}</b><small>${sub}</small></span>${action}</article>`;
+};
+function gaugeCard(title, pct, foot) {
+  const len = Math.PI * 34;
+  return `<article class="card r2"><h3>${title}</h3><div class="big">${pct}<small>%</small></div>
+    <svg class="gauge" viewBox="0 0 84 44"><path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke="#0e0e10" stroke-width="13"/>
+    <path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke="#5cc061" stroke-width="13" stroke-dasharray="${len * pct / 100} ${len}"/></svg>
+    <div class="foot">${foot}</div><div class="btn">View Details</div></article>`;
+}
+const listCard = (title, big, unit, rows) => `<article class="card r2"><h3>${title}</h3><div class="big">${big}<small>${unit}</small></div>
+  <div class="rows">${rows.map(([k, v]) => `<div><i></i>${k}<em>${v}</em></div>`).join("")}</div><div class="btn">View Details</div></article>`;
+
+function wave(points, base, amp, seed, end) {
+  const raw = Array.from({ length: points }, (_, i) => base + amp * Math.sin(i * 0.55 + seed) + amp * 0.45 * Math.sin(i * 1.7 + seed * 2));
+  const drift = end - raw[points - 1];
+  return raw.map((v, i) => Math.round(v + drift * (i / (points - 1))));
+}
+const DEF = `<defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5cc061" stop-opacity=".35"/><stop offset="1" stop-color="#5cc061" stop-opacity=".02"/></linearGradient></defs>`;
+function lines(series) {
+  return series.map(([b, a, s, e, c], k) => {
+    const pts = wave(24, b, a, s, e).map((v, i) => `${(i / 23 * 1000).toFixed(1)},${(300 - v * 3).toFixed(1)}`);
+    return (k ? "" : `<path d="M0,300 L${pts.join(" L")} L1000,300 Z" fill="url(#fill)"/>`) +
+      `<polyline points="${pts.join(" ")}" fill="none" stroke="${c}" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+  }).join("");
+}
+const LIVE_X = ["60 s ago", "50 s", "40 s", "30 s", "20 s", "10 s", "Now"];
+const DAY_X = ["4 PM", "8 PM", "12 AM", "4 AM", "8 AM", "12 PM", "Now"];
+const TRIO = [[38, 10, 0.4, 38, "#1c7a2e"], [20, 9, 2.1, 12, "#0e0e10"], [80, 6, 4.2, 92, "#ec003f"]];
+function chart(title, tabs, o = {}) {
+  const unit = o.unit ?? "%", series = o.series || [[50, 8, 0.4, 45, "#1c7a2e"]];
+  return `<article class="card chart${o.cls ? " " + o.cls : ""}" style="${o.style || ""}">
+    <div class="h">${ic(o.icon || "chart-line")}${title}${o.seg ? `<span class="seg">${o.seg.map((s, i) => `<em class="${i ? "" : "on"}">${s}</em>`).join("")}</span>` : o.right ? `<span class="r">${o.right}</span>` : ""}</div>
+    <div class="ch-bar"><span class="tabs">${tabs.map((t, i) => `<em class="${o.legend ? "" : i ? "" : "on"}">${o.legend ? `<i style="background:${series[i][4]}"></i>` : ""}${t}</em>`).join("")}</span>
+      ${o.stats ? `<span class="st">${o.stats.map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join("")}</span>` : ""}</div>
+    <div class="ch-plot"><div class="ch-y">${[100, 75, 50, 25, 0].map((v) => `<span style="top:${100 - v}%">${v}${unit}</span>`).join("")}</div>
+      <div class="ch-area">${[0, 25, 50, 75, 100].map((v) => `<i class="gl" style="top:${v}%"></i>`).join("")}
+        <svg viewBox="0 0 1000 300" preserveAspectRatio="none">${DEF}${lines(series)}</svg>${o.limit ? `<i class="lim" style="top:${100 - o.limit}%"><span>Limit ${o.limit}${unit}</span></i>` : ""}</div>
+      <div class="ch-x">${(o.x || DAY_X).map((l, i, a) => `<span style="left:${i / (a.length - 1) * 100}%">${l}</span>`).join("")}</div></div></article>`;
+}
+const spark = (s) => `<div class="spark"><svg viewBox="0 0 1000 300" preserveAspectRatio="none">${DEF}${lines([s])}</svg></div>`;
+const promoArt = `<svg class="art" viewBox="0 0 135 110"><path d="M136 112C104 96 84 70 80 34c22 18 44 40 56 78Z" fill="#1c7a2e"/><path d="M136 112C120 82 116 50 126 16c14 28 16 62 10 96Z" fill="#5cc061"/>
+  <path d="M136 112C98 106 72 92 54 64c30 2 60 18 82 48Z" fill="#3a9542"/><path d="M136 112C110 112 84 108 62 92c26-6 52 2 74 20Z" fill="#b5dfbe"/><circle cx="112" cy="66" r="9" fill="#fff" fill-opacity=".22"/><circle cx="112" cy="66" r="4.5" fill="#fff"/></svg>`;
+const promo = () => `<article class="promo">${promoArt}<div class="pb">${mark("#fff", "#5cc061", 8)}Lectio AI</div>
+  <svg class="go" viewBox="0 0 15 15" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12 12 3M5 3h7v7"/></svg>
+  <h3>Let Lectio diagnose<br>your PC</h3><span class="tag a">AI Diagnosis</span><span class="tag b">Health Report</span><div class="ppl">27 readings checked</div></article>`;
+
+const alertRow = (warn, title, sub, when, action) => `<div class="li">${ico(warn ? "triangle-alert" : "circle-check", warn ? "w" : "g")}<span class="f1">${title}<small>${sub}</small></span><span class="sub">${when}</span>${action || ""}</div>`;
+const ALERTS = [[1, "Memory usage is high", "RAM at 92% for 5 minutes · My Windows PC", "2 min ago"], [1, "CPU core temperature above 80 °C", "Reached 84 °C under load · My Windows PC", "18 min ago"], [0, "GPU utilization back to normal", "Was above 90% for 3 minutes", "1 h ago"]];
+const READINGS = [["14:02:11", "sensor_room_101", "Temperature", "24.5 °C", "unit: C"], ["14:02:08", "cpu_node_alpha", "CPU", "38 %", "cores: 6 · processes: 212"], ["14:02:05", "net_gateway_01", "Network", "12.4 MB/s", "sent: 1.2 GB · recv: 4.8 GB"], ["14:01:58", "sensor_room_101", "Temperature", "24.6 °C", "unit: C"], ["14:01:52", "cpu_node_alpha", "CPU", "91 %", "cores: 6 · processes: 240"]];
+const readingRows = (n) => READINGS.slice(0, n).map(([t, s, ty, v, x]) => [`<span class="sub">${t}</span>`, `<span class="mono">${s}</span>`, chip(ty, "n"), `<b>${v}</b>`, `<span class="sub">${x}</span>`, vd("Inspect")]);
+const PAYLOAD = `{\n  <b>"sensor_id"</b>: "sensor_room_101",\n  <b>"metric_type"</b>: "temperature",\n  <b>"value"</b>: 24.5,\n  <b>"unit"</b>: "C"\n}`;
+const SENSORS = [["sensor_room_101", "Temperature", "24.5 °C", "12 s ago", "thermometer"], ["cpu_node_alpha", "CPU", "38 %", "15 s ago", "cpu"], ["net_gateway_01", "Network", "12.4 MB/s", "18 s ago", "radio"], ["sensor_rack_b2", "Temperature", "31.2 °C", "2 min ago", "thermometer"], ["cpu_node_beta", "CPU", "64 %", "4 min ago", "cpu"], ["net_uplink_02", "Network", "3.1 MB/s", "9 min ago", "radio"]];
+const TOPICS = [["cpu", "Monitor a computer", "Run the telemetry agent on the machine you want to watch. It registers the machine and sends hardware readings every few seconds.", "Open My Devices"], ["database", "Send a metric by hand", "Metrics Studio lets you submit a single temperature, CPU or network reading and browse the stored ones.", "Open Metrics Studio"], ["radio", "Watch readings live", "Live Monitor charts readings as they arrive and lists alerts in real time. The simulator sends test readings.", "Open Live Monitor"], ["settings", "Manage your account", "Change your name or password, resend the verification email, or delete your account from Settings.", "Open Settings"]];
+const AGENT = `<b>$</b> uv sync --extra agent\n<b>$</b> uv run python -m agent.telemetry_agent \\\n    --api https://api.lectio.app`;
+const ALERT_FAQ = "A reading that goes over its limit raises an alert. The current limits are shown on the Dashboard cards. Alerts reach this app immediately while it is open.";
+const storage = `<article class="card pad col" style="width:150px">${H("hard-drive", "Storage")}${usage("C: ST2000DM008", 83, "83% · 340 GB free")}${usage("D: Samsung 980", 41, "41% · 590 GB free")}<div class="row ac" style="margin-top:auto">${chip("S.M.A.R.T. 96%")}<span class="r">${vd()}</span></div></article>`;
+const deviceStats = (bars) => `<div class="g4">${st("CPU", 38, "%", "Core <b>45 °C</b>", bars ? { bars: [14, 9, 12, 7, 10] } : {})}${st("GPU", 12, "%", "Core <b>32 °C</b>", bars ? { bars: [6, 11, 8, 14, 9] } : {})}${st("Memory", 92, "%", "<b>29.4</b> of 32 GB", bars ? { bars: [9, 11, 13, 10, 17], warn: 1 } : { warn: 1 })}${st("PSU 12V", 12.08, "V", "<b>In range</b>", bars ? { bars: [12, 12, 13, 12, 12] } : {})}</div>`;
+const alertsCard = (n, action, extra = "") => `<article class="card pad f1" style="${extra}">${H("bell", "Active alerts", chip(n + " open", "w"))}<div style="margin-top:4px">${ALERTS.slice(0, n).map(([w, t, s, wh]) => alertRow(w, t, s, wh, action)).join("")}</div></article>`;
+
+
+const RAMP = ["#dcefe0", "#b5dfbe", "#5cc061", "#1c7a2e"];
+const WORLD = [
+  "        ####  ######            ##  ##########          ",
+  "   ##########  ####        ### ####################  #  ",
+  "  ############  ##        ##########################    ",
+  "   ###########           ##########################     ",
+  "    #########            ## #####################       ",
+  "     ########             ######################  #     ",
+  "      ######             ###### ##############   #      ",
+  "       ####              ########  ##########           ",
+  "        ###              #########   #####  #           ",
+  "         ####            ########     ###   ##          ",
+  "          #####           #######      #     ###        ",
+  "          ######            #####             # ##      ",
+  "          ######            ####               ####     ",
+  "           #####            ####  #           ######    ",
+  "           ####             ###   #           ######    ",
+  "           ###               ##                ###  #   ",
+  "           ##                                        #  ",
+  "           #                                            ",
+];
+const PINS = [[31, 11, 3], [33, 10, 2], [26, 3, 2], [29, 3, 1], [11, 5, 1], [50, 5, 1]];
+const PLACES = [["Kigali", 89, 3], ["Nairobi", 82, 2], ["London", 85, 2], ["Berlin", 80, 1], ["New York", 79, 1], ["Tokyo", 76, 1]];
+const COUNTRIES = [["Rwanda", 89, 3], ["United Kingdom", 85, 2], ["Kenya", 82, 2], ["Germany", 80, 1], ["Nigeria", 79, 1], ["South Africa", 76, 1]];
+const placeList = (list) => `<div class="places">${list.map(([n, v, k]) => `<div><i style="background:${RAMP[k]}"></i>${n} - ${v}%</div>`).join("")}</div>`;
+function dotMap(base) {
+  const s = 150 / 56;
+  let dots = "";
+  WORLD.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === "#") dots += `<circle cx="${(x + .5) * s}" cy="${(y + .5) * s + 28}" r="${s * .4}" fill="${base}"/>`; }));
+  PINS.forEach(([x, y, k]) => {
+    dots += `<circle cx="${(x + .5) * s}" cy="${(y + .5) * s + 28}" r="${k === 3 ? 4.6 : 3.2}" fill="${RAMP[k]}" opacity=".3"/><circle cx="${(x + .5) * s}" cy="${(y + .5) * s + 28}" r="${k === 3 ? 2.2 : 1.6}" fill="${RAMP[k]}"/>`;
+  });
+  return `<svg class="map" viewBox="0 0 150 104">${dots}</svg>`;
+}
+const tipAt = (right, top, a, b, c) => `<div class="tip" style="right:${right}px;top:${top}px"><span><b>${a}</b><small>${b}</small></span><em>${c}</em></div>`;
+const mapDots = (cls = "", base = RAMP[0]) => `<article class="card r2 mapcard ${cls}"><h3>Devices by Location</h3><p>Health score of every PC Lectio is monitoring for you.</p>${placeList(PLACES)}${dotMap(base)}${tipAt(8, 62, "Kigali", "Healthy", "89%")}</article>`;
+const mapGeo = () => `<article class="card r2 mapcard"><h3>Devices by Country</h3><p>Countries shaded by the health of the PCs you monitor there.</p>${placeList(COUNTRIES)}<svg class="map" id="geo" viewBox="0 0 150 104"></svg>${tipAt(8, 44, "Rwanda", "Healthy", "89%")}</article>`;
+const SYS = [["CPU", "45 °C", 2], ["GPU", "32 °C", 1], ["Memory", "92%", "w"], ["Storage", "83%", 3], ["Power", "12.08 V", 1], ["Fans", "1,250 RPM", 1]];
+const mapSystem = () => `<article class="card r2 mapcard"><h3>System Map</h3><p>Every part of this PC, coloured by how hard it is working.</p>
+  <div class="places">${SYS.map(([n, v, k]) => `<div><i style="background:${k === "w" ? "#ec003f" : RAMP[k]}"></i>${n} - ${v}</div>`).join("")}</div>
+  <svg class="map sysmap" viewBox="0 0 150 104">
+    <rect x="1" y="3" width="148" height="98" rx="7" fill="#f5f5f6" stroke="#d9d9dc" stroke-width=".7"/>
+    <circle cx="19" cy="24" r="11" fill="#fff" stroke="#b5dfbe" stroke-width="2.4"/><path d="M19 15v18M10 24h18" stroke="#b5dfbe" stroke-width="1.6"/><text x="19" y="42" text-anchor="middle" class="s" fill="#5f5f68">Fan</text>
+    <rect x="44" y="11" width="38" height="30" rx="4" fill="#5cc061"/><text x="63" y="25" text-anchor="middle" fill="#0e0e10">CPU</text><text x="63" y="33" text-anchor="middle" class="s" fill="#0e0e10">45 °C</text>
+    <rect x="90" y="11" width="5" height="30" rx="1.5" fill="#ec003f"/><rect x="97" y="11" width="5" height="30" rx="1.5" fill="#ec003f"/><rect x="104" y="11" width="5" height="30" rx="1.5" fill="#ec003f"/><rect x="111" y="11" width="5" height="30" rx="1.5" fill="#ec003f"/>
+    <rect x="122" y="11" width="21" height="13" rx="3" fill="#dcefe0"/><text x="132.5" y="19.5" text-anchor="middle" class="s" fill="#176b22">VRM</text>
+    <rect x="9" y="50" width="76" height="17" rx="4" fill="#b5dfbe"/><text x="16" y="60.5" fill="#0e0e10">GPU</text><text x="79" y="60.5" text-anchor="end" class="s" fill="#0e0e10">32 °C · 12%</text>
+    <rect x="9" y="75" width="34" height="18" rx="3.5" fill="#1c7a2e"/><text x="26" y="86" text-anchor="middle" fill="#fff">Drive 1</text>
+    <rect x="47" y="75" width="34" height="18" rx="3.5" fill="#b5dfbe"/><text x="64" y="86" text-anchor="middle" fill="#0e0e10">Drive 2</text>
+    <rect x="103" y="73" width="40" height="22" rx="4" fill="#dcefe0"/><text x="123" y="83" text-anchor="middle" fill="#176b22">PSU</text><text x="123" y="90" text-anchor="middle" class="s" fill="#176b22">12.08 V</text>
+  </svg>${tipAt(9, 71, "Memory", "High usage", "92%")}</article>`;
+
+const sc = (label, v, u, d, icon, cls = "", tone = "g") => `<article class="card stat ${cls}"><div><h3>${label}</h3><div class="v">${v} <small>${u}</small></div><div class="d">${d}</div></div><div class="side">${ico(icon, tone + " xl")}${vd()}</div></article>`;
+function gauge2(cls, track) {
+  const len = Math.PI * 34;
+  return `<article class="card r2 ${cls}"><h3>CPU Utilization</h3><div class="big">38<small>%</small></div>
+    <svg class="gauge" viewBox="0 0 84 44"><path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke="${track}" stroke-width="13"/><path d="M8 42a34 34 0 0 1 68 0" fill="none" stroke="#5cc061" stroke-width="13" stroke-dasharray="${len * .38} ${len}"/></svg>
+    <div class="foot">Average over 24h <b>37%</b></div><div class="btn">View Details</div></article>`;
+}
+const big2 = (cls) => `<article class="card r2 ${cls}"><h3>Package Power</h3><div class="big">65<small> W</small></div><div class="rows"><div><i></i>Low<em>57 W</em></div><div><i></i>Average<em>70 W</em></div><div><i></i>High<em>85 W</em></div></div><div class="btn">View Details</div></article>`;
+
+function dash(o) {
+  return `${topBar("Dashboard")}
+    <div class="ctabs">${[["cpu", "CPU", 7], ["monitor", "GPU", 7], ["memory-stick", "Memory", 4], ["hard-drive", "Storage", 6], ["zap", "Power and board", 4]].map(([i, n, c], k) => `<em class="${k ? "" : "on"}">${ic(i)}${n} <b>${c}</b></em>`).join("")}</div>
+    <div class="g3">${sc("CPU · Core temperature", 45, "°C", "<b>▲ 2.1%</b> vs 24h average", "thermometer", o.s[0], o.i[0])}${sc("CPU · Package temperature", 48, "°C", "<b>▲ 0.4%</b> vs 24h average", "thermometer-sun", o.s[1], o.i[1])}${sc("CPU · Clock speed", 4.7, "GHz", "<b>▼ 3.7%</b> vs 24h average", "gauge", o.s[2], o.i[2])}</div>
+    <div class="gmid">${gauge2(o.g, o.track)}${big2(o.b)}${mapDots(o.m, o.base)}</div>
+    <div class="glow"><div class="pills">${pill("dark", .5, ic("fan"), "Fan speed", "1,250 RPM · of 2,500 max")}${pill("soft", 1, ic("snowflake"), "Thermal throttling", "Off · the CPU is not slowing down")}</div>${promo()}</div>`;
+}
+
+const CONTRAST = [
+  { key: "1", cls: "c1", name: "Black feature cards", note: "The most important card in each row turns black; the rest stay white on a slightly darker panel.", s: ["k", "", ""], i: ["d", "k", "k"], g: "k", track: "#45454c", b: "", m: "", base: RAMP[0] },
+  { key: "2", cls: "c2", name: "Grey panel, outlined white cards", note: "The panel goes mid-grey and every white card gets a thin outline, with darker small text.", s: ["", "", ""], i: ["k", "k", "k"], g: "", track: "#0e0e10", b: "", m: "", base: RAMP[1] },
+  { key: "3", cls: "c1", name: "Green and black blocks", note: "Cards alternate between brand green, black, soft green and white.", s: ["gd", "k", ""], i: ["gw", "d", "g"], g: "sg", track: "#0e0e10", b: "k", m: "", base: RAMP[0] },
+  { key: "4", cls: "c4", name: "Dark panel", note: "The whole panel goes charcoal with lighter charcoal cards, white text and green highlights.", s: ["", "", ""], i: ["d", "d", "d"], g: "", track: "#0e0e10", b: "", m: "", base: "#45454c" },
+];
+
+function frame(o) {
+  const nav = [["layout-grid", "Dashboard"], ["cpu", "My Devices"], ["database", "Metrics Studio"], ["radio", "Live Monitor"], ["chart-spline", "Analytics"], ["server", "Sensors"]];
+  const item = ([i, n], idx) => `<a class="${idx ? "" : "on"}"><span>${ic(i)}</span>${n}</a>`;
+  return `<section class="opt"><div class="opt-head"><h2>Contrast ${o.key} · ${o.name}</h2><p>${o.note}</p></div>
+    <div class="frame ${o.cls}"><aside class="rail"><div class="brand">${mark("#d9d9d9", "#3a9542", 13)}Lectio</div><div class="cap">Main menu</div>
+        <nav class="nav">${nav.map(item).join("")}</nav><div class="cap">Others</div><nav class="nav"><a><span>${ic("settings")}</span>Settings</a><a><span>${ic("headset")}</span>Help</a></nav>
+        <div class="acct"><div class="cap">User account</div><div class="who"><span class="ava">OU</span><span><b>Offline User</b><small>Account settings</small></span></div></div></aside>
+      <main class="panel">${dash(o)}</main></div></section>`;
+}
+
+const strip = (id, title, note, inner) => `<section class="opt" data-s="${id}"><div class="opt-head"><h2>${title}</h2><p>${note}</p></div><div class="strip">${inner}</div></section>`;
+const opt = (label, hint, inner) => `<div><h4>${label}<span>${hint}</span></h4>${inner}</div>`;
+
+const liveStats = `<span class="sub">248 readings · <b style="color:#c70036">4</b> over their limit</span>`;
+const sensorPick = `<span class="chip o" style="padding:4px 8px">All sensors ▾</span>`;
+const SECTIONS = {
+  map: () => strip("map", "Map card options", "What replaces the Statistics graph on the dashboard.", `<div class="opts two">
+      ${opt("Map A · Dotted world map", "your devices as pins", mapDots())}
+      ${opt("Map B · Shaded country map", "like the reference's map", mapGeo())}
+      ${opt("Map C · System map", "a map of the PC itself", mapSystem())}
+    </div>`),
+  icons: () => strip("icons", "Card icon options", "The mini bars are replaced by an icon for what the card measures. Three ways to draw it.", `<div class="opts">
+      ${opt("Icons A · Black square", "", `<div class="g3">${sc("CPU · Core temperature", 45, "°C", "<b>▲ 2.1%</b> vs 24h average", "thermometer", "", "k")}${sc("CPU · Clock speed", 4.7, "GHz", "<b>▼ 3.7%</b> vs 24h average", "gauge", "", "k")}${sc("CPU · Fan speed", "1,250", "RPM", "<b>▲ 1.2%</b> vs 24h average", "fan", "", "k")}</div>`)}
+      ${opt("Icons B · Soft green square", "", `<div class="g3">${sc("GPU · Board power", 48, "W", "<b>▲ 0.8%</b> vs 24h average", "zap", "", "g")}${sc("Storage · Drive temperature", 34, "°C", "<b>▲ 2.4%</b> vs 24h average", "hard-drive", "", "g")}${sc("Memory · RAM used", 29.4, "GB", "<b>▲ 4.1%</b> vs 24h average", "memory-stick", "", "g")}</div>`)}
+      ${opt("Icons C · Solid green square", "", `<div class="g3">${sc("CPU · Core temperature", 45, "°C", "<b>▲ 2.1%</b> vs 24h average", "thermometer", "", "gs2")}${sc("Power · PSU +12V rail", 12.08, "V", "<b>In range</b>", "plug-zap", "", "gs2")}${sc("Power · Chassis fan", 900, "RPM", "<b>▼ 0.6%</b> vs 24h average", "fan", "", "gs2")}</div>`)}
+    </div>`),
+  analytics: () => strip("analytics", "Analytics · what replaces the API Backend and Database pills", "The row at the bottom of the Analytics page.", `<div class="opts">
+      ${opt("Analytics A · Remove the row", "the graph above gets the space", `<div class="dash" style="height:30px">Nothing here: the “Readings over time” graph grows taller</div>`)}
+      ${opt("Analytics B · Two insight pills", "figures from your own readings", `<div class="g2">${pill("dark", .08, "4", "Over their limit", "Readings above their limit in this period")}${pill("soft", .6, "1 PM", "Busiest hour", "6 readings arrived in that hour")}</div>`)}
+      ${opt("Analytics C · Breakdown cards", "share by type and busiest sensors", `<div class="g2"><article class="card pad">${H("chart-pie", "Readings by type", `<span class="sub">48 in total</span>`)}<div class="stack" style="margin:7px 0 5px"><i style="width:37.5%;background:#1c7a2e"></i><i style="width:37.5%;background:#5cc061"></i><i style="width:25%;background:#0e0e10"></i></div><div class="row" style="gap:10px"><span class="sub">● Temperature 18</span><span class="sub">● CPU usage 18</span><span class="sub">● Network 12</span></div></article>
+        <article class="card pad">${H("server", "Busiest sensors", vd("View all"))}<div class="li" style="padding:4px 0"><span class="f1 mono">sensor_room_204</span><b>12</b></div><div class="li" style="padding:4px 0"><span class="f1 mono">sensor_k8s_node_02</span><b>12</b></div></article></div>`)}
+    </div>`),
+  live: () => strip("live", "Live Monitor · the bar at the top", "Readings start arriving by themselves in every option.", `<div class="opts">
+      ${opt("Live A · Status only", "no simulator controls at all", `<article class="card row ac" style="padding:8px 10px;gap:10px"><i class="dotg"></i><b class="t7" style="font-size:6.4px">Live</b><span class="sub">Receiving readings automatically</span><span class="r row ac" style="gap:8px">${liveStats}${sensorPick}</span></article>`)}
+      ${opt("Live B · Status, with test tools tucked away", "sliders appear only when you open Test tools", `<article class="card row ac" style="padding:8px 10px;gap:10px"><i class="dotg"></i><b class="t7" style="font-size:6.4px">Live</b><span class="sub">Receiving readings automatically</span><span class="r row ac" style="gap:8px">${liveStats}${sensorPick}${vd("Test tools ▾")}</span></article>`)}
+      ${opt("Live C · Keep the controls, already running", "what you have now, but it starts by itself", `<article class="card row ac" style="padding:8px 10px;gap:14px">${bk("Pause", "pause")}<div class="f1">${slider("Speed", "1.0 s", "Fast (300 ms)", "Slow (3.0 s)", 28)}</div><div class="f1">${slider("Breach rate", "20%", "Normal (0%)", "Heavy (80%)", 25)}</div>${liveStats}</article>`)}
+    </div>`),
+  font: () => strip("font", "Font options", "The same card, button and slider in each font.", `<div class="opts">
+      ${["Font A · Inter|what the app uses now|", "Font B · Inter Tight|the landing page's font|f-tight", "Font C · Poppins|the font the old app pages used|f-pop"].map((t) => { const [l, h, c] = t.split("|"); return opt(l, h, `<div class="row ac ${c}">${sc("CPU · Core temperature", 45, "°C", "<b>▲ 2.1%</b> vs 24h average", "thermometer", "", "k").replace('class="card stat ', 'style="width:190px" class="card stat ')}<article class="card row ac f1" style="padding:8px 10px;gap:12px">${bk("Send reading", "send")}<div class="f1">${slider("Speed", "1.0 s", "Fast (300 ms)", "Slow (3.0 s)", 28)}</div><span class="t9">Dashboard</span></article></div>`); }).join("")}
+    </div>`),
+};
+
+const q = new URLSearchParams(location.search);
+const only = q.get("s");
+const which = q.get("l");
+let html = "";
+if (!only || only === "contrast") {
+  html += only ? "" : `<h1 class="sect">1. Contrast</h1><p class="sect">Applies to every page. Shown on the dashboard, with the new card icons and the map card in place of the graph.</p>`;
+  html += CONTRAST.filter((o) => !which || o.key === which).map(frame).join("");
+}
+if (!only) html += `<h1 class="sect">2. The other choices</h1><p class="sect">Each of these is picked separately from the contrast style.</p>`;
+Object.keys(SECTIONS).forEach((k) => { if (!only || only === k) html += SECTIONS[k](); });
+document.getElementById("root").innerHTML = html;
+lucide.createIcons({ attrs: { "stroke-width": 1.9 } });
+
+// Map B: real country outlines, zoomed on Europe and Africa.
+const geo = document.getElementById("geo");
+if (geo && window.d3 && window.topojson) {
+  fetch("https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json").then((r) => r.json()).then((world) => {
+    const shade = Object.fromEntries(COUNTRIES.map(([n, , k]) => [n, RAMP[k]]));
+    const proj = d3.geoMercator().center([16, 18]).scale(50).translate([75, 52]);
+    const path = d3.geoPath(proj);
+    const [px, py] = proj([29.9, -1.9]);
+    geo.innerHTML = topojson.feature(world, world.objects.countries).features
+      .map((f) => `<path d="${path(f) || ""}" fill="${shade[f.properties.name] || "#ebebed"}" stroke="#fff" stroke-width=".35"/>`).join("") +
+      `<circle cx="${px}" cy="${py}" r="4.6" fill="#1c7a2e" opacity=".3"/><circle cx="${px}" cy="${py}" r="2.2" fill="#1c7a2e"/>`;
+  }).catch(() => { geo.outerHTML = `<div class="map dash">Map data could not be loaded</div>`; });
+}
+const fit = () => document.documentElement.style.setProperty("--zoom", Math.min(2.2, (innerWidth - 40) / 664).toFixed(3));
+fit(); addEventListener("resize", fit);
+})();
+
+</script>
+</body>
+</html>

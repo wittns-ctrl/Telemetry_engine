@@ -1,4 +1,4 @@
-# Only pyproject.toml, uv.lock and app/ are needed to build the API image.
+# The API image needs pyproject.toml, uv.lock, app/ and downloads/ (the agent .exe).
 .git
 .gitignore
 .claude

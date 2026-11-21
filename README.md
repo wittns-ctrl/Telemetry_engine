@@ -132,8 +132,12 @@ To use a hosted database instead, drop the `mongo` service and the two
   shared store such as Redis before scaling out.
 - Build the frontend with `VITE_API_BASE` set to the API's public address and
   serve `frontend/dist/` as a static site.
-- Rebuild `lectio-agent.exe` with the production API URL before giving it to
-  testers.
+- Publish the Windows agent: build it on Windows with the production API URL
+  (`uv run python agent/build_exe.py --api https://your-api`), which copies it
+  to `downloads/lectio-agent.exe`. The API serves that file at
+  `/api/v1/agent/download`, and the site's "Download for Windows" buttons
+  appear once it is there. With Docker, `downloads/` is baked into the image
+  (and mounted by `docker-compose.yml`); elsewhere, set `AGENT_DOWNLOAD_PATH`.
 
 ## Known limits
 

@@ -1,27 +1,24 @@
 import React, { useState } from "react";
 import { Search, ChevronDown, ChevronUp } from "lucide-react";
-import { API_BASE } from "../services/api";
+import { AGENT_DOWNLOAD_URL } from "../services/api";
 import { Card, Empty, PromoArt } from "./ui";
 
 // Help: a green banner with a search box, then questions that open one at a
 // time. The search filters the questions by their title and answer.
 
-const AGENT_COMMAND = `uv sync --extra agent
-uv run python -m agent.telemetry_agent --api ${API_BASE}`;
-
 const TOPICS = [
   {
     id: "agent",
     title: "How do I start the agent?",
-    body: "From the project folder on the computer you want to monitor, run the two commands below. The agent asks for your account email and password the first time only. Your password is used for that one registration and is not stored.",
-    code: AGENT_COMMAND,
+    body: "Download lectio-agent.exe on the Windows PC you want to monitor, right-click it and choose Run as administrator (so it can read temperatures and fan speeds). If Windows says it protected your PC, choose More info, then Run anyway. The agent asks for your Lectio email and password the first time only; your password is used for that one registration and is not stored. Keep the window open: readings are sent while it runs.",
+    download: true,
     page: "devices",
     action: "Open My Devices",
   },
   {
     id: "devices",
     title: "Monitor a computer",
-    body: "Run the telemetry agent on the machine you want to watch. It signs in once, registers the machine, and then sends hardware readings every few seconds. The machine appears under My Devices.",
+    body: "Run the Lectio agent on the PC you want to watch. It signs in once, registers the PC, and then sends hardware readings every few seconds. The PC appears under My Devices, where you can also remove it.",
     page: "devices",
     action: "Open My Devices",
   },
@@ -49,7 +46,7 @@ const TOPICS = [
   {
     id: "alerts",
     title: "When do alerts fire?",
-    body: "A reading that stays over its limit raises an alert, and the alert closes by itself once the reading is back to normal. Metrics Studio shows every reading's limit. Open alerts are listed on Live Monitor and on My Devices, where you can diagnose and fix them.",
+    body: "A reading that stays over its limit raises an alert. The alert closes by itself once the reading is back to normal, or when the PC stops reporting that reading for a while, and you can close it yourself on My Devices. Metrics Studio shows every reading's limit. Open alerts are listed on Live Monitor and on My Devices, where you can diagnose and fix them.",
     page: "live",
     action: "Open Live Monitor",
   },
@@ -61,7 +58,7 @@ export function HelpView({ onNavigate }) {
 
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const shown = TOPICS.filter((t) => {
-    const text = `${t.title} ${t.body} ${t.code || ""}`.toLowerCase();
+    const text = `${t.title} ${t.body} ${t.download ? "download exe windows" : ""}`.toLowerCase();
     return words.every((w) => text.includes(w));
   });
   // While searching, a single match opens by itself.
@@ -105,8 +102,10 @@ export function HelpView({ onNavigate }) {
               {isOpen && (
                 <div className="faq-body" id={`help-${topic.id}`}>
                   <p className="txt">{topic.body}</p>
-                  {topic.code && <pre className="code">{topic.code}</pre>}
-                  <button type="button" className="vd" onClick={() => onNavigate?.(topic.page)}>{topic.action}</button>
+                  <span className="row ac wrap" style={{ gap: "calc(4 * var(--u))" }}>
+                    {topic.download && <a className="vd" href={AGENT_DOWNLOAD_URL}>Download for Windows</a>}
+                    <button type="button" className="vd" onClick={() => onNavigate?.(topic.page)}>{topic.action}</button>
+                  </span>
                 </div>
               )}
             </div>

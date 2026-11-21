@@ -166,7 +166,7 @@ export function DashboardPreview() {
             <span className="pv-promo-go">↗</span>
             <span className="pv-promo-title">Let Lectio diagnose<br />your PC</span>
             <span className="pv-tag a">AI Diagnosis</span>
-            <span className="pv-tag b">Health Report</span>
+            <span className="pv-tag b">Fixes</span>
             <span className="pv-promo-foot">{READING_COUNT} readings watched</span>
           </div>
         </div>

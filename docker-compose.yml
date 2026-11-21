@@ -15,6 +15,10 @@ services:
       MONGO_DB: lectio
     ports:
       - "8000:8000"
+    volumes:
+      # The Windows agent served at /api/v1/agent/download. Replace
+      # downloads/lectio-agent.exe to publish a new one; no rebuild needed.
+      - ./downloads:/app/downloads:ro
     depends_on:
       mongo:
         condition: service_healthy
