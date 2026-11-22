@@ -28,27 +28,28 @@ class AIDiagnosticService:
     """
     Service for generating AI-powered diagnostic reports for hardware anomalies.
     
-    This service integrates with LLM APIs (OpenAI) to analyze hardware telemetry
+    This service integrates with an LLM API (Google Gemini) to analyze hardware telemetry
     and generate actionable troubleshooting recommendations. It includes a robust
     rule-based fallback matrix for when LLM APIs are unavailable.
     """
     
     def __init__(self):
         """Initialize the AI diagnostic service."""
-        self.openai_api_key = settings.OPENAI_API_KEY
-        self.openai_model = settings.OPENAI_MODEL
-        self.api_timeout = settings.OPENAI_TIMEOUT_SECONDS
-        
-        # Initialize AsyncOpenAI client if API key is provided
+        self.api_key = settings.GEMINI_API_KEY
+        self.model = settings.GEMINI_MODEL
+        self.api_timeout = settings.GEMINI_TIMEOUT_SECONDS
+
+        # Gemini through its OpenAI-compatible endpoint, if a key is set.
         self.client = None
-        if self.openai_api_key:
+        if self.api_key:
             self.client = AsyncOpenAI(
-                api_key=self.openai_api_key,
+                api_key=self.api_key,
+                base_url=settings.GEMINI_BASE_URL,
                 timeout=self.api_timeout
             )
-            logger.info("AIDiagnosticService initialized with OpenAI client")
+            logger.info(f"AIDiagnosticService initialized with Gemini ({self.model})")
         else:
-            logger.info("AIDiagnosticService initialized without OpenAI client (rule-based fallback only)")
+            logger.info("AIDiagnosticService initialized without Gemini (rule-based fallback only)")
     
     async def generate_diagnostic_report(
         self,
@@ -199,10 +200,10 @@ Device ID: {device_id}
 
 Provide a diagnostic report with root cause analysis, urgency assessment, and step-by-step troubleshooting instructions."""
         
-        # Call OpenAI API using AsyncOpenAI client
+        # Call Gemini through its OpenAI-compatible endpoint
         try:
             response = await self.client.chat.completions.create(
-                model=self.openai_model,
+                model=self.model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -238,13 +239,13 @@ Provide a diagnostic report with root cause analysis, urgency assessment, and st
             )
         
         except APIError as e:
-            logger.error(f"OpenAI API error: {e}")
+            logger.error(f"Gemini API error: {e}")
             raise
         except APIConnectionError as e:
-            logger.error(f"OpenAI API connection error: {e}")
+            logger.error(f"Gemini API connection error: {e}")
             raise
         except RateLimitError as e:
-            logger.error(f"OpenAI API rate limit error: {e}")
+            logger.error(f"Gemini API rate limit error: {e}")
             raise
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse LLM response: {e}")
@@ -575,25 +576,25 @@ Provide a diagnostic report with root cause analysis, urgency assessment, and st
         return diagnostic_matrix.get(rule_name, default_diagnosis)
 
 
-async def check_openai_connection() -> bool:
+async def check_ai_connection() -> bool:
     """
-    Safely ping or validate the OpenAI client initialization on app startup.
+    Safely ping or validate the Gemini client initialization on app startup.
     
-    This function performs a lightweight check to verify that the OpenAI client
+    This function performs a lightweight check to verify that the Gemini client
     is properly initialized and can communicate with the API.
     
     Returns:
-        bool: True if OpenAI client is available and responsive, False otherwise
+        bool: True if the Gemini client is available and responsive, False otherwise
     """
     if not ai_diagnostic_service.client:
-        logger.warning("OpenAI client not initialized - API key may be missing")
+        logger.warning("Gemini client not initialized - API key may be missing")
         return False
     
     try:
         # Perform a minimal API call to verify connectivity
         # Using a minimal completion request with a simple prompt
         response = await ai_diagnostic_service.client.chat.completions.create(
-            model=ai_diagnostic_service.openai_model,
+            model=ai_diagnostic_service.model,
             messages=[
                 {"role": "user", "content": "ping"}
             ],
@@ -602,23 +603,23 @@ async def check_openai_connection() -> bool:
         )
         
         if response and response.choices:
-            logger.info("OpenAI API connection verified successfully")
+            logger.info("Gemini API connection verified successfully")
             return True
         else:
-            logger.warning("OpenAI API connection check failed - no response")
+            logger.warning("Gemini API connection check failed - no response")
             return False
     
     except APIConnectionError as e:
-        logger.error(f"OpenAI API connection check failed - connection error: {e}")
+        logger.error(f"Gemini API connection check failed - connection error: {e}")
         return False
     except RateLimitError as e:
-        logger.error(f"OpenAI API connection check failed - rate limit: {e}")
+        logger.error(f"Gemini API connection check failed - rate limit: {e}")
         return False
     except APIError as e:
-        logger.error(f"OpenAI API connection check failed - API error: {e}")
+        logger.error(f"Gemini API connection check failed - API error: {e}")
         return False
     except Exception as e:
-        logger.error(f"OpenAI API connection check failed - unexpected error: {e}")
+        logger.error(f"Gemini API connection check failed - unexpected error: {e}")
         return False
 
 

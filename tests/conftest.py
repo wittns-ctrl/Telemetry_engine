@@ -886,3 +886,18 @@ def _no_real_notifications(monkeypatch):
     """
     monkeypatch.setattr(settings, "ALERT_EMAILS_ENABLED", False)
     monkeypatch.setattr(settings, "ALERT_WEBHOOK_URL", None)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_ai(monkeypatch):
+    """
+    Keep every test from calling the real Gemini API, whatever the developer's
+    .env says. The AI services are built once at import, so their clients are
+    switched off too; tests that exercise the AI supply a mocked client.
+    """
+    from app.services.ai_diagnostic_service import ai_diagnostic_service
+    from app.services.fix_advisor import fix_advisor
+
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+    monkeypatch.setattr(ai_diagnostic_service, "client", None)
+    monkeypatch.setattr(fix_advisor, "client", None)

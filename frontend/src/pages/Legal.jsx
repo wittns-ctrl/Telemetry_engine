@@ -127,16 +127,17 @@ export function PrivacyPage() {
         <li><b>Email delivery:</b> account emails are sent through <Fill value={LEGAL.emailProvider} label="email provider" />, which receives your email address and the message.</li>
         <li><b>Google:</b> only if you choose to sign in with Google.</li>
         <li>
-          <b>OpenAI:</b> when a diagnostic report is generated for an alert, we send OpenAI the alert details, a summary
-          of that machine&apos;s readings from the five minutes around it, and the device&apos;s internal ID. We do not send
-          your name or email address. If OpenAI is unavailable, the report is generated on our own servers instead.
+          <b>Google (Gemini API):</b> when a diagnostic report or fix advice is generated for an alert, we send Google the
+          alert details, a summary of that machine&apos;s readings from the five minutes around it, and the device&apos;s
+          internal ID. We do not send your name or email address. If Gemini is unavailable, the report is generated on our
+          own servers instead.
         </li>
       </ul>
       <p>We may also disclose data if the law requires it.</p>
 
       <h2>International transfers</h2>
       <p>
-        Some of these providers, including OpenAI, process data in the United States. Where data leaves your country, we rely
+        Some of these providers, including Google, process data in the United States. Where data leaves your country, we rely
         on the safeguards the provider offers, such as standard contractual clauses.
       </p>
 

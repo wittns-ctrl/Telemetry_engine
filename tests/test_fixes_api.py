@@ -67,7 +67,7 @@ class TestCatalogueAndSuggestions:
         )
         assert r.status_code == 200
         body = r.json()
-        assert body["source"] == "rules" and body["fix_level"] == "standard"  # no OpenAI key in tests
+        assert body["source"] == "rules" and body["fix_level"] == "standard"  # no Gemini key in tests
         ids = [f["id"] for f in body["options"]]
         assert ids[0] == "cool_down" and body["options"][0]["recommended"] is True
         assert all(o["reason"] for o in body["options"])

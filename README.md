@@ -108,7 +108,7 @@ The ones that matter in production:
 | `MONGODB_URI`, `MONGO_DB` | The database. |
 | `FRONTEND_URL` | The site's address; the API rejects browser requests from anywhere else. |
 | `SMTP_*` | Verification, password-reset and alert emails. Without it, none are sent. |
-| `OPENAI_API_KEY` | Optional. Without it, diagnoses use the built-in rules. |
+| `GEMINI_API_KEY` | Optional. Google Gemini for diagnoses and fix advice; without it, both use the built-in rules. |
 | `TELEMETRY_RETENTION_DAYS` | How long readings are kept (default 30). MongoDB deletes older ones itself. |
 | `RATE_LIMIT_*` | Requests per minute for sign-in, agent uploads, fixes and everything else. |
 

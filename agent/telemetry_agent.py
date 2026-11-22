@@ -34,6 +34,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
@@ -94,6 +95,9 @@ def os_description() -> str:
 async def register(client: httpx.AsyncClient, api: str, config: dict, device_name: str,
                    country: str | None = None) -> dict:
     """Sign in once, register this machine, and return the updated config."""
+    # Make sure the server answers before asking for a password. If it can't
+    # be reached, main() explains why in plain words.
+    await client.get(f"{api}/api/v1/health")
     print(f"Sign in with your Lectio account to link this PC ({api}).")
     print("Your password is only used now and is never saved.\n")
     for attempt in range(3):
@@ -238,6 +242,8 @@ def main() -> None:
         code = e.code
     except EOFError:
         code = "Signing in needs a keyboard: run lectio-agent in a terminal window, not with input piped in."
+    except httpx.TransportError as e:
+        code = unreachable_message(args.api, e)
     except Exception:
         logger.exception("The agent stopped because of an error")
         code = 1
@@ -255,6 +261,25 @@ def main() -> None:
         sys.stderr.flush()
         os._exit(code or 0)
     sys.exit(code)
+
+
+def unreachable_message(api: str, error: Exception) -> str:
+    """Plain words for "couldn't talk to the server", instead of a traceback."""
+    host = urlparse(api).hostname or api
+    text = str(error)
+    if "getaddrinfo" in text or "Name or service not known" in text or "nodename nor servname" in text:
+        return (
+            f"\nLectio couldn't find its server at {api}.\n"
+            f"No server called '{host}' exists, so this copy of the agent was set up with the wrong address.\n"
+            "Download the agent again from your Lectio dashboard (My Devices > Add a device),\n"
+            "or, if you know the right address, run:  lectio-agent --api https://the-right-address"
+        )
+    if isinstance(error, httpx.TimeoutException):
+        return (f"\nLectio's server at {api} didn't answer in time.\n"
+                "Check this PC's internet connection, then try again in a few minutes.")
+    return (f"\nLectio couldn't connect to its server at {api}.\n"
+            "Check this PC's internet connection, then try again. If it keeps happening,\n"
+            "the server may be down for a moment.")
 
 
 def started_by_double_click() -> bool:

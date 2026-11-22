@@ -13,7 +13,7 @@ import json
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.services.ai_diagnostic_service import AIDiagnosticService, check_openai_connection
+from app.services.ai_diagnostic_service import AIDiagnosticService, check_ai_connection
 from app.schemas.api import DiagnosticReport, ActionableStep, UrgencyLevel
 from app.models.alert import AlertSeverity
 from openai import APIConnectionError, APIError, RateLimitError
@@ -26,14 +26,15 @@ class TestAIDiagnosticServiceInitialization:
     async def test_initialization_with_api_key(self):
         """Test service initialization with valid API key."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = "test_api_key"
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = "test_api_key"
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
-            assert service.openai_api_key == "test_api_key"
-            assert service.openai_model == "gpt-4o-mini"
+            assert service.api_key == "test_api_key"
+            assert service.model == "gemini-2.5-flash"
             assert service.api_timeout == 5.0
             assert service.client is not None
     
@@ -41,26 +42,28 @@ class TestAIDiagnosticServiceInitialization:
     async def test_initialization_without_api_key(self):
         """Test service initialization without API key (fallback mode)."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
-            assert service.openai_api_key == ""
+            assert service.api_key == ""
             assert service.client is None
     
     @pytest.mark.asyncio
     async def test_initialization_with_none_api_key(self):
         """Test service initialization with None API key."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = None
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = None
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
-            assert service.openai_api_key is None
+            assert service.api_key is None
             assert service.client is None
 
 
@@ -71,9 +74,10 @@ class TestLLMDiagnosticGeneration:
     async def test_successful_llm_diagnostic(self, test_alert, test_device, synthetic_telemetry_snapshot, mock_openai_client):
         """Test successful diagnostic report generation using LLM."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = "test_api_key"
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = "test_api_key"
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -96,9 +100,10 @@ class TestLLMDiagnosticGeneration:
     async def test_llm_diagnostic_structure(self, test_alert, test_device, mock_openai_client):
         """Test that LLM diagnostic reports have correct structure."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = "test_api_key"
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = "test_api_key"
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -125,9 +130,10 @@ class TestLLMDiagnosticGeneration:
     async def test_llm_diagnostic_content_validation(self, test_alert, test_device, mock_openai_client):
         """Test that LLM diagnostic content is valid and meaningful."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = "test_api_key"
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = "test_api_key"
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -152,9 +158,10 @@ class TestLLMDiagnosticGeneration:
     async def test_llm_diagnostic_with_telemetry_context(self, test_alert, test_device, synthetic_telemetry_snapshot, mock_openai_client):
         """Test that telemetry context is included in LLM diagnostics."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = "test_api_key"
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = "test_api_key"
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -176,9 +183,10 @@ class TestFallbackMechanism:
     async def test_fallback_on_timeout(self, test_alert, test_device, mock_openai_timeout):
         """Test fallback to rule-based diagnostics on API timeout."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = "test_api_key"
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = "test_api_key"
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -198,9 +206,10 @@ class TestFallbackMechanism:
     async def test_fallback_on_missing_api_key(self, test_alert, test_device):
         """Test fallback when API key is not configured."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -221,9 +230,10 @@ class TestFallbackMechanism:
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings, \
              patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
             
-            mock_settings.OPENAI_API_KEY = "test_api_key"
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = "test_api_key"
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             mock_client = AsyncMock()
             mock_client.chat.completions.create = AsyncMock(
@@ -249,9 +259,10 @@ class TestFallbackMechanism:
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings, \
              patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
             
-            mock_settings.OPENAI_API_KEY = "test_api_key"
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = "test_api_key"
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             mock_client = AsyncMock()
             mock_client.chat.completions.create = AsyncMock(
@@ -277,9 +288,10 @@ class TestFallbackMechanism:
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings, \
              patch('app.services.ai_diagnostic_service.AsyncOpenAI') as mock_client_class:
             
-            mock_settings.OPENAI_API_KEY = "test_api_key"
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = "test_api_key"
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             mock_client = AsyncMock()
             mock_client.chat.completions.create = AsyncMock(
@@ -312,9 +324,10 @@ class TestRuleBasedDiagnosticMatrix:
         await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -337,9 +350,10 @@ class TestRuleBasedDiagnosticMatrix:
         await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -361,9 +375,10 @@ class TestRuleBasedDiagnosticMatrix:
         await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -385,9 +400,10 @@ class TestRuleBasedDiagnosticMatrix:
         await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -409,9 +425,10 @@ class TestRuleBasedDiagnosticMatrix:
         await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -433,9 +450,10 @@ class TestRuleBasedDiagnosticMatrix:
         await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -457,9 +475,10 @@ class TestRuleBasedDiagnosticMatrix:
         await test_alert.save()
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -479,9 +498,10 @@ class TestRuleBasedDiagnosticMatrix:
         test_alert.rule_name = "CPU_OVERHEATING_CRITICAL"
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -506,9 +526,10 @@ class TestRuleBasedDiagnosticMatrix:
         test_alert.rule_name = "CPU_OVERHEATING_CRITICAL"
         
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -524,8 +545,8 @@ class TestRuleBasedDiagnosticMatrix:
             assert "preventive_measures" in report.additional_context
 
 
-class TestOpenAIConnectionCheck:
-    """Test suite for OpenAI connection check function."""
+class TestAIConnectionCheck:
+    """Test suite for the Gemini connection check function."""
     
     @pytest.mark.asyncio
     async def test_connection_check_success(self):
@@ -544,10 +565,10 @@ class TestOpenAIConnectionCheck:
             mock_client_class.return_value = mock_client
             
             mock_service.client = mock_client
-            mock_service.openai_model = "gpt-4o-mini"
+            mock_service.model = "gemini-2.5-flash"
             mock_service.api_timeout = 5.0
             
-            result = await check_openai_connection()
+            result = await check_ai_connection()
             
             assert result == True
     
@@ -557,7 +578,7 @@ class TestOpenAIConnectionCheck:
         with patch('app.services.ai_diagnostic_service.ai_diagnostic_service') as mock_service:
             mock_service.client = None
             
-            result = await check_openai_connection()
+            result = await check_ai_connection()
             
             assert result == False
     
@@ -574,10 +595,10 @@ class TestOpenAIConnectionCheck:
             mock_client_class.return_value = mock_client
             
             mock_service.client = mock_client
-            mock_service.openai_model = "gpt-4o-mini"
+            mock_service.model = "gemini-2.5-flash"
             mock_service.api_timeout = 5.0
             
-            result = await check_openai_connection()
+            result = await check_ai_connection()
             
             assert result == False
     
@@ -594,10 +615,10 @@ class TestOpenAIConnectionCheck:
             mock_client_class.return_value = mock_client
             
             mock_service.client = mock_client
-            mock_service.openai_model = "gpt-4o-mini"
+            mock_service.model = "gemini-2.5-flash"
             mock_service.api_timeout = 5.0
             
-            result = await check_openai_connection()
+            result = await check_ai_connection()
             
             assert result == False
     
@@ -614,10 +635,10 @@ class TestOpenAIConnectionCheck:
             mock_client_class.return_value = mock_client
             
             mock_service.client = mock_client
-            mock_service.openai_model = "gpt-4o-mini"
+            mock_service.model = "gemini-2.5-flash"
             mock_service.api_timeout = 5.0
             
-            result = await check_openai_connection()
+            result = await check_ai_connection()
             
             assert result == False
 
@@ -629,9 +650,10 @@ class TestDiagnosticReportValidation:
     async def test_report_timestamp_is_current(self, test_alert, test_device):
         """Test that report timestamp is current."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -649,9 +671,10 @@ class TestDiagnosticReportValidation:
     async def test_report_ids_match_request(self, test_alert, test_device):
         """Test that report IDs match the request."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -668,9 +691,10 @@ class TestDiagnosticReportValidation:
     async def test_report_urgency_levels_valid(self, test_alert, test_device):
         """Test that urgency levels are valid."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -691,9 +715,10 @@ class TestDiagnosticErrorHandling:
     async def test_invalid_alert_id(self, test_device):
         """Test handling of invalid alert ID."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -708,9 +733,10 @@ class TestDiagnosticErrorHandling:
     async def test_nonexistent_alert(self, test_device):
         """Test handling of nonexistent alert."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             
@@ -725,9 +751,10 @@ class TestDiagnosticErrorHandling:
     async def test_tenant_isolation_enforcement(self, test_alert, other_user):
         """Test that tenant isolation is enforced."""
         with patch('app.services.ai_diagnostic_service.settings') as mock_settings:
-            mock_settings.OPENAI_API_KEY = ""
-            mock_settings.OPENAI_MODEL = "gpt-4o-mini"
-            mock_settings.OPENAI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_API_KEY = ""
+            mock_settings.GEMINI_MODEL = "gemini-2.5-flash"
+            mock_settings.GEMINI_TIMEOUT_SECONDS = 5.0
+            mock_settings.GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
             
             service = AIDiagnosticService()
             

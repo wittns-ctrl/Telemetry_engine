@@ -126,15 +126,17 @@ async def diagnostic_health_check():
     """
     from app.core.config import settings
     
-    has_openai_key = getattr(settings, 'OPENAI_API_KEY', None) is not None
-    openai_model = getattr(settings, 'OPENAI_MODEL', 'gpt-4')
+    # An empty key means no AI: diagnoses use the built-in rules.
+    has_ai_key = bool(settings.GEMINI_API_KEY)
+    ai_model = settings.GEMINI_MODEL
     
     return {
         "service": "AI Diagnostic Service",
         "status": "operational",
         "llm_integration": {
-            "enabled": has_openai_key,
-            "model": openai_model,
+            "enabled": has_ai_key,
+            "provider": "Google Gemini",
+            "model": ai_model,
             "fallback_available": True
         },
         "rule_based_fallback": {

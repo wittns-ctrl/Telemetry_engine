@@ -391,7 +391,7 @@ export async function fetchDeviceAlerts(deviceId, { activeOnly = false, limit = 
  * Resolves to the report: { alert_id, device_id, generated_at, analysis_method
  * ("LLM" | "rule_based"), root_cause_analysis, urgency_level, actionable_steps:
  * [{ step_number, instruction, category, estimated_time_minutes }], additional_context }.
- * Without an OpenAI key the API still answers, with analysis_method "rule_based".
+ * Without a Gemini key the API still answers, with analysis_method "rule_based".
  */
 export async function requestDiagnosis(alertId, deviceId) {
   const data = await apiJson(

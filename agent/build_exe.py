@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import socket
 import os
 import sys
 from pathlib import Path
@@ -47,6 +48,19 @@ def main() -> None:
         raise SystemExit(f"Not an http(s) URL: {api}")
     if url.scheme == "http" and url.hostname not in ("localhost", "127.0.0.1"):
         print(f"Warning: {api} is not https; passwords would be sent unencrypted.")
+    host = url.hostname or ""
+    if host.startswith("your-") or "your-api" in host or host in ("example.com", "api.example.com") \
+            or host.endswith(".example.com") or host.endswith(".example"):
+        raise SystemExit(f"{api} is a placeholder from the instructions, not a real server. "
+                         "Use the address your Lectio API is deployed at (or http://localhost:8000 to test locally).")
+    try:
+        socket.getaddrinfo(host, url.port or (443 if url.scheme == "https" else 80))
+    except socket.gaierror:
+        print(f"Warning: no server called '{host}' can be found right now. The .exe will only work once "
+              "that address exists; check it for typos.")
+    if host in ("localhost", "127.0.0.1"):
+        print("Note: this .exe only works on this PC while the API runs here. Rebuild it with your deployed "
+              "API address before others download it.")
 
     import PyInstaller.__main__  # from the 'build' dependency group
 

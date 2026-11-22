@@ -3,7 +3,7 @@ Choosing and explaining fix options for an alert.
 
 The AI only orders and explains fixes it is given (catalogue fixes that fit
 the alert); it can't add one, and its wording is length-limited. Without an
-OpenAI key, or if the reply is missing or odd, the same options come back in
+Gemini key, or if the reply is missing or odd, the same options come back in
 catalogue order with built-in plain reasons.
 """
 
@@ -68,8 +68,13 @@ def _clean_reason(text: object) -> Optional[str]:
 
 class FixAdvisor:
     def __init__(self, client: Optional[AsyncOpenAI] = None):
-        if client is None and settings.OPENAI_API_KEY:
-            client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, timeout=settings.OPENAI_TIMEOUT_SECONDS)
+        if client is None and settings.GEMINI_API_KEY:
+            # Gemini through its OpenAI-compatible endpoint.
+            client = AsyncOpenAI(
+                api_key=settings.GEMINI_API_KEY,
+                base_url=settings.GEMINI_BASE_URL,
+                timeout=settings.GEMINI_TIMEOUT_SECONDS,
+            )
         self.client = client
 
     async def options_for(self, alert: AnomalyAlertDocument, candidates: list[Fix]) -> tuple[list[Option], str]:
@@ -82,7 +87,7 @@ class FixAdvisor:
             chosen = await self._ask(alert, candidates)
         except (AuthenticationError, PermissionDeniedError) as e:
             # A bad or expired key won't fix itself: stop asking until restart.
-            logger.error(f"OpenAI rejected the API key; fix options use the built-in order until restart: {e}")
+            logger.error(f"Gemini rejected the API key; fix options use the built-in order until restart: {e}")
             self.client = None
             return _fallback(candidates), "rules"
         except Exception as e:
@@ -103,7 +108,7 @@ Pick up to {MAX_PC_OPTIONS} that would help most, best first. For each, write on
 (at most 15 words, no jargon) saying why it helps this person. Reply as JSON:
 {{"options": [{{"id": "...", "reason": "..."}}]}}"""
         response = await self.client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
+            model=settings.GEMINI_MODEL,
             messages=[
                 {"role": "system", "content": "You help non-technical people fix their PCs. Be brief, plain and calm."},
                 {"role": "user", "content": prompt},

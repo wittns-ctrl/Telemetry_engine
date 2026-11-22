@@ -101,10 +101,13 @@ class Settings(BaseSettings):
     # copies each new build here; replace the file to publish a new version.
     AGENT_DOWNLOAD_PATH: str = "downloads/lectio-agent.exe"
 
-    # AI Diagnostic Settings
-    OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4o-mini"
-    OPENAI_TIMEOUT_SECONDS: float = 5.0
+    # AI (Google Gemini) for diagnosis reports and fix advice. Reached through
+    # Gemini's OpenAI-compatible endpoint, so the openai package is the client.
+    # Without a key, both features use Lectio's built-in rules.
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.5-flash"
+    GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    GEMINI_TIMEOUT_SECONDS: float = 30.0
 
     model_config =  SettingsConfigDict(env_file=".env",extra="ignore")
 
