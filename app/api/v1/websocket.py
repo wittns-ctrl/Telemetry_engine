@@ -26,11 +26,16 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# The per-user channel every new or updated alert is copied to, whichever PC
+# raised it, so the website can pop it up on any page.
+ALERT_FEED = "__alert_feed__"
+
 
 def serialize_alert(alert: AnomalyAlertDocument) -> dict:
     """Shape an alert document for WebSocket clients."""
     return {
         "id": str(alert.id),
+        "device_id": str(alert.device_id),
         "rule_name": alert.rule_name,
         "severity": alert.severity.value,
         "metric_name": alert.metric_name,
@@ -166,3 +171,29 @@ async def websocket_alert_stream(
             f"WebSocket alert stream ended - User: {current_user.id}, "
             f"Device: {device_id}"
         )
+
+
+@router.websocket("/ws/alert-feed")
+async def websocket_alert_feed(
+    websocket: WebSocket,
+    current_user: User = Depends(get_current_user_ws),
+):
+    """
+    Every alert raised or updated on any of the user's PCs, as it happens:
+
+        {"type": "alerts", "device_id": ..., "device_name": ..., "alerts": [...]}
+
+    The website uses it to pop up new warnings on whatever page is open.
+    Requires ?token=<access JWT>.
+    """
+    user_id = str(current_user.id)
+    await manager.connect(websocket, user_id, ALERT_FEED)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.error(f"Alert feed error: {e}")
+    finally:
+        await manager.disconnect(websocket, user_id, ALERT_FEED)

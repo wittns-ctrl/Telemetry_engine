@@ -18,7 +18,7 @@ from app.models.telemetry import Device, TelemetrySnapshot
 from app.schemas.api import TelemetryIngestResponse
 from app.services.anomaly_engine import anomaly_engine
 from app.services.storage_service import StorageService
-from app.api.v1.websocket import serialize_alert
+from app.api.v1.websocket import ALERT_FEED, serialize_alert
 
 logger = logging.getLogger(__name__)
 
@@ -97,5 +97,13 @@ async def ingest_snapshot(
             "alerts": alerts,
         },
     )
+
+    if alerts:
+        # Copy to the user's alert feed so a pop-up can show on any page.
+        await manager.broadcast_to_device(
+            user_id,
+            ALERT_FEED,
+            {"type": "alerts", "device_id": device_id, "device_name": device.device_name, "alerts": alerts},
+        )
 
     return TelemetryIngestResponse(snapshot_id=str(doc.id), alerts_triggered=len(alerts))

@@ -1,6 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Check, Flame } from "lucide-react";
-import { fetchDevices, fetchLatestTelemetry, fetchTelemetryHistory } from "../services/api";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Bell, Check, Flame, ListTree } from "lucide-react";
+import {
+  fetchDeviceAlerts,
+  fetchDevices,
+  fetchLatestTelemetry,
+  fetchTelemetryHistory,
+  refreshAccessToken,
+  telemetrySocketUrl,
+} from "../services/api";
+import { DashboardAlerts } from "./DashboardAlerts";
 import { GROUPS, READING_COUNT, valueOf, maxOf, statusOf, display, show, isCharted, healthOf } from "./readings";
 import { Card, Chip, Stat, Pill, Ring, Gauge, Tabs, Seg, LineGraph, Modal, Promo, Empty } from "./ui";
 import { DeviceMap } from "./DeviceMap";
@@ -21,11 +29,28 @@ const PERIODS = [
 // Headings for the two tall cards.
 const TITLES = { cpu_util: "CPU Utilization", gpu_util: "GPU Utilization", ram_usage: "RAM Usage", disk_used: "Storage Used", cpu_power: "Package Power", gpu_vram: "VRAM Used", ram_used: "RAM Used", vrm_temp: "VRM Temperature", psu_12v: "PSU +12V Rail" };
 
+// Live snapshots kept in memory for the graphs (about 100 minutes at one every 2 s).
+const LIVE_KEEP = 3000;
+
+/** Merge alerts from the live connection: update known ones, add new ones, drop closed ones. */
+function mergeAlerts(prev, incoming) {
+  if (!incoming?.length) return prev;
+  const byId = new Map(incoming.map((a) => [a.id, a]));
+  const kept = prev.map((a) => (byId.has(a.id) ? { ...a, ...byId.get(a.id) } : a));
+  const added = incoming.filter((a) => !prev.some((p) => p.id === a.id));
+  return [...added, ...kept].filter((a) => a.is_active !== false).slice(0, 50);
+}
+
 /**
- * The first device's latest snapshot and its stored history for the period.
+ * The first device's latest snapshot and its stored history for the period,
+ * then every new snapshot as the agent sends it (about every 2 seconds) over
+ * the device's live connection, like Task Manager's refresh. `onAlerts`
+ * receives the alerts that come with each snapshot.
  */
-function useTelemetry(period) {
-  const [state, setState] = useState({ status: "loading" });
+function useTelemetry(period, onAlerts) {
+  const [state, setState] = useState({ status: "loading", live: false });
+  const onAlertsRef = useRef(onAlerts);
+  onAlertsRef.current = onAlerts;
 
   useEffect(() => {
     let cancelled = false;
@@ -37,24 +62,90 @@ function useTelemetry(period) {
           if (!cancelled) setState({ status: "empty" });
           return;
         }
-        const [snapshot, stored] = await Promise.all([
-          fetchLatestTelemetry(device.id).catch(() => null),
-          fetchTelemetryHistory(device.id, { start: new Date(Date.now() - span) }).catch(() => null),
-        ]);
+        // Show the latest reading as soon as it arrives; the history for the
+        // graphs and averages can take longer and fills in afterwards.
+        const historyRequest = fetchTelemetryHistory(device.id, { start: new Date(Date.now() - span) }).catch(() => null);
+        const snapshot = await fetchLatestTelemetry(device.id).catch(() => null);
         if (cancelled) return;
-        // The API returns the newest first; the graphs want oldest first.
-        setState({ status: snapshot ? "ready" : "empty", device, snapshot, history: [...(stored?.snapshots || [])].reverse() });
+        setState((prev) => ({
+          ...prev,
+          status: snapshot || prev.snapshot ? "ready" : "empty",
+          device,
+          // A live snapshot may already be newer than the stored one.
+          snapshot: prev.snapshot && snapshot && new Date(prev.snapshot.timestamp) > new Date(snapshot.timestamp) ? prev.snapshot : snapshot || prev.snapshot,
+        }));
+        const stored = await historyRequest;
+        if (cancelled || !stored) return;
+        // The API returns the newest first; the graphs want oldest first. Live
+        // snapshots that arrived meanwhile stay on the end.
+        setState((prev) => {
+          const older = [...(stored.snapshots || [])].reverse();
+          const newest = older.length ? new Date(older[older.length - 1].timestamp).getTime() : 0;
+          const live = (prev.history || []).filter((h) => new Date(h.timestamp).getTime() > newest);
+          return { ...prev, history: [...older, ...live] };
+        });
       } catch (error) {
         if (!cancelled) setState({ status: "error", error });
       }
     };
     load();
-    const timer = setInterval(load, 15000);
+    // A safety net only: live updates arrive over the socket below.
+    const timer = setInterval(load, 60000);
     return () => {
       cancelled = true;
       clearInterval(timer);
     };
   }, [period]);
+
+  // Live connection to the device: each message is a full snapshot.
+  const deviceId = state.device?.id;
+  useEffect(() => {
+    if (!deviceId) return undefined;
+    const span = PERIODS.find((p) => p.id === period).ms;
+    let ws;
+    let retry;
+    let disposed = false;
+    let attempts = 0;
+    const connect = () => {
+      if (disposed) return;
+      ws = new WebSocket(telemetrySocketUrl(deviceId));
+      ws.onopen = () => {
+        attempts = 0;
+        setState((prev) => ({ ...prev, live: true }));
+      };
+      ws.onmessage = (event) => {
+        let data;
+        try {
+          data = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        if (data.type === "telemetry" && data.telemetry) {
+          const snap = { ...data.telemetry, timestamp: data.timestamp || data.telemetry.timestamp };
+          const cutoff = Date.now() - span;
+          setState((prev) => ({
+            ...prev,
+            status: "ready",
+            snapshot: snap,
+            history: [...(prev.history || []).filter((h) => new Date(h.timestamp).getTime() >= cutoff), snap].slice(-LIVE_KEEP),
+          }));
+        }
+        if (Array.isArray(data.alerts) && data.alerts.length) onAlertsRef.current?.(data.alerts);
+      };
+      ws.onclose = async (event) => {
+        if (disposed) return;
+        setState((prev) => ({ ...prev, live: false }));
+        if (event.code === 1008) await refreshAccessToken();  // expired sign-in
+        retry = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempts++));
+      };
+    };
+    connect();
+    return () => {
+      disposed = true;
+      clearTimeout(retry);
+      ws?.close();
+    };
+  }, [deviceId, period]);
 
   return state;
 }
@@ -154,16 +245,65 @@ function ReadingDetail({ group, reading, data, period, setPeriod, onClose, onNav
   );
 }
 
+// ------------------------------------------------------- top processes
+
+const fmtMb = (mb) => (mb === null || mb === undefined ? "—" : mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`);
+const fmtRate = (bytes) => (bytes === null || bytes === undefined ? "—" : `${(bytes / 1e6).toFixed(1)} MB/s`);
+
+/** Task Manager's Processes tab in the gauge and big-card slots. */
+function TopProcesses({ processes }) {
+  const rows = processes || [];
+  return (
+    <article className="card r2 dk proc-card">
+      <h3><ListTree strokeWidth={1.9} aria-hidden="true" /> Top programs right now</h3>
+      {rows.length === 0 ? (
+        <p className="foot">This PC hasn&apos;t sent its process list yet. It arrives with the next reading from an up-to-date agent.</p>
+      ) : (
+        <table className="proc-table">
+          <thead>
+            <tr><th scope="col">Name</th><th scope="col">CPU</th><th scope="col">Memory</th><th scope="col">Disk</th></tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, 6).map((p) => (
+              <tr key={`${p.pid}-${p.name}`}>
+                <td className="cut" title={`${p.name} (PID ${p.pid})`}>{p.name}</td>
+                <td>{p.cpu_percent.toFixed(1)}%</td>
+                <td>{fmtMb(p.memory_mb)}</td>
+                <td>{fmtRate(p.disk_bytes_per_s)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </article>
+  );
+}
+
 // -------------------------------------------------------------- the view
 
-export function Dashboard({ onNavigate }) {
-  const [tab, setTab] = useState("cpu");
+export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
+  // The tab can be chosen from outside (the alert pop-up opens "Alerts").
+  const [ownTab, setOwnTab] = useState("cpu");
+  const tab = tabProp ?? ownTab;
+  const setTab = onTabChange ?? setOwnTab;
   const [period, setPeriod] = useState("24h");
   const [detail, setDetail] = useState(null);
-  const data = useTelemetry(period);
+  const [alerts, setAlerts] = useState([]);
+  const data = useTelemetry(period, (incoming) => setAlerts((prev) => mergeAlerts(prev, incoming)));
 
-  const group = GROUPS.find((g) => g.id === tab);
-  const byId = useMemo(() => Object.fromEntries(group.readings.map((r) => [r.id, r])), [group]);
+  // Open alerts for the device; the live connection keeps them current.
+  const deviceId = data.device?.id;
+  useEffect(() => {
+    if (!deviceId) return undefined;
+    let cancelled = false;
+    fetchDeviceAlerts(deviceId, { activeOnly: true })
+      .then((res) => { if (!cancelled) setAlerts(res?.alerts || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [deviceId]);
+
+  const group = GROUPS.find((g) => g.id === tab) || null;
+  const byId = useMemo(() => Object.fromEntries((group?.readings || []).map((r) => [r.id, r])), [group]);
 
   if (data.status !== "ready") {
     return (
@@ -182,7 +322,41 @@ export function Dashboard({ onNavigate }) {
     );
   }
 
-  const { snapshot, device } = data;
+  const { snapshot, device, live } = data;
+
+  const tabs = (
+    <div className="row ac wrap">
+      <Tabs
+        label="Component"
+        value={tab}
+        onChange={setTab}
+        items={[
+          ...GROUPS.map((g) => ({ id: g.id, label: g.label, icon: g.icon, count: g.readings.length })),
+          {
+            id: "alerts",
+            label: "Alerts",
+            icon: Bell,
+            mark: alerts.length > 0 ? <i className="tab-alerts" aria-label={`${alerts.length} open`}>{alerts.length}</i> : undefined,
+          },
+        ]}
+      />
+      <span className="sub r">
+        {live && <span className="live-dot">Live</span>}
+        {device.device_name}
+        {tab === "storage" && snapshot.storage?.[0]?.device_name ? ` · ${snapshot.storage[0].device_name}` : ""}
+        {` · updated ${timeAgo(snapshot.timestamp)}`}
+      </span>
+    </div>
+  );
+
+  if (!group) {
+    return (
+      <div className="page">
+        {tabs}
+        <DashboardAlerts device={device} alerts={alerts} onAlertsChange={setAlerts} readingCount={READING_COUNT} />
+      </div>
+    );
+  }
   const read = (reading) => {
     const value = valueOf(reading, snapshot);
     return { value, shown: display(reading, value), status: statusOf(reading, value), stats: summarise(buildSeries(reading, data).values) };
@@ -213,10 +387,10 @@ export function Dashboard({ onNavigate }) {
     );
   };
 
-  const gauge = byId[group.layout.gauge];
-  const gaugeNow = read(gauge);
+  const gauge = group.layout.gauge ? byId[group.layout.gauge] : null;
+  const gaugeNow = gauge ? read(gauge) : null;
   const drive = snapshot.storage?.[0];
-  const gaugeFoot = gauge.id === "disk_used" && drive
+  const gaugeFoot = !gauge ? null : gauge.id === "disk_used" && drive
     ? <>Free space <b>{Math.round(drive.available_capacity_gb ?? 0).toLocaleString("en-US")} GB</b> of {Math.round(drive.total_capacity_gb).toLocaleString("en-US")} GB</>
     : gauge.id === "ram_usage" && snapshot.ram?.total_gb
       ? <><b>{show(byId.ram_used, snapshot.ram.used_gb)}</b> of {Math.round(snapshot.ram.total_gb)} GB in use</>
@@ -254,30 +428,22 @@ export function Dashboard({ onNavigate }) {
 
   return (
     <div className="page">
-      <div className="row ac wrap">
-        <Tabs
-          label="Component"
-          value={tab}
-          onChange={setTab}
-          items={GROUPS.map((g) => ({ id: g.id, label: g.label, icon: g.icon, count: g.readings.length }))}
-        />
-        <span className="sub r">
-          {device.device_name}
-          {tab === "storage" && drive?.device_name ? ` · ${drive.device_name}` : ""}
-          {` · updated ${timeAgo(snapshot.timestamp)}`}
-        </span>
-      </div>
+      {tabs}
 
       {group.layout.stats.length > 0 && <div className="g3">{group.layout.stats.map(statCard)}</div>}
 
-      <div className={`gmid${big ? "" : " two"}`}>
-        <article className="card r2 gs">
-          <h3>{TITLES[gauge.id] || gauge.label}</h3>
-          <div className="big">{gaugeNow.shown.text}<small>{gaugeNow.shown.unit}</small></div>
-          <Gauge share={scale(gauge, gaugeNow.value)} warn={gaugeNow.status.warn} />
-          <div className="foot">{gaugeFoot}</div>
-          <button type="button" className="btn" onClick={() => setDetail(gauge.id)} aria-label={`View details: ${gauge.label}`}>View Details</button>
-        </article>
+      <div className={`gmid${big || group.layout.list ? "" : " two"}`}>
+        {group.layout.list === "processes" && <TopProcesses processes={snapshot.processes} />}
+
+        {gauge && (
+          <article className="card r2 gs">
+            <h3>{TITLES[gauge.id] || gauge.label}</h3>
+            <div className="big">{gaugeNow.shown.text}<small>{gaugeNow.shown.unit}</small></div>
+            <Gauge share={scale(gauge, gaugeNow.value)} warn={gaugeNow.status.warn} />
+            <div className="foot">{gaugeFoot}</div>
+            <button type="button" className="btn" onClick={() => setDetail(gauge.id)} aria-label={`View details: ${gauge.label}`}>View Details</button>
+          </article>
+        )}
 
         {big && (
           <article className="card r2 dk">

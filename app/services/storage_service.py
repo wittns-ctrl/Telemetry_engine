@@ -158,6 +158,12 @@ class StorageService:
                 storage=snapshot.storage,
                 ram=snapshot.ram,
                 power_vrm=snapshot.power_vrm,
+                disk=snapshot.disk,
+                network=snapshot.network,
+                # The top-programs list is only useful live (it goes out over the
+                # WebSocket with every snapshot); storing it every 2 s would add
+                # about 40 MB per PC per day.
+                processes=[],
                 collection_duration_ms=snapshot.collection_duration_ms
             )
             

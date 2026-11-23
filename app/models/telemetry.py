@@ -28,7 +28,13 @@ class CPUMetrics(BaseModel):
     clock_speed_ghz: Optional[float] = Field(None, ge=0.0, description="CPU clock speed in GHz")
     package_power_w: Optional[float] = Field(None, ge=0.0, description="Package power draw in watts")
     fan_speed_rpm: Optional[int] = Field(None, ge=0, description="CPU fan speed in RPM")
-    thermal_throttling: bool = Field(default=False, description="Thermal throttling status")
+    # None when the PC can't say (needs a hardware sensor reader); never guessed.
+    thermal_throttling: Optional[bool] = Field(default=None, description="Thermal throttling status")
+    # Task Manager's Performance > CPU figures.
+    process_count: Optional[int] = Field(None, ge=0, description="Running processes")
+    thread_count: Optional[int] = Field(None, ge=0, description="Running threads")
+    handle_count: Optional[int] = Field(None, ge=0, description="Open handles")
+    uptime_seconds: Optional[int] = Field(None, ge=0, description="Time since Windows started, in seconds")
 
 
 class GPUMetrics(BaseModel):
@@ -39,6 +45,7 @@ class GPUMetrics(BaseModel):
     fan_speed_percent: Optional[float] = Field(None, ge=0.0, le=100.0, description="GPU fan speed percentage")
     vram_used_gb: Optional[float] = Field(None, ge=0.0, description="VRAM used in GB")
     vram_total_gb: Optional[float] = Field(None, ge=0.0, description="Total VRAM in GB")
+    shared_memory_used_gb: Optional[float] = Field(None, ge=0.0, description="Shared GPU memory in use, in GB")
     board_power_w: Optional[float] = Field(None, ge=0.0, description="GPU board power draw in watts")
     gpu_name: Optional[str] = Field(None, description="GPU model name")
 
@@ -62,6 +69,8 @@ class RAMMetrics(BaseModel):
     total_gb: Optional[float] = Field(None, ge=0.0, description="Total RAM in GB")
     pagefile_usage_percent: Optional[float] = Field(None, ge=0.0, le=100.0, description="Pagefile usage percentage")
     whea_error_count: int = Field(default=0, description="WHEA hardware error count")
+    committed_gb: Optional[float] = Field(None, ge=0.0, description="Committed memory in GB")
+    commit_limit_gb: Optional[float] = Field(None, ge=0.0, description="Commit limit in GB")
 
 
 class PowerAndVRMMetrics(BaseModel):
@@ -70,6 +79,30 @@ class PowerAndVRMMetrics(BaseModel):
     psu_12v_voltage: Optional[float] = Field(None, ge=0.0, description="PSU +12V voltage rail in volts")
     chipset_temperature_c: Optional[float] = Field(None, description="Chipset temperature in Celsius")
     chassis_fan_speed_rpm: Optional[int] = Field(None, ge=0, description="Chassis fan speed in RPM")
+
+
+class DiskActivityMetrics(BaseModel):
+    """All physical disks together, as Task Manager's Disk graph shows them."""
+    active_percent: Optional[float] = Field(None, ge=0.0, le=100.0, description="Active time, percent")
+    read_bytes_per_s: Optional[float] = Field(None, ge=0.0, description="Read speed, bytes per second")
+    write_bytes_per_s: Optional[float] = Field(None, ge=0.0, description="Write speed, bytes per second")
+
+
+class NetworkMetrics(BaseModel):
+    """The busiest network adapter, as Task Manager's Ethernet / Wi-Fi graph shows it."""
+    adapter_name: Optional[str] = Field(None, max_length=128, description="Network adapter")
+    receive_bytes_per_s: Optional[float] = Field(None, ge=0.0, description="Download speed, bytes per second")
+    send_bytes_per_s: Optional[float] = Field(None, ge=0.0, description="Upload speed, bytes per second")
+    link_speed_mbps: Optional[float] = Field(None, ge=0.0, description="Adapter link speed, Mbps")
+
+
+class ProcessMetrics(BaseModel):
+    """One busy program, as Task Manager's Processes tab shows it."""
+    name: str = Field(..., max_length=128)
+    pid: int = Field(..., ge=0)
+    cpu_percent: float = Field(0.0, ge=0.0, le=100.0, description="Share of the whole CPU")
+    memory_mb: Optional[float] = Field(None, ge=0.0, description="Private working set, MB")
+    disk_bytes_per_s: Optional[float] = Field(None, ge=0.0, description="Disk read + write, bytes per second")
 
 
 class TelemetrySnapshot(BaseModel):
@@ -81,6 +114,9 @@ class TelemetrySnapshot(BaseModel):
     storage: list[StorageMetrics] = Field(default_factory=list, description="Storage metrics for all drives")
     ram: RAMMetrics = Field(default_factory=RAMMetrics, description="RAM metrics")
     power_vrm: PowerAndVRMMetrics = Field(default_factory=PowerAndVRMMetrics, description="Power and VRM metrics")
+    disk: DiskActivityMetrics = Field(default_factory=DiskActivityMetrics, description="Disk activity")
+    network: NetworkMetrics = Field(default_factory=NetworkMetrics, description="Network activity")
+    processes: list[ProcessMetrics] = Field(default_factory=list, max_length=20, description="Busiest programs")
     collection_duration_ms: Optional[float] = Field(None, ge=0.0, description="Collection duration in milliseconds")
 
 
@@ -148,6 +184,9 @@ class TelemetrySnapshotDocument(Document):
     storage: list[StorageMetrics] = Field(default_factory=list, description="Storage metrics for all drives")
     ram: RAMMetrics = Field(default_factory=RAMMetrics, description="RAM metrics")
     power_vrm: PowerAndVRMMetrics = Field(default_factory=PowerAndVRMMetrics, description="Power and VRM metrics")
+    disk: DiskActivityMetrics = Field(default_factory=DiskActivityMetrics, description="Disk activity")
+    network: NetworkMetrics = Field(default_factory=NetworkMetrics, description="Network activity")
+    processes: list[ProcessMetrics] = Field(default_factory=list, description="Busiest programs")
     
     collection_duration_ms: Optional[float] = Field(None, ge=0.0, description="Collection duration in milliseconds")
     

@@ -402,6 +402,12 @@ export async function requestDiagnosis(alertId, deviceId) {
   return data.report;
 }
 
+/** Every new or updated alert on any of the user's PCs, for the alert pop-up. */
+export function alertFeedUrl() {
+  const token = getAccessToken() || "";
+  return `${WS_ORIGIN}/api/v1/ws/alert-feed?token=${encodeURIComponent(token)}`;
+}
+
 /** Build the authenticated live-telemetry socket URL for a device. */
 export function telemetrySocketUrl(deviceId) {
   const token = getAccessToken() || "";

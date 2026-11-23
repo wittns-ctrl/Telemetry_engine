@@ -18,6 +18,9 @@ from app.models.telemetry import (
     CPUMetrics,
     GPUMetrics,
     PowerAndVRMMetrics,
+    DiskActivityMetrics,
+    NetworkMetrics,
+    ProcessMetrics,
     RAMMetrics,
     StorageMetrics,
     TelemetrySnapshotDocument,
@@ -117,6 +120,9 @@ class TelemetrySnapshotResponse(BaseModel):
     storage: List[StorageMetrics] = Field(default_factory=list)
     ram: RAMMetrics = Field(default_factory=RAMMetrics)
     power_vrm: PowerAndVRMMetrics = Field(default_factory=PowerAndVRMMetrics)
+    disk: DiskActivityMetrics = Field(default_factory=DiskActivityMetrics)
+    network: NetworkMetrics = Field(default_factory=NetworkMetrics)
+    processes: List[ProcessMetrics] = Field(default_factory=list)
     collection_duration_ms: Optional[float] = None
     
     model_config = ConfigDict(from_attributes=True)
@@ -133,6 +139,9 @@ class TelemetrySnapshotResponse(BaseModel):
             storage=doc.storage,
             ram=doc.ram,
             power_vrm=doc.power_vrm,
+            disk=doc.disk,
+            network=doc.network,
+            processes=doc.processes,
             collection_duration_ms=doc.collection_duration_ms,
         )
 

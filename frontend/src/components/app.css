@@ -596,15 +596,64 @@
   .cf-good .cf-go { background: var(--green-dark); }
   .cf-good .cf-go:hover:not(:disabled) { background: var(--green-deep); }
   .cf-good .cf-btn:focus-visible { outline-color: var(--green-dark); }
+
+  /* Live dashboard: "Live" badge, red alert count on the Alerts tab. */
+  .live-dot { display: inline-flex; align-items: center; gap: 5px; margin-right: 8px; padding: 2px 8px; border-radius: 999px; background: var(--green-soft); font-weight: 600; color: var(--green-deep); }
+  .live-dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: live-pulse 1.6s ease-in-out infinite; }
+  .ctabs .tab-alerts { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--rose); font-size: 11px; font-style: normal; font-weight: 700; color: #fff; }
+
+  /* Processes tab: Task Manager's list in the gauge and big-card slots. */
+  .proc-card { grid-column: span 2; display: flex; flex-direction: column; gap: calc(5 * var(--u)); }
+  .proc-card h3 { display: flex; align-items: center; gap: 6px; }
+  .proc-card h3 svg { width: 16px; height: 16px; }
+  .proc-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-2); }
+  .proc-table th { padding: 4px 6px; text-align: right; font-weight: 500; color: var(--ink-400); }
+  .proc-table td { padding: 5px 6px; border-top: 1px solid var(--ink-800); text-align: right; font-variant-numeric: tabular-nums; }
+  .proc-table th:first-child, .proc-table td:first-child { width: 42%; text-align: left; }
+
+  /* Alerts tab (option B): chosen alert in the black card, the rest beside it. */
+  .al-wrap { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: calc(8 * var(--u)); flex: 1; align-items: start; }
+  .al-main { display: flex; flex-direction: column; gap: calc(7 * var(--u)); padding: calc(10 * var(--u)); }
+  .al-title { font-size: var(--fs-4, 15px); font-weight: 700; }
+  .al-main .fx-box { margin: 0; color: var(--ink); }
+  .al-main .fx-box .sub, .al-main .fx-box .note { color: var(--ink-500); }
+  .al-close { background: transparent; border: 1px solid var(--ink-600); }
+  .al-close:hover:not(:disabled) { background: var(--ink-800); }
+  .al-calm { align-items: flex-start; }
+  .al-side { display: flex; flex-direction: column; gap: calc(8 * var(--u)); }
+  .al-list { display: flex; flex-direction: column; gap: calc(4 * var(--u)); padding: calc(8 * var(--u)); }
+  .al-list h3 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--fs-3); }
+  .al-list h3 svg { width: 15px; height: 15px; }
+  .al-list ul { margin: 0; padding: 0; list-style: none; }
+  .al-list li { display: flex; flex-direction: column; padding: 6px 0; border-top: 1px solid var(--line); }
+  .al-list li:first-child { border-top: 0; }
+  .al-list li button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 0; border: 0; background: none; text-align: left; color: inherit; }
+  .al-list li button:hover b { text-decoration: underline; }
+
+  /* Alert pop-up: the confirmation card, wider, with the fix options inside. */
+  .cf.ap { position: relative; width: min(100%, 440px); }
+  .ap-x { position: absolute; top: 12px; right: 12px; }
+  .ap-fixes { width: 100%; margin-top: 14px; text-align: left; }
+  .ap-fixes .fx-box { margin: 0; }
+  .ap-more { font-size: 12px; color: var(--ink-400); }
+  .ap-sent { width: 100%; margin: 14px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--green-pale); font-size: 13px; color: var(--green-deep); }
+  .cf.ap .cf-go.ap-all { background: var(--ink); }
+  .cf.ap .cf-go.ap-all:hover { background: var(--ink-800); }
 }
 
 @keyframes lx-spin { to { transform: rotate(360deg); } }
 @keyframes cf-fade { from { opacity: 0; } }
+@keyframes live-pulse { 50% { opacity: 0.35; } }
 @keyframes cf-pop { from { opacity: 0; transform: translateY(8px) scale(0.96); } }
 @media (prefers-reduced-motion: reduce) {
   .ld-frame .spin { animation-duration: 3s; }
   .ld-frame * { transition: none !important; }
   .ld-frame .cf-back, .ld-frame .cf { animation: none; }
+  .ld-frame .live-dot::before { animation: none; }
+}
+@media (max-width: 860px) {
+  .ld-frame .al-wrap { grid-template-columns: minmax(0, 1fr); }
+  .ld-frame .proc-card { grid-column: auto; }
 }
 @media (max-width: 420px) {
   .ld-frame .cf { padding: 26px 18px 18px; border-radius: 20px; }

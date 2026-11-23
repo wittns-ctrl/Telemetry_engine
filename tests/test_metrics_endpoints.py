@@ -82,7 +82,12 @@ async def test_latest_returns_every_stored_reading_under_its_model_name(authenti
     assert s["cpu"]["clock_speed_ghz"] == 4.2
     assert s["cpu"]["package_power_w"] == 65.0
     assert s["cpu"]["fan_speed_rpm"] == 1200
-    assert s["cpu"]["thermal_throttling"] is False
+    # Not reported by the PC, so unknown rather than a guessed "not throttling".
+    assert s["cpu"]["thermal_throttling"] is None
+    # Task Manager sections are always present, empty when not reported.
+    assert s["disk"] == {"active_percent": None, "read_bytes_per_s": None, "write_bytes_per_s": None}
+    assert s["network"]["receive_bytes_per_s"] is None
+    assert s["processes"] == []
     assert s["gpu"]["vram_used_gb"] == 3.5
     assert s["gpu"]["board_power_w"] == 180.0
     assert s["gpu"]["gpu_name"] == "Test GPU"

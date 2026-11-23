@@ -17,8 +17,8 @@ const HelpView = named(() => import('./components/HelpView'), 'HelpView');
 const SettingsView = named(() => import('./components/SettingsView'), 'SettingsView');
 const DevicesView = named(() => import('./components/DevicesView'), 'DevicesView');
 import { AuthPage } from './components/AuthPage';
-import { AuthModal } from './components/AuthModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { AlertPopup } from './components/AlertPopup';
 import { LogOut, PenLine } from 'lucide-react';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -39,11 +39,11 @@ function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAccessToken()));
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
-  // Which signed-in page is open.
+  // Which signed-in page is open, and the Dashboard's tab (the alert pop-up opens "Alerts").
   const [activeNav, setActiveNav] = useState('dashboard');
+  const [dashboardTab, setDashboardTab] = useState('cpu');
 
   // Settings reports unsaved edits here, so leaving the page asks first.
   const [settingsDirty, setSettingsDirty] = useState(false);
@@ -150,7 +150,7 @@ function App() {
 
             <main className="page" aria-label={activeItem.label}>
               <Suspense fallback={<div className="empty" role="status">Loading…</div>}>
-                {activeNav === 'dashboard' && <Dashboard onNavigate={goTo} />}
+                {activeNav === 'dashboard' && <Dashboard onNavigate={goTo} tab={dashboardTab} onTabChange={setDashboardTab} />}
 
                 {activeNav === 'devices' && <DevicesView />}
 
@@ -176,16 +176,8 @@ function App() {
             </main>
           </div>
 
-          {/* Authentication Modal */}
-          <AuthModal
-            isOpen={isAuthOpen}
-            onClose={() => setIsAuthOpen(false)}
-            onAuthSuccess={() => {
-              setIsAuthenticated(true);
-              loadInitialData();
-              setIsAuthOpen(false);
-            }}
-          />
+
+          <AlertPopup onSeeAll={() => { setDashboardTab('alerts'); goTo('dashboard'); }} />
 
           <ConfirmDialog
             open={isLogoutOpen}

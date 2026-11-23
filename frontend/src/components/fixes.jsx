@@ -58,7 +58,7 @@ export function FixStatusLine({ fix, pc, onUndo, onCancel, busy }) {
  * Design A: the fix options for one alert, as radio cards with "Fix it".
  * onFix({ fixId }) sends the chosen fix; it should throw on failure.
  */
-export function FixOptions({ device, alert, onFix }) {
+export function FixOptions({ device, alert, onFix, confirm = true }) {
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [picked, setPicked] = useState(null);
@@ -98,7 +98,12 @@ export function FixOptions({ device, alert, onFix }) {
       return;
     }
     setSendError(null);
-    setConfirming(true);
+    if (confirm) {
+      setConfirming(true);
+      return;
+    }
+    // Already inside a dialog that asked (the alert pop-up): send straight away.
+    confirmSend().catch((err) => setSendError(err.message));
   };
 
   // Runs from the dialog; a failure shows there and nothing is sent.

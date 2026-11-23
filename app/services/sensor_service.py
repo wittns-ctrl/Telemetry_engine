@@ -13,6 +13,7 @@ import json
 import logging
 import re
 import subprocess
+import time
 from datetime import datetime, timezone
 from typing import Optional, List
 
@@ -25,7 +26,12 @@ from app.models.telemetry import (
     StorageMetrics,
     RAMMetrics,
     PowerAndVRMMetrics,
+    DiskActivityMetrics,
+    NetworkMetrics,
+    ProcessMetrics,
 )
+from app.services.perf_counters import PerfSample, perf_sampler
+from app.services.process_sampler import process_sampler
 
 logger = logging.getLogger(__name__)
 
@@ -79,18 +85,30 @@ class SensorService:
             TelemetrySnapshot: Complete hardware telemetry snapshot with
                               all collected metrics and collection duration
         """
+        if not SensorService._warmed:
+            await SensorService._warm_up()
+
         start_time = datetime.now(timezone.utc)
         logger.info(f"Starting telemetry collection for sensor: {sensor_id}")
         
-        # Collect all metrics concurrently
-        cpu_metrics, gpu_metrics, storage_metrics, ram_metrics, power_vrm_metrics = await asyncio.gather(
+        # Collect all metrics concurrently. The performance counters and the
+        # process list are averaged since the previous snapshot, as Task Manager does.
+        cpu_metrics, gpu_metrics, storage_metrics, ram_metrics, power_vrm_metrics, perf, processes = await asyncio.gather(
             SensorService._collect_cpu_metrics(),
             SensorService._collect_gpu_metrics(),
             SensorService._collect_storage_metrics(),
             SensorService._collect_ram_metrics(),
             SensorService._collect_power_vrm_metrics(),
+            asyncio.to_thread(perf_sampler.sample),
+            asyncio.to_thread(process_sampler.sample),
             return_exceptions=True
         )
+        if isinstance(perf, Exception):
+            logger.warning(f"Performance counters failed: {perf}")
+            perf = PerfSample()
+        if isinstance(processes, Exception):
+            logger.warning(f"Process list failed: {processes}")
+            processes = []
         
         # Handle exceptions and use defaults if collection failed
         if isinstance(cpu_metrics, Exception):
@@ -123,6 +141,8 @@ class SensorService:
         elif power_vrm_metrics is None:
             power_vrm_metrics = PowerAndVRMMetrics()
         
+        SensorService._apply_perf_counters(cpu_metrics, gpu_metrics, ram_metrics, perf)
+
         # Calculate collection duration
         end_time = datetime.now(timezone.utc)
         duration_ms = (end_time - start_time).total_seconds() * 1000
@@ -135,12 +155,77 @@ class SensorService:
             storage=storage_metrics,
             ram=ram_metrics,
             power_vrm=power_vrm_metrics,
+            disk=DiskActivityMetrics(
+                active_percent=perf.disk_active_percent,
+                read_bytes_per_s=perf.disk_read_bytes_per_s,
+                write_bytes_per_s=perf.disk_write_bytes_per_s,
+            ),
+            network=NetworkMetrics(
+                adapter_name=perf.net_adapter,
+                receive_bytes_per_s=perf.net_receive_bytes_per_s,
+                send_bytes_per_s=perf.net_send_bytes_per_s,
+                link_speed_mbps=perf.net_link_mbps,
+            ),
+            processes=[ProcessMetrics(**vars(p)) for p in processes],
             collection_duration_ms=duration_ms
         )
         
         logger.info(f"Telemetry collection completed in {duration_ms:.2f}ms")
         return snapshot
     
+    _warmed = False
+
+    @staticmethod
+    async def _warm_up() -> None:
+        """
+        Take a first reading of every rate one second before the first snapshot.
+        CPU, disk, network and per-process figures are averages since the
+        previous reading (as in Task Manager), so without this the first
+        snapshot would report 0% CPU.
+        """
+        SensorService._warmed = True
+        await asyncio.gather(
+            asyncio.to_thread(perf_sampler.sample),
+            asyncio.to_thread(process_sampler.sample),
+            asyncio.to_thread(psutil.cpu_percent, None),
+            return_exceptions=True,
+        )
+        await asyncio.sleep(1)
+
+    @staticmethod
+    def _apply_perf_counters(cpu: CPUMetrics, gpu: GPUMetrics, ram: RAMMetrics, perf: PerfSample) -> None:
+        """
+        Overlay Task Manager's figures from the Windows performance counters.
+        psutil's values stay only where Windows has no counter (or off Windows).
+        """
+        if perf.cpu_percent is not None:
+            cpu.utilization_percent = perf.cpu_percent
+        if perf.cpu_speed_ghz is not None:
+            cpu.clock_speed_ghz = perf.cpu_speed_ghz  # live speed, not the rated one
+        cpu.process_count = perf.processes
+        cpu.thread_count = perf.threads
+        cpu.handle_count = perf.handles
+        cpu.uptime_seconds = perf.uptime_seconds if perf.uptime_seconds is not None else SensorService._uptime_seconds()
+
+        if gpu.utilization_percent is None and perf.gpu_percent is not None:
+            gpu.utilization_percent = perf.gpu_percent
+        if gpu.vram_used_gb is None and perf.gpu_dedicated_gb is not None:
+            gpu.vram_used_gb = perf.gpu_dedicated_gb
+        gpu.shared_memory_used_gb = perf.gpu_shared_gb
+
+        ram.committed_gb = perf.committed_gb
+        ram.commit_limit_gb = perf.commit_limit_gb
+        if perf.processes is not None:
+            # On Windows the counter is authoritative; None means no page file at all.
+            ram.pagefile_usage_percent = perf.pagefile_percent
+
+    @staticmethod
+    def _uptime_seconds() -> Optional[int]:
+        try:
+            return int(time.time() - psutil.boot_time())
+        except Exception:
+            return None
+
     @staticmethod
     async def _collect_cpu_metrics() -> CPUMetrics:
         """
@@ -183,7 +268,8 @@ class SensorService:
     def _get_cpu_basic_metrics() -> tuple:
         """Get basic CPU metrics using psutil (blocking)."""
         try:
-            cpu_percent = psutil.cpu_percent(interval=0.1)
+            # Since the previous call (like Task Manager), not a 0.1 s blip.
+            cpu_percent = psutil.cpu_percent(interval=None)
             cpu_freq = psutil.cpu_freq()
             cpu_count = psutil.cpu_count()
             return cpu_percent, cpu_freq.current if cpu_freq else None, cpu_count
@@ -225,17 +311,9 @@ class SensorService:
             
             power_w = None
             fan_rpm = None
-            throttling = False
-            
-            # Try to get CPU power via MSAcpi_ThermalZoneTemperature
-            try:
-                for thermal_zone in c.MSAcpi_ThermalZoneTemperature():
-                    temp_kelvin = thermal_zone.CurrentTemperature / 10.0
-                    temp_celsius = temp_kelvin - 273.15
-                    if temp_celsius > 80:  # High temp threshold
-                        throttling = True
-            except:
-                pass
+            # Unknown until a hardware sensor reader can say; a warm ACPI
+            # thermal zone isn't proof that the CPU is throttling.
+            throttling = None
             
             # Try to get CPU fan speed
             try:
@@ -252,10 +330,10 @@ class SensorService:
             return power_w, fan_rpm, throttling
         except ImportError:
             logger.warning("WMI module not available for CPU power/fan metrics")
-            return None, None, False
+            return None, None, None
         except Exception as e:
             logger.warning(f"CPU power/fan WMI error: {e}")
-            return None, None, False
+            return None, None, None
     
     @staticmethod
     async def _collect_gpu_metrics() -> GPUMetrics:
@@ -302,10 +380,8 @@ class SensorService:
             except:
                 core_temp = None
             
-            try:
-                hotspot_temp = await asyncio.to_thread(pynvml.nvmlDeviceGetTemperature, handle, pynvml.NVML_TEMPERATURE_GPU)
-            except:
-                hotspot_temp = None
+            # NVML has no hotspot sensor; reporting the core value twice would mislead.
+            hotspot_temp = None
             
             # Get utilization
             try:
@@ -371,16 +447,8 @@ class SensorService:
                     gpu_name = gpu.Name
                     break
             
-            # Try to get GPU temperature via thermal zones
-            try:
-                for thermal_zone in c.MSAcpi_ThermalZoneTemperature():
-                    temp_kelvin = thermal_zone.CurrentTemperature / 10.0
-                    temp_celsius = temp_kelvin - 273.15
-                    if 30 < temp_celsius < 100:  # Reasonable GPU temp range
-                        core_temp = temp_celsius
-                        break
-            except:
-                pass
+            # No GPU temperature here: the ACPI thermal zone is a motherboard
+            # sensor, and labelling it as the GPU would be wrong.
             
             return GPUMetrics(
                 core_temperature_c=core_temp,
@@ -496,9 +564,9 @@ class SensorService:
             if 'nvme_smart_health_information_log' in smart_output:
                 nvme_data = smart_output['nvme_smart_health_information_log']
                 if 'data_units_written' in nvme_data:
-                    # Convert data units (512-byte units) to TBW
+                    # NVMe reports "data units" of 1000 x 512 bytes; TBW is decimal terabytes.
                     data_units = nvme_data['data_units_written']
-                    tbw = (data_units * 512) / (1024**4)
+                    tbw = (data_units * 512_000) / 1e12
                     smart_data['tbw'] = tbw
             
             # Reallocated sectors
@@ -559,8 +627,20 @@ class SensorService:
             logger.warning(f"RAM metrics collection error: {e}")
             raise
     
+    _whea_cache: tuple[float, int] | None = None
+
     @staticmethod
     def _get_whea_error_count() -> int:
+        """WHEA hardware error count, re-read from the event log at most every 5 minutes."""
+        cached = SensorService._whea_cache
+        if cached and time.monotonic() - cached[0] < 300:
+            return cached[1]
+        count = SensorService._read_whea_error_count()
+        SensorService._whea_cache = (time.monotonic(), count)
+        return count
+
+    @staticmethod
+    def _read_whea_error_count() -> int:
         """Get WHEA hardware error count from Windows Event Logs (blocking)."""
         try:
             import win32evtlog
@@ -617,17 +697,8 @@ class SensorService:
             chipset_temp = None
             chassis_fan_rpm = None
             
-            # Try to get motherboard/VRM temperature
-            try:
-                for thermal_zone in c.MSAcpi_ThermalZoneTemperature():
-                    temp_kelvin = thermal_zone.CurrentTemperature / 10.0
-                    temp_celsius = temp_kelvin - 273.15
-                    # VRM temps are typically higher than ambient
-                    if 50 < temp_celsius < 120:
-                        vrm_temp = temp_celsius
-                        break
-            except:
-                pass
+            # VRM and chipset temperatures need a hardware sensor reader; the
+            # ACPI thermal zone is neither, so they stay None rather than guessed.
             
             # Try to get PSU voltage via voltage probes
             try:
@@ -641,18 +712,6 @@ class SensorService:
             except:
                 pass
             
-            # Try to get chipset temperature
-            try:
-                for thermal_zone in c.MSAcpi_ThermalZoneTemperature():
-                    temp_kelvin = thermal_zone.CurrentTemperature / 10.0
-                    temp_celsius = temp_kelvin - 273.15
-                    # Chipset temps are typically moderate
-                    if 30 < temp_celsius < 80:
-                        if vrm_temp is None or abs(temp_celsius - vrm_temp) > 10:
-                            chipset_temp = temp_celsius
-                            break
-            except:
-                pass
             
             # Try to get chassis fan speed
             try:
