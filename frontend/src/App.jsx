@@ -18,7 +18,8 @@ const SettingsView = named(() => import('./components/SettingsView'), 'SettingsV
 const DevicesView = named(() => import('./components/DevicesView'), 'DevicesView');
 import { AuthPage } from './components/AuthPage';
 import { AuthModal } from './components/AuthModal';
-import { LogoutModal } from './components/LogoutModal';
+import { ConfirmDialog } from './components/ConfirmDialog';
+import { LogOut, PenLine } from 'lucide-react';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
@@ -43,6 +44,17 @@ function App() {
 
   // Which signed-in page is open.
   const [activeNav, setActiveNav] = useState('dashboard');
+
+  // Settings reports unsaved edits here, so leaving the page asks first.
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const [pendingNav, setPendingNav] = useState(null);
+  const goTo = useCallback((id) => {
+    if (settingsDirty && activeNav === 'settings' && id !== 'settings') {
+      setPendingNav(id);
+      return;
+    }
+    setActiveNav(id);
+  }, [settingsDirty, activeNav]);
 
   // Sidebar mode: every page load opens the full sidebar; the toggle slims it
   // down to the icon rail for the rest of the visit.
@@ -106,6 +118,7 @@ function App() {
     setUser(null);
     setIsAuthenticated(false);
     setIsLogoutOpen(false);
+    setSettingsDirty(false);
     navigate("/signin");
   };
 
@@ -125,7 +138,7 @@ function App() {
         <div className="ld-frame">
           <Sidebar
             activeNav={activeNav}
-            setActiveNav={setActiveNav}
+            setActiveNav={goTo}
             onLogout={() => setIsLogoutOpen(true)}
             user={user}
             expanded={sidebarExpanded}
@@ -133,29 +146,30 @@ function App() {
           />
 
           <div className="panel">
-            <PageHeader title={activeItem.label} alertsCount={openAlerts} onNavigate={setActiveNav} />
+            <PageHeader title={activeItem.label} alertsCount={openAlerts} onNavigate={goTo} />
 
             <main className="page" aria-label={activeItem.label}>
               <Suspense fallback={<div className="empty" role="status">Loading…</div>}>
-                {activeNav === 'dashboard' && <Dashboard onNavigate={setActiveNav} />}
+                {activeNav === 'dashboard' && <Dashboard onNavigate={goTo} />}
 
                 {activeNav === 'devices' && <DevicesView />}
 
-                {activeNav === 'metrics' && <MetricsStudioView onNavigate={setActiveNav} />}
+                {activeNav === 'metrics' && <MetricsStudioView onNavigate={goTo} />}
 
-                {activeNav === 'live' && <LiveStreamView onNavigate={setActiveNav} />}
+                {activeNav === 'live' && <LiveStreamView onNavigate={goTo} />}
 
-                {activeNav === 'analytics' && <AnalyticsView onNavigate={setActiveNav} />}
+                {activeNav === 'analytics' && <AnalyticsView onNavigate={goTo} />}
 
-                {activeNav === 'sensors' && <SensorsView onNavigate={setActiveNav} />}
+                {activeNav === 'sensors' && <SensorsView onNavigate={goTo} />}
 
-                {activeNav === 'help' && <HelpView onNavigate={setActiveNav} />}
+                {activeNav === 'help' && <HelpView onNavigate={goTo} />}
 
                 {activeNav === 'settings' && (
                   <SettingsView
                     user={user}
                     onUserUpdated={setUser}
                     onSignedOut={handleConfirmSignOut}
+                    onDirtyChange={setSettingsDirty}
                   />
                 )}
               </Suspense>
@@ -173,12 +187,33 @@ function App() {
             }}
           />
 
-          {/* Logout Confirmation Modal */}
-          <LogoutModal
-            isOpen={isLogoutOpen}
-            onClose={() => setIsLogoutOpen(false)}
+          <ConfirmDialog
+            open={isLogoutOpen}
+            icon={LogOut}
+            title="Sign out of Lectio?"
+            confirmLabel="Sign out"
+            busyLabel="Signing out…"
             onConfirm={handleConfirmSignOut}
-          />
+            onCancel={() => setIsLogoutOpen(false)}
+          >
+            <p>Your PCs keep sending readings while you&apos;re away. Sign in again to see them.</p>
+          </ConfirmDialog>
+
+          <ConfirmDialog
+            open={pendingNav !== null}
+            icon={PenLine}
+            title="Leave without saving?"
+            confirmLabel="Leave page"
+            cancelLabel="Keep editing"
+            onConfirm={() => {
+              setSettingsDirty(false);
+              setActiveNav(pendingNav);
+              setPendingNav(null);
+            }}
+            onCancel={() => setPendingNav(null)}
+          >
+            <p>You changed your name in Settings but didn&apos;t save it. If you leave now, the change is lost.</p>
+          </ConfirmDialog>
 
         </div>
       )} />

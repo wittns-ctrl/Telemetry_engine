@@ -9,6 +9,10 @@ import {
 import { Card, Head, Chip, Ico, Stat, Tabs, Field, Empty } from "./ui";
 import { cx, initialsFor } from "./format";
 import { FIX_LEVELS } from "./fixState";
+import { ConfirmDialog } from "./ConfirmDialog";
+
+// How much a fix level lets Lectio do on its own. Moving up asks first.
+const LEVEL_FREEDOM = { suggest: 0, always_ask: 1, standard: 2 };
 
 // Settings: four tabs. Profile (name, email and account facts), Fixes (how far
 // Lectio may go in fixing the user's PCs), Password, and Delete account.
@@ -36,7 +40,7 @@ function StatusMessage({ status }) {
   return <p role={ok ? "status" : "alert"} className={cx("note", !ok && "w")}>{status.message}</p>;
 }
 
-export function SettingsView({ user, onUserUpdated, onSignedOut }) {
+export function SettingsView({ user, onUserUpdated, onSignedOut, onDirtyChange }) {
   const [activeTab, setActiveTab] = useState("profile");
 
   // --- Personal information ---
@@ -73,8 +77,18 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
   const [savingLevel, setSavingLevel] = useState(false);
   const [levelStatus, setLevelStatus] = useState(null);
 
-  const handlePickLevel = async (next) => {
+  // A level that lets Lectio do more on its own waits for a yes in a dialog.
+  const [pendingLevel, setPendingLevel] = useState(null);
+  const handlePickLevel = (next) => {
     if (next === fixLevel || savingLevel) return;
+    if ((LEVEL_FREEDOM[next] ?? 0) > (LEVEL_FREEDOM[fixLevel] ?? 0)) {
+      setPendingLevel(next);
+      return;
+    }
+    saveLevel(next);
+  };
+
+  const saveLevel = async (next) => {
     setSavingLevel(true);
     setLevelStatus(null);
     try {
@@ -94,6 +108,20 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
   }, [savedName]);
 
   const nameChanged = fullName.trim() !== savedName;
+
+  // Tell the app about unsaved edits (it asks before leaving Settings), and
+  // let the browser warn before the tab is closed or reloaded.
+  useEffect(() => {
+    onDirtyChange?.(nameChanged);
+    if (!nameChanged) return undefined;
+    const warn = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [nameChanged, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -159,21 +187,24 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
       setPasswordStatus({ type: "error", message: "The new passwords don't match." });
       return;
     }
-    setChangingPassword(true);
     setPasswordStatus(null);
-    try {
-      await changePassword(passwords);
-      setPasswords(EMPTY_PASSWORDS);
-      // The server signs out every session after a password change.
-      setPasswordStatus({
-        type: "success",
-        message: "Password changed. Signing you out so you can sign in with the new password…",
-      });
-      signOutTimer.current = setTimeout(() => onSignedOut?.(), 2500);
-    } catch (err) {
-      setPasswordStatus({ type: "error", message: err.message });
-      setChangingPassword(false);
-    }
+    setConfirmingPassword(true);
+  };
+
+  // Runs from the dialog. A failure (for example a wrong current password)
+  // shows inside the dialog and leaves the form as it was.
+  const [confirmingPassword, setConfirmingPassword] = useState(false);
+  const confirmPasswordChange = async () => {
+    await changePassword(passwords);
+    setConfirmingPassword(false);
+    setChangingPassword(true);
+    setPasswords(EMPTY_PASSWORDS);
+    // The server signs out every session after a password change.
+    setPasswordStatus({
+      type: "success",
+      message: "Password changed. Signing you out so you can sign in with the new password…",
+    });
+    signOutTimer.current = setTimeout(() => onSignedOut?.(), 2500);
   };
 
   // --- Delete account (permanent) ---
@@ -189,17 +220,17 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
     setDeleteStatus(null);
   };
 
+  // Runs from the dialog; a failure shows there and the account stays.
   const handleDelete = async () => {
     if (!deleteConfirmed) return;
     setDeleting(true);
-    setDeleteStatus(null);
     try {
       await deleteAccount();
-      onSignedOut?.();
     } catch (err) {
-      setDeleteStatus({ type: "error", message: err.message });
       setDeleting(false);
+      throw err;
     }
+    onSignedOut?.();
   };
 
   if (!user) {
@@ -375,34 +406,77 @@ export function SettingsView({ user, onUserUpdated, onSignedOut }) {
             </span>
           </div>
           <StatusMessage status={deleteStatus} />
-          {confirmingDelete ? (
-            <>
-              <Field label={<>Type <b className="mono" style={{ color: "var(--rose-text)" }}>DELETE</b> to confirm</>}>
-                <input
-                  className="inp mono"
-                  type="text"
-                  autoComplete="off"
-                  autoFocus
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleDelete(); }}
-                  disabled={deleting}
-                />
-              </Field>
-              <div className="row wrap">
-                <button type="button" className="bk ol" onClick={cancelDelete} disabled={deleting}>Keep my account</button>
-                <button type="button" className="bk rs" onClick={handleDelete} disabled={deleting || !deleteConfirmed}>
-                  {deleting ? "Deleting…" : "Permanently delete my account"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <div>
-              <button type="button" className="bk rs" onClick={() => setConfirmingDelete(true)}>Delete account</button>
-            </div>
-          )}
+          <div>
+            <button type="button" className="bk rs" onClick={() => setConfirmingDelete(true)}>Delete account</button>
+          </div>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={confirmingDelete}
+        tone="danger"
+        icon={Trash2}
+        title="Delete your Lectio account?"
+        confirmLabel="Delete account"
+        busyLabel="Deleting…"
+        cancelLabel="Keep my account"
+        confirmDisabled={!deleteConfirmed}
+        onConfirm={handleDelete}
+        onCancel={cancelDelete}
+      >
+        <p>This can&apos;t be undone. It permanently deletes:</p>
+        <ul className="cf-list">
+          <li>Your account and sign-in details</li>
+          <li>Every connected PC, with all its readings and alerts</li>
+          <li>All fix history and settings</li>
+        </ul>
+        <label className="cf-field">
+          <span>Type <b>DELETE</b> to confirm</span>
+          <input
+            type="text"
+            autoComplete="off"
+            autoFocus
+            spellCheck={false}
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && deleteConfirmed) e.currentTarget.closest(".cf")?.querySelector(".cf-go")?.click(); }}
+            disabled={deleting}
+            aria-label="Type DELETE to confirm"
+          />
+        </label>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmingPassword}
+        icon={KeyRound}
+        title="Change your password?"
+        confirmLabel="Change password"
+        busyLabel="Changing…"
+        onConfirm={confirmPasswordChange}
+        onCancel={() => setConfirmingPassword(false)}
+      >
+        <p>You&apos;ll be signed out on every device, including this one. Sign in again with your new password.</p>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={pendingLevel !== null}
+        tone="good"
+        icon={Wrench}
+        title="Let Lectio do more on its own?"
+        confirmLabel="Turn it on"
+        busyLabel="Saving…"
+        onConfirm={async () => {
+          await saveLevel(pendingLevel);
+          setPendingLevel(null);
+        }}
+        onCancel={() => setPendingLevel(null)}
+      >
+        <p>
+          You&apos;re switching to <b>{FIX_LEVELS.find((l) => l.id === pendingLevel)?.title}</b>.{" "}
+          {FIX_LEVELS.find((l) => l.id === pendingLevel)?.text}
+        </p>
+        <p>Lectio only uses its list of safe fixes, and you can undo fixes that change a setting.</p>
+      </ConfirmDialog>
     </div>
   );
 }

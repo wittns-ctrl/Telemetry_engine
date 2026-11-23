@@ -108,6 +108,9 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = "gemini-3.5-flash"
     GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
     GEMINI_TIMEOUT_SECONDS: float = 30.0
+    # Fix options are shown while someone waits, so Gemini gets less time there;
+    # past it, the built-in order is used straight away.
+    GEMINI_FIX_TIMEOUT_SECONDS: float = 10.0
 
     model_config =  SettingsConfigDict(env_file=".env",extra="ignore")
 

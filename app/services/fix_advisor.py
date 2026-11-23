@@ -73,7 +73,8 @@ class FixAdvisor:
             client = AsyncOpenAI(
                 api_key=settings.GEMINI_API_KEY,
                 base_url=settings.GEMINI_BASE_URL,
-                timeout=settings.GEMINI_TIMEOUT_SECONDS,
+                timeout=settings.GEMINI_FIX_TIMEOUT_SECONDS,
+                max_retries=0,  # a retry would double the wait; the built-in order is the fallback
             )
         self.client = client
 

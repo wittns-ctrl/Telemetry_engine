@@ -35,6 +35,20 @@ def test_fix_advice_client_uses_the_gemini_key_and_endpoint(monkeypatch):
     kwargs = client_class.call_args.kwargs
     assert kwargs["api_key"] == "test-gemini-key"
     assert kwargs["base_url"] == GEMINI_URL
+    # Shown while someone waits: a short limit and no retries, so a slow
+    # Gemini falls back to the built-in order in seconds, not minutes.
+    assert kwargs["timeout"] == settings.GEMINI_FIX_TIMEOUT_SECONDS <= 10
+    assert kwargs["max_retries"] == 0
+
+
+def test_diagnosis_client_does_not_retry(monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-gemini-key")
+    from app.services.ai_diagnostic_service import AIDiagnosticService
+
+    with patch("app.services.ai_diagnostic_service.AsyncOpenAI") as client_class:
+        AIDiagnosticService()
+
+    assert client_class.call_args.kwargs["max_retries"] == 0
 
 
 def test_no_key_means_no_ai_client(monkeypatch):

@@ -45,7 +45,8 @@ class AIDiagnosticService:
             self.client = AsyncOpenAI(
                 api_key=self.api_key,
                 base_url=settings.GEMINI_BASE_URL,
-                timeout=self.api_timeout
+                timeout=self.api_timeout,
+                max_retries=0,  # retries would multiply the wait; the rule-based report is the fallback
             )
             logger.info(f"AIDiagnosticService initialized with Gemini ({self.model})")
         else:

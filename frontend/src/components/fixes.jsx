@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { ListChecks, Sparkles, Wrench } from "lucide-react";
+import { ListChecks, Sparkles, Undo2, Wrench } from "lucide-react";
 import { fixState } from "./fixState";
 import { fetchFixSuggestions } from "../services/api";
 import { Card, Chip, Head, Ico, Empty } from "./ui";
 import { cx, timeAgo } from "./format";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 // Fixes on the website: the options shown inside an alert (design A), the
 // one-line status under an alert, the Fixes tab on My Devices (H1) and the
@@ -11,9 +12,28 @@ import { cx, timeAgo } from "./format";
 
 const ICO_TONE = { g: "g", w: "w", o: undefined, n: undefined };
 
-function FixActions({ fix, onUndo, onCancel, busy }) {
+function FixActions({ fix, pc = "this PC", onUndo, onCancel, busy }) {
+  const [confirmUndo, setConfirmUndo] = useState(false);
   if (fix.can_undo) {
-    return <button type="button" className="vd" onClick={() => onUndo(fix)} disabled={busy}>{busy ? "Undoing…" : "Undo"}</button>;
+    return (
+      <>
+        <button type="button" className="vd" onClick={() => setConfirmUndo(true)} disabled={busy}>{busy ? "Undoing…" : "Undo"}</button>
+        <ConfirmDialog
+          open={confirmUndo}
+          icon={Undo2}
+          title={`Undo “${fix.title}”?`}
+          confirmLabel="Undo fix"
+          busyLabel="Undoing…"
+          onConfirm={async () => {
+            setConfirmUndo(false);
+            await onUndo(fix);
+          }}
+          onCancel={() => setConfirmUndo(false)}
+        >
+          <p>Lectio puts the setting on <b>{pc}</b> back the way it was before this fix.</p>
+        </ConfirmDialog>
+      </>
+    );
   }
   if (fix.status === "queued") {
     return <button type="button" className="vd" onClick={() => onCancel(fix)} disabled={busy}>{busy ? "Cancelling…" : "Cancel"}</button>;
@@ -29,7 +49,7 @@ export function FixStatusLine({ fix, pc, onUndo, onCancel, busy }) {
     <div className={cx("fx-line", state.tone)} role="status">
       <Icon strokeWidth={2} aria-hidden="true" />
       <span className="f1"><b>{fix.title}</b> · {state.text}</span>
-      <FixActions fix={fix} onUndo={onUndo} onCancel={onCancel} busy={busy} />
+      <FixActions fix={fix} pc={pc} onUndo={onUndo} onCancel={onCancel} busy={busy} />
     </div>
   );
 }
@@ -45,6 +65,7 @@ export function FixOptions({ device, alert, onFix }) {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);
   const [showSteps, setShowSteps] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,17 +90,23 @@ export function FixOptions({ device, alert, onFix }) {
   const hands = option?.manual || suggestOnly;
   const name = `fix-${alert.id}`;
 
-  const send = async () => {
+  // "Fix it" changes something on a real PC, so it asks first. "Show me how"
+  // only reveals the steps.
+  const send = () => {
     if (!option || hands) {
       setShowSteps((v) => !v);
       return;
     }
-    setSending(true);
     setSendError(null);
+    setConfirming(true);
+  };
+
+  // Runs from the dialog; a failure shows there and nothing is sent.
+  const confirmSend = async () => {
+    setSending(true);
     try {
       await onFix({ fixId: option.id, option });
-    } catch (err) {
-      setSendError(err.message);
+      setConfirming(false);
     } finally {
       setSending(false);
     }
@@ -120,6 +147,29 @@ export function FixOptions({ device, alert, onFix }) {
         {!hands && option && !option.needs_pc_approval && option.undoable && <span className="sub">You can undo this.</span>}
       </div>
       {sendError && <p className="note w" role="alert">{sendError}</p>}
+
+      {option && !hands && (
+        <ConfirmDialog
+          open={confirming}
+          tone="good"
+          icon={Wrench}
+          title={`${option.title} on ${device.device_name}?`}
+          confirmLabel="Fix it"
+          busyLabel="Sending…"
+          onConfirm={confirmSend}
+          onCancel={() => setConfirming(false)}
+        >
+          {option.reason && <p>{option.reason}</p>}
+          <ul className="cf-list">
+            <li>
+              {option.needs_pc_approval
+                ? <>Someone at {device.device_name} will need to click <b>Allow</b> before it runs.</>
+                : <>It runs on {device.device_name} as soon as the PC checks in.</>}
+            </li>
+            <li>{option.undoable ? "You can undo it afterwards." : "This one can't be undone."}</li>
+          </ul>
+        </ConfirmDialog>
+      )}
     </div>
   );
 }
@@ -151,7 +201,7 @@ export function FixHistory({ fixes, pc, onUndo, onCancel, busyId, loading, error
                     {state.text} · <time dateTime={fix.created_at} title={new Date(fix.created_at).toLocaleString()}>{timeAgo(fix.created_at)}</time>
                   </span>
                 </span>
-                <FixActions fix={fix} onUndo={onUndo} onCancel={onCancel} busy={busyId === fix.id} />
+                <FixActions fix={fix} pc={pc} onUndo={onUndo} onCancel={onCancel} busy={busyId === fix.id} />
               </li>
             );
           })}

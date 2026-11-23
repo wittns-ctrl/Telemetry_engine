@@ -19,7 +19,8 @@ import {
   undoFix,
 } from "../services/api";
 import { DiagnosisPanel } from "./DiagnosisPanel";
-import { Card, Head, Chip, Ico, Empty, LineGraph, Tabs, Modal } from "./ui";
+import { Card, Head, Chip, Ico, Empty, LineGraph, Tabs } from "./ui";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { FixHistory, FixOptions, FixStatusLine } from "./fixes";
 import { cx, fmt, timeAgo } from "./format";
 
@@ -205,8 +206,6 @@ export function DevicesView() {
   const [closingId, setClosingId] = useState(null);
   const [alertError, setAlertError] = useState(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  const [removeError, setRemoveError] = useState(null);
 
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -425,23 +424,16 @@ export function DevicesView() {
     }
   };
 
+  // Runs from the dialog; a failure shows there and the PC stays.
   const removeSelected = async () => {
-    setRemoving(true);
-    setRemoveError(null);
-    try {
-      await deleteDevice(selectedId);
-      const rest = devices.filter((d) => d.id !== selectedId);
-      setConfirmRemove(false);
-      setSnapshot(null);
-      setHistory([]);
-      setAlerts([]);
-      setDevices(rest);
-      setSelectedId(rest[0]?.id || null);
-    } catch (err) {
-      setRemoveError(err.message);
-    } finally {
-      setRemoving(false);
-    }
+    await deleteDevice(selectedId);
+    const rest = devices.filter((d) => d.id !== selectedId);
+    setConfirmRemove(false);
+    setSnapshot(null);
+    setHistory([]);
+    setAlerts([]);
+    setDevices(rest);
+    setSelectedId(rest[0]?.id || null);
   };
 
   const selected = devices.find((d) => d.id === selectedId);
@@ -512,27 +504,31 @@ export function DevicesView() {
               </span>
               <span className="row ac r" style={{ gap: "calc(3 * var(--u))" }}>
                 <button type="button" className="vd" onClick={loadDevices} disabled={loadingDevices}>Refresh</button>
-                <button type="button" className="vd" onClick={() => { setRemoveError(null); setConfirmRemove(true); }}>
+                <button type="button" className="vd" onClick={() => setConfirmRemove(true)}>
                   Remove
                 </button>
               </span>
             </div>
           )}
 
-          {confirmRemove && selected && (
-            <Modal title={`Remove ${selected.device_name}?`} onClose={() => { if (!removing) setConfirmRemove(false); }}>
-              <p className="txt">
-                This deletes the PC&apos;s readings, alerts and fix history from Lectio, and can&apos;t be undone. If the agent
-                is still running on that PC, Lectio stops accepting it. To add the PC again, run the agent there and sign in.
-              </p>
-              {removeError && <p className="note w" role="alert">{removeError}</p>}
-              <div className="row ac" style={{ gap: "calc(4 * var(--u))" }}>
-                <button type="button" className="bk rs" onClick={removeSelected} disabled={removing}>
-                  <Trash2 strokeWidth={1.9} aria-hidden="true" /> {removing ? "Removing…" : "Remove PC"}
-                </button>
-                <button type="button" className="bk ol" onClick={() => setConfirmRemove(false)} disabled={removing}>Cancel</button>
-              </div>
-            </Modal>
+          {selected && (
+            <ConfirmDialog
+              open={confirmRemove}
+              tone="danger"
+              icon={Trash2}
+              title={`Remove ${selected.device_name}?`}
+              confirmLabel="Remove PC"
+              busyLabel="Removing…"
+              onConfirm={removeSelected}
+              onCancel={() => setConfirmRemove(false)}
+            >
+              <p>This can&apos;t be undone. Lectio deletes:</p>
+              <ul className="cf-list">
+                <li>All of this PC&apos;s readings</li>
+                <li>Its alerts and fix history</li>
+              </ul>
+              <p>If the agent is still running there, Lectio stops accepting it. To add the PC again, run the agent and sign in.</p>
+            </ConfirmDialog>
           )}
 
           {selected && (
