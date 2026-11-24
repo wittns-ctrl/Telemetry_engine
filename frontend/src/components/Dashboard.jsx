@@ -106,9 +106,11 @@ function useTelemetry(period, onAlerts) {
     let retry;
     let disposed = false;
     let attempts = 0;
-    const connect = () => {
+    const connect = async () => {
       if (disposed) return;
-      ws = new WebSocket(telemetrySocketUrl(deviceId));
+      const url = await telemetrySocketUrl(deviceId);
+      if (disposed) return;
+      ws = new WebSocket(url);
       ws.onopen = () => {
         attempts = 0;
         setState((prev) => ({ ...prev, live: true }));

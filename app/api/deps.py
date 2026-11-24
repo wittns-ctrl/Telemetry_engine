@@ -1,3 +1,6 @@
+import threading
+import time
+
 from fastapi import Depends, HTTPException, status, WebSocket, Query
 from fastapi.security import OAuth2PasswordBearer
 from typing import Optional
@@ -42,7 +45,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     if user is None:
         raise credentials_exception
     if not user.is_active:
-        raise HTTPException(status_code=400,detail = "Inactive user")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
 
     return user
 
@@ -81,85 +84,59 @@ def require_admin():
     return require_role(UserRole.ADMIN)
 
 
+# Tickets already used to open a socket, with their expiry (per process; a
+# ticket lives 30 seconds, so this stays tiny).
+_used_ws_tickets: dict[str, float] = {}
+_ws_ticket_lock = threading.Lock()
+
+
+def _claim_ws_ticket(jti: str, exp: float) -> bool:
+    """Record a ticket as used. False if it was used before."""
+    now = time.time()
+    with _ws_ticket_lock:
+        for key in [k for k, e in _used_ws_tickets.items() if e < now]:
+            del _used_ws_tickets[key]
+        if jti in _used_ws_tickets:
+            return False
+        _used_ws_tickets[jti] = exp
+        return True
+
+
 async def get_current_user_ws(
     websocket: WebSocket,
     token: Optional[str] = Query(None)
 ) -> User:
     """
-    Authenticate WebSocket connections via JWT query parameter.
-    
-    This dependency validates the JWT token provided as a query parameter
-    (e.g., ws://.../ws/telemetry?token=YOUR_JWT) and returns the
-    authenticated user. Invalid or expired tokens result in connection
-    closure with code 1008 (Policy Violation).
-    
-    Args:
-        websocket: The WebSocket connection to authenticate
-        token: The JWT token from query parameters
-        
-    Returns:
-        The authenticated User object
-        
-    Raises:
-        WebSocketDisconnect: If authentication fails (closes connection)
+    Authenticate a WebSocket by the ticket in ?token=, from POST /auth/ws-ticket.
+
+    Access tokens are not accepted here: anything in a URL can end up in logs,
+    so only single-use tickets that expire after 30 seconds go there. Failures
+    close the connection with code 1008 (Policy Violation); the frontend then
+    refreshes its sign-in and asks for a new ticket.
     """
+    async def reject(reason: str):
+        await websocket.close(code=1008, reason=reason)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=reason)
+
     if not token:
-        await websocket.close(code=1008, reason="Missing authentication token")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing authentication token"
-        )
-    
+        await reject("Missing authentication token")
     try:
-        # Decode token
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        user_id: str = payload.get("sub")
-        token_type: str = payload.get("type")
-        
-        if user_id is None:
-            await websocket.close(code=1008, reason="Invalid token: missing user_id")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token: missing user_id"
-            )
-        
-        if token_type != "access":
-            await websocket.close(code=1008, reason="Invalid token type")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type"
-            )
-        
-        token_data = TokenData(user_id=user_id, token_type=token_type)
-    
     except jwt.ExpiredSignatureError:
-        await websocket.close(code=1008, reason="Token expired")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token expired"
-        )
-    except jwt.InvalidTokenError as e:
-        await websocket.close(code=1008, reason="Invalid token")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token: {str(e)}"
-        )
-    
-    # Query user from MongoDB by PydanticObjectId
-    user = await User.get(PydanticObjectId(token_data.user_id))
-    
+        await reject("Token expired")
+    except jwt.InvalidTokenError:
+        await reject("Invalid token")
+
+    user_id = payload.get("sub")
+    jti = payload.get("jti")
+    if payload.get("type") != "ws" or not user_id or not jti:
+        await reject("Invalid token type")
+    if not _claim_ws_ticket(jti, float(payload.get("exp", 0))):
+        await reject("Ticket already used")
+
+    user = await User.get(PydanticObjectId(user_id))
     if user is None:
-        await websocket.close(code=1008, reason="User not found")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-    
+        await reject("User not found")
     if not user.is_active:
-        await websocket.close(code=1008, reason="Inactive user")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Inactive user"
-        )
-    
+        await reject("Inactive user")
     return user

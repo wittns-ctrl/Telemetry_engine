@@ -32,6 +32,7 @@ from app.core.security import (
     email_verification_token, verify_email_token,
     password_reset_token, verify_reset_token,
     new_email_code, hash_email_code,
+    create_ws_ticket, WS_TICKET_SECONDS,
 )
 from app.core.config import settings
 from app.api.deps import get_current_user
@@ -294,6 +295,28 @@ async def login(
     return await sign_in(user, request, response, AuditEventType.LOGIN_SUCCESS)
 
 
+REFRESH_GRACE = timedelta(seconds=30)
+
+
+async def within_refresh_grace(token: RefreshToken) -> bool:
+    """
+    True when a revoked refresh token was only just rotated (not logged out or
+    revoked by a password change) and its sign-in is still live. Tabs sharing
+    one cookie that refresh together then don't trip reuse detection.
+    """
+    if not token.replaced_at or not token.family_id:
+        return False
+    if datetime.now(timezone.utc) - _aware(token.replaced_at) > REFRESH_GRACE:
+        return False
+    # Logout and password changes revoke every token, so a live one in the
+    # family means this sign-in hasn't been ended.
+    live = await RefreshToken.find_one(
+        RefreshToken.family_id == token.family_id,
+        RefreshToken.is_revoked == False,  # noqa: E712 (query expression)
+    )
+    return live is not None
+
+
 @router.post("/refresh", response_model=Token)
 async def refresh_token(request: Request, response: Response):
     """Refresh access token using refresh token."""
@@ -315,7 +338,11 @@ async def refresh_token(request: Request, response: Response):
     
     # Check for token reuse (potential compromise). Must run before the validity
     # check, because is_valid() is False for revoked tokens.
-    if stored_token.is_revoked:
+    if stored_token.is_revoked and await within_refresh_grace(stored_token):
+        # Two tabs refreshed at the same moment with the same cookie; the other
+        # one won. Not an attack: give this tab its own token in the same family.
+        pass
+    elif stored_token.is_revoked:
         # Revoke all tokens in this family
         await RefreshToken.find_many(
             RefreshToken.family_id == stored_token.family_id
@@ -334,12 +361,17 @@ async def refresh_token(request: Request, response: Response):
             detail="Token reuse detected. Please login again."
         )
     
-    if not stored_token.is_valid():
+    elif not stored_token.is_valid():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired refresh token"
         )
-    
+    if stored_token.is_expired():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token"
+        )
+
     user = await User.get(PydanticObjectId(stored_token.user_id))
     if not user or not user.is_active:
         raise HTTPException(
@@ -347,8 +379,10 @@ async def refresh_token(request: Request, response: Response):
             detail="User not found or inactive"
         )
     
-    # Rotate refresh token
-    await stored_token.update({"$set": {"is_revoked": True, "revoked_at": datetime.now(timezone.utc)}})
+    # Rotate refresh token (a grace-window reuse is already revoked; keep its times)
+    if not stored_token.is_revoked:
+        now = datetime.now(timezone.utc)
+        await stored_token.update({"$set": {"is_revoked": True, "revoked_at": now, "replaced_at": now}})
     
     new_refresh_token = create_refresh_token()
     new_refresh_token_hash = hash_token(new_refresh_token)
@@ -372,34 +406,42 @@ async def refresh_token(request: Request, response: Response):
 
 
 @router.post("/logout")
-async def logout(
-    request: Request,
-    response: Response,
-    current_user: User = Depends(get_current_user),
-):
-    """Logout user and revoke refresh token."""
+async def logout(request: Request, response: Response):
+    """
+    End this browser's session. Works from the refresh cookie alone, so signing
+    out still revokes the session after the short-lived access token expired.
+    Always succeeds; the cookie is cleared either way.
+    """
     refresh_token = request.cookies.get(REFRESH_COOKIE_NAME)
     ip_address, user_agent = await get_client_info(request)
-    
+
     if refresh_token:
-        refresh_token_hash = hash_token(refresh_token)
-        await RefreshToken.find_one(RefreshToken.token_hash == refresh_token_hash).update({
-            "$set": {"is_revoked": True, "revoked_at": datetime.now(timezone.utc)}
-        })
-    
-    # Log logout
-    await log_audit_event(
-        user_id=str(current_user.id),
-        event_type=AuditEventType.LOGOUT,
-        success=True,
-        ip_address=ip_address,
-        user_agent=user_agent
-    )
-    
-    # Clear refresh token cookie
+        stored = await RefreshToken.find_one(RefreshToken.token_hash == hash_token(refresh_token))
+        if stored:
+            # Revoke the whole family: this browser's sign-in, every rotation of it.
+            # (Older tokens may have no family; then just this one.)
+            scope = (
+                RefreshToken.find_many(RefreshToken.family_id == stored.family_id)
+                if stored.family_id
+                else RefreshToken.find_many(RefreshToken.id == stored.id)
+            )
+            await scope.update({"$set": {"is_revoked": True, "revoked_at": datetime.now(timezone.utc)}})
+            await log_audit_event(
+                user_id=stored.user_id,
+                event_type=AuditEventType.LOGOUT,
+                success=True,
+                ip_address=ip_address,
+                user_agent=user_agent,
+            )
+
     clear_refresh_cookie(response)
-    
     return {"message": "Successfully logged out"}
+
+
+@router.post("/ws-ticket")
+async def ws_ticket(current_user: User = Depends(get_current_user)):
+    """A single-use, 30-second ticket for opening one live-data WebSocket."""
+    return {"ticket": create_ws_ticket(str(current_user.id)), "expires_in": WS_TICKET_SECONDS}
 
 
 @router.get("/me", response_model=UserResponse)
@@ -439,15 +481,26 @@ async def change_password(
     current_user: User = Depends(get_current_user),
     request: Request = None
 ):
-    """Change user password."""
-    if not verify_password(password_change.current_password, current_user.hashed_password or ""):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect"
+    """
+    Change the password, or set a first one for a Google-only account (which
+    has no current password, so it must have signed in recently instead).
+    """
+    if current_user.hashed_password:
+        ok = await asyncio.to_thread(
+            verify_password, password_change.current_password or "", current_user.hashed_password
         )
-    
-    # Update password
-    current_user.hashed_password = get_password_hash(password_change.new_password)
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+    else:
+        require_recent_sign_in(current_user, "set a password")
+
+    # Argon2 is deliberately slow; hashing in a thread keeps other requests moving.
+    current_user.hashed_password = await asyncio.to_thread(get_password_hash, password_change.new_password)
+    if AuthProvider.PASSWORD not in current_user.auth_providers:
+        current_user.auth_providers = [*current_user.auth_providers, AuthProvider.PASSWORD]
     current_user.updated_at = datetime.now(timezone.utc)
     await current_user.save()
     
@@ -472,6 +525,19 @@ async def change_password(
 REAUTH_WINDOW = timedelta(minutes=10)
 
 
+def require_recent_sign_in(user: User, action: str) -> None:
+    """For accounts without a password: allow `action` only soon after a real sign-in."""
+    signed_in = user.last_login_at and datetime.now(timezone.utc) - _aware(user.last_login_at) < REAUTH_WINDOW
+    if not signed_in:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "reauth_required",
+                "message": f"For your security, sign out and sign in with Google again, then {action} within 10 minutes.",
+            },
+        )
+
+
 async def confirm_identity_for_deletion(user: User, password: Optional[str]) -> None:
     """
     A valid access token alone isn't enough to erase an account. Accounts with a
@@ -486,15 +552,7 @@ async def confirm_identity_for_deletion(user: User, password: Optional[str]) -> 
                 detail={"code": "wrong_password", "message": "That password isn't right."},
             )
         return
-    signed_in = user.last_login_at and datetime.now(timezone.utc) - _aware(user.last_login_at) < REAUTH_WINDOW
-    if not signed_in:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={
-                "code": "reauth_required",
-                "message": "For your security, sign out and sign in with Google again, then delete your account within 10 minutes.",
-            },
-        )
+    require_recent_sign_in(user, "delete your account")
 
 
 @router.delete("/account")
@@ -656,6 +714,14 @@ async def resend_verification(
     return generic
 
 
+async def expire_reset_links(user_id: str) -> None:
+    """Mark every unused password-reset link for this user as used."""
+    await PasswordReset.find(
+        PasswordReset.user_id == user_id,
+        PasswordReset.is_used == False,  # noqa: E712 (query expression)
+    ).update({"$set": {"is_used": True, "used_at": datetime.now(timezone.utc)}})
+
+
 @router.post("/forgot-password")
 async def forgot_password(
     request_data: ForgotPasswordRequest,
@@ -669,6 +735,9 @@ async def forgot_password(
         # Generic response to prevent email enumeration
         return {"message": "If an account exists with this email, a password reset link has been sent."}
     
+    # Only the newest link works: earlier ones are cancelled.
+    await expire_reset_links(str(user.id))
+
     # Generate password reset token
     reset_token = password_reset_token(normalized_email)
     reset_token_hash = hash_token(reset_token)
@@ -729,15 +798,15 @@ async def reset_password(
             detail="Reset token already used"
         )
     
-    # Update password
-    user.hashed_password = get_password_hash(reset_data.new_password)
+    # Update password (in a thread: Argon2 is deliberately slow)
+    user.hashed_password = await asyncio.to_thread(get_password_hash, reset_data.new_password)
+    if AuthProvider.PASSWORD not in user.auth_providers:
+        user.auth_providers = [*user.auth_providers, AuthProvider.PASSWORD]
     user.updated_at = datetime.now(timezone.utc)
     await user.save()
-    
-    # Mark token as used
-    stored_reset.is_used = True
-    stored_reset.used_at = datetime.now(timezone.utc)
-    await stored_reset.save()
+
+    # This link and any other outstanding ones stop working.
+    await expire_reset_links(str(user.id))
     
     # Revoke all refresh tokens
     await RefreshToken.find_many(

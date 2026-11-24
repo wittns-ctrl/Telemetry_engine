@@ -32,6 +32,8 @@ import {
   fetchCurrentUser,
   logoutUser,
   getAccessToken,
+  hasSavedSession,
+  restoreSession,
   AUTH_LOGOUT_EVENT,
 } from './services/api';
 
@@ -39,6 +41,10 @@ function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(getAccessToken()));
+  // The access token isn't stored, so a page load first trades the refresh
+  // cookie for one. Until that answers, show nothing rather than flash the
+  // public landing page at someone who is signed in.
+  const [sessionChecked, setSessionChecked] = useState(() => Boolean(getAccessToken()) || !hasSavedSession());
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
   // Which signed-in page is open, and the Dashboard's tab (the alert pop-up opens "Alerts").
@@ -77,7 +83,11 @@ function App() {
 
   // Load initial metadata
   const loadInitialData = useCallback(async () => {
-    if (!getAccessToken()) return;
+    if (!(await restoreSession())) {
+      setIsAuthenticated(false);
+      setSessionChecked(true);
+      return;
+    }
     try {
       const currentUser = await fetchCurrentUser().catch(() => null);
       if (currentUser) {
@@ -90,6 +100,8 @@ function App() {
       }
     } catch (err) {
       console.error('Error loading the signed-in user:', err);
+    } finally {
+      setSessionChecked(true);
     }
   }, []);
 
@@ -123,6 +135,8 @@ function App() {
   };
 
   const activeItem = [...MAIN_ITEMS, ...OTHER_ITEMS].find((item) => item.id === activeNav) || MAIN_ITEMS[0];
+
+  if (!sessionChecked) return null;
 
   // Show full-page auth routes
   return (

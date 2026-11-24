@@ -25,7 +25,10 @@ class PasswordReset(Document):
         ]
     
     def is_expired(self) -> bool:
-        return datetime.now(timezone.utc) > self.expires_at
+        expires_at = self.expires_at
+        if expires_at.tzinfo is None:  # stored dates read back without a zone are UTC
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) > expires_at
     
     def is_valid(self) -> bool:
         return not self.is_used and not self.is_expired()

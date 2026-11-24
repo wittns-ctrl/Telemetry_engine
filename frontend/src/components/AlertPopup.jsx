@@ -52,9 +52,11 @@ export function AlertPopup({ onSeeAll }) {
     let retry;
     let disposed = false;
     let attempts = 0;
-    const connect = () => {
+    const connect = async () => {
       if (disposed) return;
-      ws = new WebSocket(alertFeedUrl());
+      const url = await alertFeedUrl();
+      if (disposed) return;
+      ws = new WebSocket(url);
       ws.onopen = () => { attempts = 0; };
       ws.onmessage = (event) => {
         let data;

@@ -29,6 +29,29 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
+WS_TICKET_SECONDS = 30
+
+
+def create_ws_ticket(user_id: str) -> str:
+    """
+    A single-use, 30-second credential for opening one WebSocket. Browsers can't
+    set headers on WebSockets, so it goes in the URL, where it may be logged;
+    keeping it short-lived and single-use means a logged copy is worthless.
+    """
+    now = datetime.now(timezone.utc)
+    return jwt.encode(
+        {
+            "sub": user_id,
+            "type": "ws",
+            "jti": secrets.token_urlsafe(16),
+            "iat": now,
+            "exp": now + timedelta(seconds=WS_TICKET_SECONDS),
+        },
+        settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+    )
+
+
 def create_refresh_token() -> str:
     """Generate a cryptographically secure random refresh token."""
     return secrets.token_urlsafe(32)
@@ -64,7 +87,10 @@ def password_reset_token(email: str) -> str:
     to_encode = {
         "scope": "password_reset",
         "sub": email,
-        "exp": expires
+        "exp": expires,
+        # Unique per link: two requests in the same second would otherwise
+        # produce the same token and clash on the stored hash.
+        "jti": secrets.token_urlsafe(16),
     }
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 

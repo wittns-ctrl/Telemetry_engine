@@ -15,30 +15,65 @@ export async function fetchAgentDownloadInfo() {
 // WebSocket origin defaults to the API origin with ws:// or wss:// swapped in.
 export const WS_ORIGIN = (import.meta.env.VITE_WS_ORIGIN || API_BASE.replace(/^http/, "ws")).replace(/\/$/, "");
 
-const TOKEN_KEY = "telemetry_jwt_token";
-
 export const AUTH_LOGOUT_EVENT = "telemetry:auth-logout";
 
-export function getAccessToken() {
+// The access token lives only in this variable, never in storage, so a script
+// injected into the page can't lift it from localStorage. A page load gets a
+// fresh one from the HttpOnly refresh cookie (restoreSession).
+let accessToken = null;
+
+// Not a secret: just "this browser was signed in", so a logged-out visitor's
+// page load skips the refresh call, and other tabs notice a sign-out.
+const SIGNED_IN_KEY = "lectio_signed_in";
+const LEGACY_TOKEN_KEY = "telemetry_jwt_token"; // where older builds kept the token
+
+function storage(action) {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    return action(localStorage);
   } catch {
-    return null;
+    return null; // storage unavailable (private mode, blocked site data)
   }
 }
 
+storage((s) => s.removeItem(LEGACY_TOKEN_KEY));
+
+export function getAccessToken() {
+  return accessToken;
+}
+
 function setAccessToken(token) {
-  try {
-    if (token) localStorage.setItem(TOKEN_KEY, token);
-    else localStorage.removeItem(TOKEN_KEY);
-  } catch {
-    /* storage unavailable */
-  }
+  accessToken = token || null;
+  storage((s) => (token ? s.setItem(SIGNED_IN_KEY, "1") : s.removeItem(SIGNED_IN_KEY)));
 }
 
 export function clearSession() {
   setAccessToken(null);
   window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
+}
+
+// Signing out in one tab signs out the others.
+window.addEventListener("storage", (event) => {
+  if (event.key === SIGNED_IN_KEY && !event.newValue && accessToken) {
+    accessToken = null;
+    window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
+  }
+});
+
+/** Whether this browser may still have a sign-in to restore. */
+export function hasSavedSession() {
+  return storage((s) => s.getItem(SIGNED_IN_KEY)) === "1";
+}
+
+/**
+ * On page load, trade the refresh cookie for an access token. Resolves to the
+ * token, or null when there is no live sign-in.
+ */
+export async function restoreSession() {
+  if (accessToken) return accessToken;
+  if (!hasSavedSession()) return null;
+  const token = await refreshAccessToken();
+  if (!token) setAccessToken(null);
+  return token;
 }
 
 async function readError(response, fallback) {
@@ -212,7 +247,9 @@ export async function fetchCurrentUser() {
 
 export async function logoutUser() {
   try {
-    await apiFetch("/api/v1/auth/logout", { method: "POST" });
+    // The refresh cookie is all the server needs, so this works even after the
+    // access token expired (and must not try to refresh first).
+    await fetch(`${API_BASE}/api/v1/auth/logout`, { method: "POST", credentials: "include" });
   } catch {
     /* ignore network errors on logout */
   } finally {
@@ -435,13 +472,28 @@ export async function requestDiagnosis(alertId, deviceId) {
 }
 
 /** Every new or updated alert on any of the user's PCs, for the alert pop-up. */
-export function alertFeedUrl() {
-  const token = getAccessToken() || "";
-  return `${WS_ORIGIN}/api/v1/ws/alert-feed?token=${encodeURIComponent(token)}`;
+export async function alertFeedUrl() {
+  const ticket = await fetchSocketTicket();
+  return `${WS_ORIGIN}/api/v1/ws/alert-feed?token=${encodeURIComponent(ticket)}`;
 }
 
 /** Build the authenticated live-telemetry socket URL for a device. */
-export function telemetrySocketUrl(deviceId) {
-  const token = getAccessToken() || "";
-  return `${WS_ORIGIN}/api/v1/ws/telemetry/${encodeURIComponent(deviceId)}?token=${encodeURIComponent(token)}`;
+export async function telemetrySocketUrl(deviceId) {
+  const ticket = await fetchSocketTicket();
+  return `${WS_ORIGIN}/api/v1/ws/telemetry/${encodeURIComponent(deviceId)}?token=${encodeURIComponent(ticket)}`;
+}
+
+/**
+ * A single-use, 30-second ticket for one WebSocket. The access token never
+ * goes in a URL (URLs end up in server logs). On failure this returns "", the
+ * server closes the socket with 1008, and the caller's retry takes over.
+ */
+async function fetchSocketTicket() {
+  try {
+    const response = await apiFetch("/api/v1/auth/ws-ticket", { method: "POST" });
+    if (!response.ok) return "";
+    return (await response.json()).ticket || "";
+  } catch {
+    return "";
+  }
 }

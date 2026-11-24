@@ -134,7 +134,8 @@ class RefreshTokenRequest(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
-    current_password: str
+    # Not needed when a Google-only account sets its first password.
+    current_password: Optional[str] = None
     new_password: str
     confirm_password: str
     

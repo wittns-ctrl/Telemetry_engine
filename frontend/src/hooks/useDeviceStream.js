@@ -98,10 +98,12 @@ export function useDeviceStream({ windowMs = 2 * 60 * 1000, maxPoints = 60 } = {
     let retry = null;
     let attempts = 0;
 
-    const connect = () => {
+    const connect = async () => {
       if (disposed) return;
       setConnection("connecting");
-      socket = new WebSocket(telemetrySocketUrl(deviceId));
+      const url = await telemetrySocketUrl(deviceId);
+      if (disposed) return;
+      socket = new WebSocket(url);
 
       socket.onopen = () => {
         attempts = 0;

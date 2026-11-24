@@ -15,6 +15,9 @@ class RefreshToken(Document):
     )
     revoked_at: Optional[datetime] = None
     family_id: Optional[str] = None  # For token rotation tracking
+    # Set when this token was swapped for a newer one by /refresh (as opposed to
+    # revoked by logout or a password change). Starts the reuse grace window.
+    replaced_at: Optional[datetime] = None
     
     class settings:
         name = "refresh_tokens"
@@ -30,7 +33,10 @@ class RefreshToken(Document):
         self.updated_at = datetime.now(timezone.utc)
     
     def is_expired(self) -> bool:
-        return datetime.now(timezone.utc) > self.expires_at
+        expires_at = self.expires_at
+        if expires_at.tzinfo is None:  # stored dates read back without a zone are UTC
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) > expires_at
     
     def is_valid(self) -> bool:
         return not self.is_revoked and not self.is_expired()

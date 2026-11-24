@@ -179,8 +179,11 @@ export function SettingsView({ user, onUserUpdated, onSignedOut, onDirtyChange }
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
-    if (!passwords.currentPassword || !passwords.newPassword) {
-      setPasswordStatus({ type: "error", message: "Enter your current and new password." });
+    if ((user?.has_password && !passwords.currentPassword) || !passwords.newPassword) {
+      setPasswordStatus({
+        type: "error",
+        message: user?.has_password ? "Enter your current and new password." : "Enter a new password.",
+      });
       return;
     }
     if (passwords.newPassword !== passwords.confirmPassword) {
@@ -368,9 +371,16 @@ export function SettingsView({ user, onUserUpdated, onSignedOut, onDirtyChange }
               </span>
             </span>
           </div>
-          <Field label="Current password">
-            <input className="inp" type="password" name="currentPassword" autoComplete="current-password" placeholder="Enter your current password" value={passwords.currentPassword} onChange={handlePasswordChange} />
-          </Field>
+          {user.has_password ? (
+            <Field label="Current password">
+              <input className="inp" type="password" name="currentPassword" autoComplete="current-password" placeholder="Enter your current password" value={passwords.currentPassword} onChange={handlePasswordChange} />
+            </Field>
+          ) : (
+            <p className="txt">
+              You sign in with Google. Set a password to sign in with your email too.
+              For your security this works within 10 minutes of signing in.
+            </p>
+          )}
           <div className="g2">
             <Field label="New password">
               <input className="inp" type="password" name="newPassword" autoComplete="new-password" placeholder="Enter new password" value={passwords.newPassword} onChange={handlePasswordChange} />
@@ -381,7 +391,7 @@ export function SettingsView({ user, onUserUpdated, onSignedOut, onDirtyChange }
           </div>
           <StatusMessage status={passwordStatus} />
           <div className="row mt">
-            <button type="submit" className="bk" disabled={changingPassword}>{changingPassword ? "Updating…" : "Update password"}</button>
+            <button type="submit" className="bk" disabled={changingPassword}>{changingPassword ? "Updating…" : user.has_password ? "Update password" : "Set password"}</button>
             <button
               type="button"
               className="bk ol"

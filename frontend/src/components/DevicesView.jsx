@@ -299,10 +299,12 @@ export function DevicesView() {
     if (!selectedId) return undefined;
     let disposed = false;
 
-    const connect = () => {
+    const connect = async () => {
       if (disposed) return;
       setSocketState("connecting");
-      const ws = new WebSocket(telemetrySocketUrl(selectedId));
+      const url = await telemetrySocketUrl(selectedId);
+      if (disposed) return;
+      const ws = new WebSocket(url);
       wsRef.current = ws;
 
       ws.onopen = () => {
