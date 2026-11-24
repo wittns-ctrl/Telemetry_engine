@@ -64,6 +64,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := config.EnsureLogDir(config.LogDir(cfg.Dir())); err != nil {
+		return err
+	}
 	buffer, err := storage.Open(filepath.Join(cfg.Dir(), "buffer"), cfg.BufferMaxBytes(), cfg.BufferMaxAge())
 	if err != nil {
 		return err
@@ -157,7 +160,7 @@ func (a *Agent) writeStatus(stats *Stats, buffer *storage.Buffer) {
 		LastError: stats.LastError(), Buffer: buffer.Stats(),
 	}
 	data, _ := json.MarshalIndent(st, "", "  ")
-	if err := config.WriteFileAtomic(filepath.Join(a.Config.Dir(), StatusFile), data); err != nil {
+	if err := config.WriteFileAtomic(filepath.Join(config.LogDir(a.Config.Dir()), StatusFile), data); err != nil {
 		a.Log.Debug("couldn't write status file", "error", err)
 	}
 }
@@ -183,7 +186,7 @@ func shortID(id string) string {
 // ReadStatus loads status.json from dir.
 func ReadStatus(dir string) (Status, error) {
 	var st Status
-	data, err := os.ReadFile(filepath.Join(dir, StatusFile))
+	data, err := os.ReadFile(filepath.Join(config.LogDir(dir), StatusFile))
 	if err != nil {
 		return st, err
 	}

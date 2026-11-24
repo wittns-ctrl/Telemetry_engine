@@ -210,17 +210,28 @@ func Start() error {
 func Stop() error { return withService(stopService) }
 
 // State returns the service's state in words ("running", "stopped", ...).
+// It asks Windows only for the right to read the status, which any user has
+// ("not installed" when there is no service).
 func State() (string, error) {
-	var state string
-	err := withService(func(s *mgr.Service) error {
-		st, err := s.Query()
-		if err != nil {
-			return err
-		}
-		state = stateName(st.State)
-		return nil
-	})
-	return state, err
+	scm, err := windows.OpenSCManager(nil, nil, windows.SC_MANAGER_CONNECT)
+	if err != nil {
+		return "", fmt.Errorf("opening the service manager: %w", err)
+	}
+	defer windows.CloseServiceHandle(scm)
+	name, _ := windows.UTF16PtrFromString(Name)
+	h, err := windows.OpenService(scm, name, windows.SERVICE_QUERY_STATUS)
+	if errors.Is(err, windows.ERROR_SERVICE_DOES_NOT_EXIST) {
+		return "not installed", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	defer windows.CloseServiceHandle(h)
+	var st windows.SERVICE_STATUS
+	if err := windows.QueryServiceStatus(h, &st); err != nil {
+		return "", err
+	}
+	return stateName(svc.State(st.CurrentState)), nil
 }
 
 func withService(f func(*mgr.Service) error) error {

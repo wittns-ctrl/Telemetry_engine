@@ -75,6 +75,11 @@ func Dir() string {
 
 func Path(dir string) string { return filepath.Join(dir, fileName) }
 
+// LogDir holds the logs and status.json. Unlike the rest of the data folder,
+// any user on the PC may read it (it holds no secrets), so "lectio-agent
+// status" and troubleshooting work without administrator rights.
+func LogDir(dir string) string { return filepath.Join(dir, "logs") }
+
 // Load reads agent.json from dir (defaults if it doesn't exist) and applies
 // environment overrides. The result is validated.
 func Load(dir string) (Config, error) {

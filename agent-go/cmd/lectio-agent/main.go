@@ -11,8 +11,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -31,6 +33,27 @@ import (
 
 // version is set at build time: -ldflags "-X main.version=1.0.0"
 var version = "dev"
+
+// out is where messages go: the window, and during an administrator setup
+// also logs\setup.log, so a failed setup can be looked into afterwards.
+// Passwords are read without echo and never written to it.
+var out io.Writer = os.Stdout
+
+func startTranscript(cmd string) {
+	if !service.IsAdmin() {
+		return
+	}
+	dir := config.LogDir(config.Dir())
+	if config.EnsureDir(config.Dir()) != nil || config.EnsureLogDir(dir) != nil {
+		return
+	}
+	f, err := os.OpenFile(filepath.Join(dir, "setup.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	out = io.MultiWriter(os.Stdout, f)
+	fmt.Fprintf(f, "\n==== %s: lectio-agent %s %s\n", time.Now().Format(time.RFC3339), version, cmd)
+}
 
 const usage = `Lectio agent %s: sends this PC's health readings to your Lectio dashboard.
 
@@ -60,6 +83,10 @@ func main() {
 		args = []string{"setup"}
 	}
 	cmd, rest := args[0], args[1:]
+	switch cmd {
+	case "setup", "link", "install", "uninstall":
+		startTranscript(cmd)
+	}
 	var err error
 	switch cmd {
 	case "setup":
@@ -84,16 +111,16 @@ func main() {
 	case "run":
 		err = runConsole()
 	case "version", "-v", "--version":
-		fmt.Println("lectio-agent", version)
+		fmt.Fprintln(out, "lectio-agent", version)
 	case "help", "-h", "--help", "/?":
-		fmt.Printf(usage, version, config.Path(config.Dir()))
+		fmt.Fprintf(out, usage, version, config.Path(config.Dir()))
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command %q.\n\n", cmd)
-		fmt.Printf(usage, version, config.Path(config.Dir()))
+		fmt.Fprintf(out, "Unknown command %q.\n\n", cmd)
+		fmt.Fprintf(out, usage, version, config.Path(config.Dir()))
 		os.Exit(2)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "\nError:", err)
+		fmt.Fprintln(out, "\nError:", err)
 		pauseIfDoubleClicked()
 		os.Exit(1)
 	}
@@ -104,7 +131,7 @@ func adminOnly(cmd string, rest []string, f func() error) error {
 	if service.IsAdmin() {
 		return f()
 	}
-	fmt.Println("This needs administrator rights; Windows will ask for permission.")
+	fmt.Fprintln(out, "This needs administrator rights; Windows will ask for permission.")
 	return service.RelaunchElevated(append([]string{cmd}, rest...))
 }
 
@@ -112,11 +139,11 @@ func adminOnly(cmd string, rest []string, f func() error) error {
 
 func setup(rest []string) error {
 	if !service.IsAdmin() {
-		fmt.Println("Setting up Lectio needs administrator rights; Windows will ask for permission.")
+		fmt.Fprintln(out, "Setting up Lectio needs administrator rights; Windows will ask for permission.")
 		return service.RelaunchElevated(append([]string{"setup"}, rest...))
 	}
-	fmt.Println("Welcome to Lectio. This app reads your PC's temperatures, usage and hardware")
-	fmt.Print("health and sends them to your Lectio dashboard.\n\n")
+	fmt.Fprintln(out, "Welcome to Lectio. This app reads your PC's temperatures, usage and hardware")
+	fmt.Fprint(out, "health and sends them to your Lectio dashboard.\n\n")
 	dir := config.Dir()
 	cfg, err := config.Load(dir)
 	if err != nil {
@@ -127,13 +154,13 @@ func setup(rest []string) error {
 			return err
 		}
 	} else {
-		fmt.Printf("This PC is already linked as '%s'. (To link it again: lectio-agent link)\n", cfg.DeviceName)
+		fmt.Fprintf(out, "This PC is already linked as '%s'. (To link it again: lectio-agent link)\n", cfg.DeviceName)
 	}
 	if err := install(); err != nil {
 		return err
 	}
-	fmt.Println("\nDone. Lectio now runs in the background and starts with Windows.")
-	fmt.Println("Your PC will appear on the dashboard within a few seconds. You can close this window.")
+	fmt.Fprintln(out, "\nDone. Lectio now runs in the background and starts with Windows.")
+	fmt.Fprintln(out, "Your PC will appear on the dashboard within a few seconds. You can close this window.")
 	pauseIfDoubleClicked()
 	return nil
 }
@@ -151,9 +178,10 @@ func link(rest []string) error {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
-	client := api.New(cfg.APIURL, version, 60*time.Second)
+	// Linking is a one-off with someone waiting; allow for a slow connection.
+	client := api.New(cfg.APIURL, version, 3*time.Minute)
 	opt := auth.Options{
 		DeviceName: strings.TrimSpace(*name), OSInfo: collectors.Describe(ctx), MachineID: collectors.MachineID(ctx),
 		Country: *country, AskCountry: *country == "",
@@ -179,7 +207,7 @@ func install() error {
 	if err := service.Install(); err != nil {
 		return err
 	}
-	fmt.Println("Installed the Lectio Agent service (starts with Windows, restarts itself if it stops).")
+	fmt.Fprintln(out, "Installed the Lectio Agent service (starts with Windows, restarts itself if it stops).")
 	if state, _ := service.State(); state == "running" {
 		if err := service.Stop(); err != nil {
 			return err
@@ -188,7 +216,7 @@ func install() error {
 	if err := service.Start(); err != nil {
 		return err
 	}
-	fmt.Println("Started the service.")
+	fmt.Fprintln(out, "Started the service.")
 	return nil
 }
 
@@ -201,14 +229,14 @@ func uninstall(rest []string) error {
 	if err := service.Uninstall(); err != nil {
 		return err
 	}
-	fmt.Println("Removed the Lectio Agent service.")
+	fmt.Fprintln(out, "Removed the Lectio Agent service.")
 	if *purge {
 		if err := os.RemoveAll(config.Dir()); err != nil {
 			return err
 		}
-		fmt.Println("Deleted", config.Dir())
+		fmt.Fprintln(out, "Deleted", config.Dir())
 	} else {
-		fmt.Println("Settings and logs are kept in", config.Dir(), "(use -purge to delete them).")
+		fmt.Fprintln(out, "Settings and logs are kept in", config.Dir(), "(use -purge to delete them).")
 	}
 	return nil
 }
@@ -220,24 +248,24 @@ func status() error {
 	if err != nil {
 		state = err.Error()
 	}
-	fmt.Println("Service:", state)
+	fmt.Fprintln(out, "Service:", state)
 	st, err := services.ReadStatus(config.Dir())
 	if err != nil {
-		fmt.Println("No status yet (the agent writes it every 15 seconds while running).")
+		fmt.Fprintln(out, "No status yet (the agent writes it every 15 seconds while running).")
 		return nil
 	}
-	fmt.Printf("Version: %s, sending to %s every %ds\n", st.Version, st.API, st.IntervalSeconds)
-	fmt.Printf("Linked: %v %s\n", st.Linked, st.DeviceName)
-	fmt.Printf("Readings: %d taken, %d uploaded, %d waiting in the buffer (%.1f MB)\n",
+	fmt.Fprintf(out, "Version: %s, sending to %s every %ds\n", st.Version, st.API, st.IntervalSeconds)
+	fmt.Fprintf(out, "Linked: %v %s\n", st.Linked, st.DeviceName)
+	fmt.Fprintf(out, "Readings: %d taken, %d uploaded, %d waiting in the buffer (%.1f MB)\n",
 		st.Collected, st.Uploaded, st.Buffer.Batches, float64(st.Buffer.Bytes)/(1<<20))
 	if st.LastUpload != nil {
-		fmt.Println("Last upload:", st.LastUpload.Local().Format(time.DateTime))
+		fmt.Fprintln(out, "Last upload:", st.LastUpload.Local().Format(time.DateTime))
 	}
 	if st.LastError != "" {
-		fmt.Println("Last problem:", st.LastError)
+		fmt.Fprintln(out, "Last problem:", st.LastError)
 	}
 	if time.Since(st.UpdatedAt) > time.Minute {
-		fmt.Println("(This status is from", st.UpdatedAt.Local().Format(time.DateTime)+"; the agent may not be running.)")
+		fmt.Fprintln(out, "(This status is from", st.UpdatedAt.Local().Format(time.DateTime)+"; the agent may not be running.)")
 	}
 	return nil
 }
@@ -283,7 +311,7 @@ func runService() int {
 func runConsole() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	fmt.Println("Running in this window. Press Ctrl+C to stop.")
+	fmt.Fprintln(out, "Running in this window. Press Ctrl+C to stop.")
 	return agentRun(ctx, true)
 }
 
@@ -292,7 +320,7 @@ func runConsole() error {
 type consolePrompter struct{ in *bufio.Reader }
 
 func (p consolePrompter) line(prompt string) (string, error) {
-	fmt.Print(prompt)
+	fmt.Fprint(out, prompt)
 	s, err := p.in.ReadString('\n')
 	if err != nil && s == "" {
 		return "", errors.New("signing in needs a keyboard: run lectio-agent in a terminal window")
@@ -307,9 +335,9 @@ func (p consolePrompter) Password() (string, error) {
 	if !term.IsTerminal(fd) {
 		return p.line("Password: ")
 	}
-	fmt.Print("Password (hidden as you type): ")
+	fmt.Fprint(out, "Password (hidden as you type): ")
 	b, err := term.ReadPassword(fd)
-	fmt.Println()
+	fmt.Fprintln(out)
 	return string(b), err
 }
 
@@ -317,4 +345,4 @@ func (p consolePrompter) Country() (string, error) {
 	return p.line("Country this PC is in, for the dashboard map (optional, press Enter to skip): ")
 }
 
-func (consolePrompter) Say(format string, args ...any) { fmt.Printf(format+"\n", args...) }
+func (consolePrompter) Say(format string, args ...any) { fmt.Fprintf(out, format+"\n", args...) }

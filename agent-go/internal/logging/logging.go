@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"lectio/agent/internal/config"
 )
 
 const (
@@ -23,8 +25,8 @@ const (
 
 // Setup returns a logger writing to dir/logs/agent.log, and the closer for it.
 func Setup(dir, level string, console bool) (*slog.Logger, io.Closer, error) {
-	logDir := filepath.Join(dir, "logs")
-	if err := os.MkdirAll(logDir, 0o700); err != nil {
+	logDir := config.LogDir(dir)
+	if err := config.EnsureLogDir(logDir); err != nil {
 		return nil, nil, err
 	}
 	file := &lumberjack.Logger{

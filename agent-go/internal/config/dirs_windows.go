@@ -48,6 +48,38 @@ func EnsureDir(dir string) error {
 	return nil
 }
 
+// The logs folder: SYSTEM and Administrators as above, plus read access for
+// signed-in users (BU), who can't write or delete anything in it.
+const logFolderSDDL = "D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FR;;;BU)"
+
+// EnsureLogDir creates the logs folder with its readable permissions.
+func EnsureLogDir(dir string) error {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("creating %s: %w", dir, err)
+	}
+	if os.Getenv("LECTIO_DATA_DIR") != "" {
+		return nil
+	}
+	return setDACL(dir, logFolderSDDL)
+}
+
+func setDACL(dir, sddl string) error {
+	sd, err := windows.SecurityDescriptorFromString(sddl)
+	if err != nil {
+		return err
+	}
+	dacl, _, err := sd.DACL()
+	if err != nil {
+		return err
+	}
+	err = windows.SetNamedSecurityInfo(dir, windows.SE_FILE_OBJECT,
+		windows.DACL_SECURITY_INFORMATION|windows.PROTECTED_DACL_SECURITY_INFORMATION, nil, nil, dacl, nil)
+	if err != nil {
+		return fmt.Errorf("setting access to %s: %w", dir, err)
+	}
+	return nil
+}
+
 // protect encrypts with DPAPI in machine scope, so the service (SYSTEM) and an
 // administrator running "lectio-agent link" can both read it, and a copy of
 // the file taken to another PC can't.

@@ -21,5 +21,12 @@ func EnsureDir(dir string) error {
 	return os.Chmod(dir, 0o700)
 }
 
+func EnsureLogDir(dir string) error {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("creating %s: %w", dir, err)
+	}
+	return os.Chmod(dir, 0o755)
+}
+
 func protect(plain []byte) ([]byte, error)    { return append([]byte(nil), plain...), nil }
 func unprotect(sealed []byte) ([]byte, error) { return append([]byte(nil), sealed...), nil }
