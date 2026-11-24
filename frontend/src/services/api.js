@@ -174,7 +174,6 @@ export async function loginUser(email, password) {
   });
 
   if (!response.ok) {
-    // error.code is "email_not_verified" when the address still needs its code.
     throw await apiError(response, "Authentication failed");
   }
 

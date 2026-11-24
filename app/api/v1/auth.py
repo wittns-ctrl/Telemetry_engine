@@ -145,16 +145,6 @@ async def issue_email_code(user: User, force: bool = True) -> bool:
     return True
 
 
-def email_not_verified(email: str) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail={
-            "code": "email_not_verified",
-            "message": f"Confirm your email to sign in. We've sent a 6-digit code to {email}.",
-        },
-    )
-
-
 async def sign_in(user: User, request: Request, response: Response, event: AuditEventType) -> "Token":
     """Issue tokens and record the sign-in. The three writes run together."""
     access_token = create_access_token(data={"sub": str(user.id)})
@@ -286,12 +276,8 @@ async def login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is inactive"
         )
-    
-    # The email address must be confirmed with a code before the first sign-in.
-    if not user.email_verified:
-        await issue_email_code(user, force=False)
-        raise email_not_verified(user.email)
 
+    # Email is confirmed once, at sign-up; signing in needs only the password.
     return await sign_in(user, request, response, AuditEventType.LOGIN_SUCCESS)
 
 

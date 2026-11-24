@@ -1,6 +1,6 @@
 """
-Email addresses are confirmed with a 6-digit code: sent at sign-up, required
-before the first sign-in, limited to 10 minutes and 5 tries.
+Email addresses are confirmed with a 6-digit code sent at sign-up, limited to
+10 minutes and 5 tries. Signing in afterwards needs only the password.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -42,17 +42,24 @@ async def sign_in(client):
 
 
 @pytest.mark.asyncio
-async def test_sign_up_emails_a_code_and_sign_in_waits_for_it(async_client, mock_mongo_client, codes):
+async def test_sign_up_emails_a_code(async_client, mock_mongo_client, codes):
     issued, sender = codes
     assert (await sign_up(async_client)).status_code == 201
     assert issued == ["000001"]
     sender.assert_awaited_once()
     assert sender.await_args.args[:2] == (EMAIL, "000001")
 
+
+@pytest.mark.asyncio
+async def test_sign_in_does_not_ask_for_a_code(async_client, mock_mongo_client, codes):
+    issued, _ = codes
+    await sign_up(async_client)
+
     response = await sign_in(async_client)
-    assert response.status_code == 403
-    assert response.json()["detail"]["code"] == "email_not_verified"
-    assert issued == ["000001"]  # no second code within a minute
+
+    assert response.status_code == 200
+    assert response.json()["access_token"]
+    assert issued == ["000001"]  # only the sign-up code; sign-in sends none
 
 
 @pytest.mark.asyncio

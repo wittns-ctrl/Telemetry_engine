@@ -139,8 +139,7 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
       await loginUser(email, password);
       onAuthSuccess();
     } catch (err) {
-      if (err.code === "email_not_verified") askForCode(err.message);
-      else setErrorMsg(err.message || "Could not sign in. Please verify your credentials.");
+      setErrorMsg(err.message || "Could not sign in. Please verify your credentials.");
     } finally { setLoading(false); }
   };
 
