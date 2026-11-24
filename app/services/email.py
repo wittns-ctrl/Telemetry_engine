@@ -1,11 +1,14 @@
 import asyncio
 import html
+import logging
 import smtplib
+import ssl
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
 
 class EmailService:
     def __init__(self):
@@ -29,9 +32,26 @@ class EmailService:
         """Send one message over SMTP. Blocking: call it through a thread."""
         with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
             if self.use_tls:
-                server.starttls()
-            server.login(self.smtp_username, self.smtp_password)
+                # Check the server's certificate, so the password only goes to the real host.
+                server.starttls(context=ssl.create_default_context())
+                server.ehlo()
+            self._log_in(server)
             server.send_message(message)
+
+    def _log_in(self, server: smtplib.SMTP) -> None:
+        """
+        Log in with PLAIN when the server offers it. smtplib's login() would try
+        another method after a rejected password, and Gmail hangs up on that
+        second try, so the real "wrong password" error is lost behind
+        "Connection unexpectedly closed".
+        """
+        if "plain" not in server.esmtp_features.get("auth", "").lower().split():
+            server.login(self.smtp_username, self.smtp_password)
+            return
+        server.user, server.password = self.smtp_username, self.smtp_password
+        code, reply = server.auth("PLAIN", server.auth_plain)
+        if code not in (235, 503):  # 503: already signed in
+            raise smtplib.SMTPAuthenticationError(code, reply)
 
     async def send_email(
         self,
@@ -42,8 +62,7 @@ class EmailService:
     ) -> bool:
         """Send an email."""
         if not self.is_configured():
-            # Log warning but don't fail in development
-            print(f"Email service not configured. Would send to: {to_email}")
+            logger.warning("Email not sent to %s: SMTP settings are missing", to_email)
             return False
         
         try:
@@ -60,8 +79,16 @@ class EmailService:
             await asyncio.to_thread(self._deliver, message)
 
             return True
+        except smtplib.SMTPAuthenticationError as e:
+            reply = e.smtp_error.decode(errors="replace") if isinstance(e.smtp_error, bytes) else str(e.smtp_error)
+            logger.error(
+                "Email not sent to %s: %s rejected the SMTP username or password (%s %s). "
+                "For Gmail, SMTP_PASSWORD must be a 16-letter App Password.",
+                to_email, self.smtp_host, e.smtp_code, " ".join(reply.split()),
+            )
+            return False
         except Exception as e:
-            print(f"Failed to send email: {e}")
+            logger.error("Email not sent to %s: %s: %s", to_email, type(e).__name__, e)
             return False
     
     async def send_verification_email(
@@ -134,14 +161,14 @@ class EmailService:
               <h1 style="font-size:20px;margin:24px 0 8px;">Confirm your email</h1>
               <p style="color:#5f5f68;margin:0 0 24px;">{hello} enter this code in Lectio to confirm it's your email address.</p>
               <div style="font-size:34px;font-weight:700;letter-spacing:10px;background:#eaf5ec;color:#176b22;border-radius:14px;padding:16px 0;">{code}</div>
-              <p style="color:#5f5f68;font-size:13px;margin:24px 0 0;">The code works for 10 minutes. If you didn't try to sign up or sign in to Lectio, ignore this email.</p>
+              <p style="color:#5f5f68;font-size:13px;margin:24px 0 0;">The code works for 10 minutes. If you didn't sign up for Lectio, ignore this email.</p>
             </div>
           </div>
         </body></html>
         """
         text_content = (
             f"{hello}\n\nYour Lectio code is {code}\n\nEnter it in Lectio to confirm your email address. "
-            "It works for 10 minutes.\n\nIf you didn't try to sign up or sign in to Lectio, ignore this email.\n"
+            "It works for 10 minutes.\n\nIf you didn't sign up for Lectio, ignore this email.\n"
         )
         return await self.send_email(to_email, subject, html_content, text_content)
 
