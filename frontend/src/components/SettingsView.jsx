@@ -212,11 +212,15 @@ export function SettingsView({ user, onUserUpdated, onSignedOut, onDirtyChange }
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteStatus, setDeleteStatus] = useState(null);
-  const deleteConfirmed = deleteConfirmText.trim().toUpperCase() === "DELETE";
+  const [deletePassword, setDeletePassword] = useState("");
+  const needsPassword = Boolean(user?.has_password);
+  const deleteConfirmed =
+    deleteConfirmText.trim().toUpperCase() === "DELETE" && (!needsPassword || deletePassword.length > 0);
 
   const cancelDelete = () => {
     setConfirmingDelete(false);
     setDeleteConfirmText("");
+    setDeletePassword("");
     setDeleteStatus(null);
   };
 
@@ -225,7 +229,7 @@ export function SettingsView({ user, onUserUpdated, onSignedOut, onDirtyChange }
     if (!deleteConfirmed) return;
     setDeleting(true);
     try {
-      await deleteAccount();
+      await deleteAccount(needsPassword ? deletePassword : null);
     } catch (err) {
       setDeleting(false);
       throw err;
@@ -444,6 +448,20 @@ export function SettingsView({ user, onUserUpdated, onSignedOut, onDirtyChange }
             aria-label="Type DELETE to confirm"
           />
         </label>
+        {needsPassword && (
+          <label className="cf-field">
+            <span>Your password</span>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && deleteConfirmed) e.currentTarget.closest(".cf")?.querySelector(".cf-go")?.click(); }}
+              disabled={deleting}
+              aria-label="Your password"
+            />
+          </label>
+        )}
       </ConfirmDialog>
 
       <ConfirmDialog

@@ -46,6 +46,12 @@ class ResendVerificationRequest(BaseModel):
     email: EmailStr
 
 
+class DeleteAccountRequest(BaseModel):
+    # Required for accounts with a password; Google-only accounts must have
+    # signed in recently instead.
+    password: Optional[str] = None
+
+
 class MessageResponse(BaseModel):
     message: str
     detail: Optional[str] = None

@@ -85,13 +85,52 @@ def bearer(user: User) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+PASSWORD = "TestPassword123"
+
+
+async def delete_account(client, user: User, password: str | None = PASSWORD, headers: dict | None = None):
+    """DELETE /auth/account with a JSON body (httpx's delete() takes none)."""
+    return await client.request(
+        "DELETE", "/api/v1/auth/account",
+        headers=headers or bearer(user), json={"password": password},
+    )
+
+
+@pytest.mark.asyncio
+async def test_delete_account_needs_the_right_password(full_db, async_client):
+    user = await make_user_with_data("careful@example.com")
+    for password in (None, "WrongPassword123"):
+        response = await delete_account(async_client, user, password=password)
+        assert response.status_code == 400
+        assert response.json()["detail"]["code"] == "wrong_password"
+    assert all(n == 1 for n in (await counts_for(user)).values()), "deleted without the password"
+
+
+@pytest.mark.asyncio
+async def test_google_only_account_must_have_signed_in_recently(full_db, async_client):
+    user = await make_user_with_data("google@example.com")
+    user.hashed_password = None
+    user.last_login_at = datetime.now(timezone.utc) - timedelta(hours=1)
+    await user.save()
+
+    response = await delete_account(async_client, user, password=None)
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "reauth_required"
+    assert (await counts_for(user))["user"] == 1
+
+    user.last_login_at = datetime.now(timezone.utc)
+    await user.save()
+    assert (await delete_account(async_client, user, password=None)).status_code == 200
+    assert (await counts_for(user))["user"] == 0
+
+
 @pytest.mark.asyncio
 async def test_delete_account_erases_everything_for_that_user_only(full_db, async_client):
     leaving = await make_user_with_data("leaving@example.com")
     staying = await make_user_with_data("staying@example.com")
     assert all(n == 1 for n in (await counts_for(leaving)).values())
 
-    response = await async_client.delete("/api/v1/auth/account", headers=bearer(leaving))
+    response = await delete_account(async_client, leaving)
 
     assert response.status_code == 200
     assert "refresh_token" in response.headers.get("set-cookie", "")  # sign-in cookie cleared
@@ -145,6 +184,6 @@ async def test_deleted_account_token_no_longer_works(full_db, async_client):
     user = await make_user_with_data("gone@example.com")
     headers = bearer(user)
 
-    assert (await async_client.delete("/api/v1/auth/account", headers=headers)).status_code == 200
+    assert (await delete_account(async_client, user, headers=headers)).status_code == 200
     assert (await async_client.get("/api/v1/auth/me", headers=headers)).status_code == 401
-    assert (await async_client.delete("/api/v1/auth/account", headers=headers)).status_code == 401
+    assert (await delete_account(async_client, user, headers=headers)).status_code == 401

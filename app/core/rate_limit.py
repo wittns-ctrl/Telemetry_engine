@@ -47,7 +47,10 @@ AUTH_PATHS = frozenset({
     "/api/v1/auth/forgot-password",
     "/api/v1/auth/reset-password",
     "/api/v1/auth/verify-email",
+    "/api/v1/auth/verify-email-code",
     "/api/v1/auth/resend-verification",
+    "/api/v1/auth/google/login",
+    "/api/v1/auth/google/callback",
 })
 
 INGEST_PATH = "/api/v1/telemetry/ingest"

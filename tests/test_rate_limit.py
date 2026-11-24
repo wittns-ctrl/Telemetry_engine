@@ -164,3 +164,9 @@ class TestMiddleware:
             r = await async_client.get("/api/v1/devices/countries")
             assert r.status_code == 200
             assert "x-ratelimit-limit" not in r.headers
+
+
+def test_code_and_google_sign_in_use_the_auth_budget():
+    from app.core.rate_limit import AUTH_PATHS
+    for path in ("/api/v1/auth/verify-email-code", "/api/v1/auth/google/login", "/api/v1/auth/google/callback"):
+        assert path in AUTH_PATHS

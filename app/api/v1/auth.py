@@ -14,7 +14,7 @@ from app.models.user import (
 from app.models.auth import (
     ForgotPasswordRequest, ResetPasswordRequest, 
     VerifyEmailRequest, VerifyEmailCodeRequest, ResendVerificationRequest,
-    MessageResponse
+    DeleteAccountRequest, MessageResponse
 )
 from app.models.refresh_token import RefreshToken
 from app.models.email_verification import EmailVerification
@@ -73,6 +73,9 @@ async def get_client_info(request: Request) -> tuple[Optional[str], Optional[str
 
 
 REFRESH_COOKIE_NAME = "refresh_token"
+
+# Compared against on sign-in when the account doesn't exist (see login).
+DUMMY_PASSWORD_HASH = get_password_hash(secrets.token_urlsafe(16))
 
 
 def set_refresh_cookie(response: Response, token: str, expires_at: datetime) -> None:
@@ -169,7 +172,23 @@ async def sign_in(user: User, request: Request, response: Response, event: Audit
         log_audit_event(user_id=str(user.id), event_type=event, success=True, ip_address=ip_address, user_agent=user_agent),
     )
     set_refresh_cookie(response, refresh_token, expires_at)
-    return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
+    return Token(access_token=access_token, token_type="bearer")
+
+
+def user_response(user: User) -> UserResponse:
+    return UserResponse(
+        id=str(user.id),
+        email=user.email,
+        full_name=user.full_name,
+        email_verified=user.email_verified,
+        role=user.role,
+        is_active=user.is_active,
+        created_at=user.created_at,
+        last_login_at=user.last_login_at,
+        email_alerts=user.email_alerts,
+        fix_level=user.fix_level,
+        has_password=bool(user.hashed_password),
+    )
 
 
 def normalize_email(email: str) -> str:
@@ -218,18 +237,7 @@ async def register(
         issue_email_code(user),
     )
     
-    return UserResponse(
-        id=str(user.id),
-        email=user.email,
-        full_name=user.full_name,
-        email_verified=user.email_verified,
-        role=user.role,
-        is_active=user.is_active,
-        created_at=user.created_at,
-        last_login_at=user.last_login_at,
-        email_alerts=user.email_alerts,
-        fix_level=user.fix_level,
-    )
+    return user_response(user)
 
 
 @router.post("/login", response_model=Token)
@@ -244,7 +252,11 @@ async def login(
     user = await User.find_one(User.normalized_email == normalized_email)
     ip_address, user_agent = await get_client_info(request)
 
-    password_ok = bool(user) and await asyncio.to_thread(verify_password, form_data.password, user.hashed_password or "")
+    # Always run one Argon2 check, against a dummy hash when there is no account
+    # or no password, so the response time doesn't reveal which emails exist.
+    stored_hash = (user.hashed_password if user else None) or DUMMY_PASSWORD_HASH
+    password_ok = await asyncio.to_thread(verify_password, form_data.password, stored_hash)
+    password_ok = password_ok and bool(user and user.hashed_password)
     if not password_ok:
         await log_audit_event(
             user_id="unknown",
@@ -356,11 +368,7 @@ async def refresh_token(request: Request, response: Response):
     # Set new refresh token in cookie
     set_refresh_cookie(response, new_refresh_token, new_expires_at)
     
-    return Token(
-        access_token=access_token,
-        refresh_token=new_refresh_token,
-        token_type="bearer"
-    )
+    return Token(access_token=access_token, token_type="bearer")
 
 
 @router.post("/logout")
@@ -399,18 +407,7 @@ async def get_current_user_endpoint(
     current_user: User = Depends(get_current_user)
 ):
     """Get current authenticated user."""
-    return UserResponse(
-        id=str(current_user.id),
-        email=current_user.email,
-        full_name=current_user.full_name,
-        email_verified=current_user.email_verified,
-        role=current_user.role,
-        is_active=current_user.is_active,
-        created_at=current_user.created_at,
-        last_login_at=current_user.last_login_at,
-        email_alerts=current_user.email_alerts,
-        fix_level=current_user.fix_level,
-    )
+    return user_response(current_user)
 
 
 @router.patch("/profile", response_model=UserResponse)
@@ -433,18 +430,7 @@ async def update_profile(
     
     await current_user.save()
     
-    return UserResponse(
-        id=str(current_user.id),
-        email=current_user.email,
-        full_name=current_user.full_name,
-        email_verified=current_user.email_verified,
-        role=current_user.role,
-        is_active=current_user.is_active,
-        created_at=current_user.created_at,
-        last_login_at=current_user.last_login_at,
-        email_alerts=current_user.email_alerts,
-        fix_level=current_user.fix_level,
-    )
+    return user_response(current_user)
 
 
 @router.post("/change-password")
@@ -483,9 +469,38 @@ async def change_password(
     return {"message": "Password changed successfully. Please login again."}
 
 
+REAUTH_WINDOW = timedelta(minutes=10)
+
+
+async def confirm_identity_for_deletion(user: User, password: Optional[str]) -> None:
+    """
+    A valid access token alone isn't enough to erase an account. Accounts with a
+    password must enter it; Google-only accounts must have signed in recently.
+    Failures are 400/403, not 401, so the frontend doesn't try a token refresh.
+    """
+    if user.hashed_password:
+        ok = bool(password) and await asyncio.to_thread(verify_password, password, user.hashed_password)
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "wrong_password", "message": "That password isn't right."},
+            )
+        return
+    signed_in = user.last_login_at and datetime.now(timezone.utc) - _aware(user.last_login_at) < REAUTH_WINDOW
+    if not signed_in:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "code": "reauth_required",
+                "message": "For your security, sign out and sign in with Google again, then delete your account within 10 minutes.",
+            },
+        )
+
+
 @router.delete("/account")
 async def delete_account(
     response: Response,
+    body: Optional[DeleteAccountRequest] = None,
     current_user: User = Depends(get_current_user),
 ):
     """Permanently erase the account and everything stored for it.
@@ -496,6 +511,8 @@ async def delete_account(
     by calling this again. Nothing is kept, including the audit trail, so the
     erasure promised in the privacy policy is complete.
     """
+    await confirm_identity_for_deletion(current_user, body.password if body else None)
+
     user_oid = current_user.id
     user_id = str(user_oid)
 
@@ -666,7 +683,8 @@ async def forgot_password(
     
     # Send password reset email
     reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
-    await email_service.send_password_reset_email(user.email, reset_url, user.full_name)
+    # In the background, so an existing account doesn't answer slower than a missing one.
+    send_in_background(email_service.send_password_reset_email(user.email, reset_url, user.full_name))
     
     return {"message": "If an account exists with this email, a password reset link has been sent."}
 

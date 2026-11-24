@@ -61,6 +61,7 @@ async def test_right_code_confirms_the_email_and_signs_in(async_client, mock_mon
     response = await async_client.post("/api/v1/auth/verify-email-code", json={"email": EMAIL, "code": "000001"})
     assert response.status_code == 200
     assert response.json()["access_token"]
+    assert "refresh_token" not in response.json()  # cookie only, never readable by page scripts
     assert "refresh_token" in response.cookies or response.headers.get("set-cookie")
     assert (await User.find_one(User.normalized_email == EMAIL)).email_verified is True
     # From now on the password alone is enough.

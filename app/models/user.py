@@ -102,6 +102,8 @@ class UserResponse(BaseModel):
     last_login_at: Optional[datetime] = None
     email_alerts: bool = True
     fix_level: FixLevel = FixLevel.STANDARD
+    # False for accounts that only sign in with Google.
+    has_password: bool = False
 
 
 class UserUpdate(BaseModel):
@@ -111,8 +113,9 @@ class UserUpdate(BaseModel):
 
 
 class Token(BaseModel):
+    # The refresh token travels only in its HttpOnly cookie, never in the body,
+    # so scripts on the page can't read it.
     access_token: str
-    refresh_token: str
     token_type: str = 'bearer'
 
 

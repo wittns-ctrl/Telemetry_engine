@@ -248,8 +248,13 @@ export async function changePassword({ currentPassword, newPassword, confirmPass
   );
 }
 
-export async function deleteAccount() {
-  return apiJson("/api/v1/auth/account", { method: "DELETE" }, "Failed to delete account");
+/** Accounts with a password must re-enter it; Google-only accounts send none. */
+export async function deleteAccount(password) {
+  return apiJson(
+    "/api/v1/auth/account",
+    { method: "DELETE", body: JSON.stringify({ password: password || null }) },
+    "Failed to delete account",
+  );
 }
 
 export async function forgotPassword(email) {
