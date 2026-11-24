@@ -112,6 +112,30 @@ class Settings(BaseSettings):
     # past it, the built-in order is used straight away.
     GEMINI_FIX_TIMEOUT_SECONDS: float = 10.0
 
+    # --- Database connection pool (one client per API process, shared by all requests)
+    MONGO_MAX_POOL_SIZE: int = Field(default=50, ge=1)  # connections this process may open
+    MONGO_MIN_POOL_SIZE: int = Field(default=2, ge=0)  # kept open while idle (opening one is slow)
+    MONGO_MAX_IDLE_TIME_MS: int = 300_000  # close connections idle this long
+    MONGO_CONNECT_TIMEOUT_MS: int = 10_000
+    MONGO_SERVER_SELECTION_TIMEOUT_MS: int = 15_000  # how long to wait for a usable server
+    MONGO_SOCKET_TIMEOUT_MS: int = 120_000  # one operation's network wait; generous for slow links
+    MONGO_WAIT_QUEUE_TIMEOUT_MS: int = 10_000  # how long a request waits for a free connection
+    MONGO_STARTUP_RETRIES: int = Field(default=5, ge=1)  # attempts to reach the database at startup
+    SLOW_QUERY_MS: int = 500  # database commands slower than this are logged
+
+    # --- Cache. With REDIS_URL set, Redis (shared by every API process);
+    # otherwise an in-memory cache in this process.
+    REDIS_URL: str | None = None
+    CACHE_USER_TTL_SECONDS: int = 30
+    CACHE_DEVICE_TTL_SECONDS: int = 60
+    CACHE_LATEST_READING_TTL_SECONDS: int = 600
+
+    # --- Telemetry ingestion: readings are stored on arrival; alert checks and
+    # live relay run in background workers fed from a bounded queue.
+    INGEST_BATCH_MAX: int = Field(default=100, ge=1, le=1000)
+    INGEST_QUEUE_SIZE: int = Field(default=10_000, ge=1)
+    INGEST_WORKERS: int = Field(default=2, ge=1)
+
     model_config =  SettingsConfigDict(env_file=".env",extra="ignore")
 
 

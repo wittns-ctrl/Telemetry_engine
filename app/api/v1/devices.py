@@ -31,6 +31,7 @@ from app.schemas.api import (
 )
 from app.core.countries import COUNTRIES
 from app.core.security import hash_token
+from app.core.cache import cache, device_key_key
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +84,9 @@ async def register_device(
         os_info=body.os_info,
     )
 
+    # The old key stops working now, not when its cached copy expires.
+    if device.ingest_key_hash:
+        await cache.delete(device_key_key(device.ingest_key_hash))
     device_key = secrets.token_urlsafe(32)
     device.device_name = body.device_name
     if body.os_info:

@@ -566,6 +566,7 @@ async def delete_account(
     devices = await Device.find(Device.user_id == user_oid).to_list()
     for device in devices:
         await anomaly_engine.clear_device_state(user_id, str(device.id))
+        await device._forget_cached_copies()  # the bulk delete below skips model hooks
     await stream_manager.disconnect_user(user_id)
 
     readings = await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.user_id == user_oid).delete()

@@ -1,6 +1,11 @@
+import asyncio
+import logging
+
 from pymongo import AsyncMongoClient
+from pymongo.errors import PyMongoError
 from beanie import init_beanie
 from app.core.config import settings
+from app.db.monitoring import CommandStats, PoolStats
 from app.models.metric import Metrics
 from app.models.user import User
 from app.models.refresh_token import RefreshToken
@@ -68,17 +73,64 @@ async def migrate_indexes(db):
     await _migrate_telemetry_ttl_index(db)
 
 
+logger = logging.getLogger(__name__)
+
+# One client for the whole process: it owns the connection pool, and every
+# request borrows a connection from it. Never create a client per request.
+_client: AsyncMongoClient | None = None
+command_stats = CommandStats(slow_ms=settings.SLOW_QUERY_MS)
+pool_stats = PoolStats()
+
+
+def create_client() -> AsyncMongoClient:
+    return AsyncMongoClient(
+        settings.MONGODB_URI,
+        # Datetimes read back carry UTC, so they compare with datetime.now(timezone.utc).
+        tz_aware=True,
+        appname="lectio-api",
+        # Pool: open connections are reused; a few stay open while idle because
+        # opening one to a hosted cluster (DNS, TLS, sign-in) is slow.
+        maxPoolSize=settings.MONGO_MAX_POOL_SIZE,
+        minPoolSize=settings.MONGO_MIN_POOL_SIZE,
+        maxIdleTimeMS=settings.MONGO_MAX_IDLE_TIME_MS,
+        waitQueueTimeoutMS=settings.MONGO_WAIT_QUEUE_TIMEOUT_MS,
+        # Timeouts, so a lost database fails requests instead of hanging them.
+        connectTimeoutMS=settings.MONGO_CONNECT_TIMEOUT_MS,
+        serverSelectionTimeoutMS=settings.MONGO_SERVER_SELECTION_TIMEOUT_MS,
+        socketTimeoutMS=settings.MONGO_SOCKET_TIMEOUT_MS,
+        # A read or write interrupted by a dropped connection or failover is
+        # retried once on a fresh connection.
+        retryReads=True,
+        retryWrites=True,
+        # Readings compress several times over; zlib ships with Python.
+        compressors="zlib",
+        event_listeners=[command_stats, pool_stats],
+    )
+
+
+def get_client() -> AsyncMongoClient | None:
+    return _client
+
+
+async def _wait_for_database(client: AsyncMongoClient) -> None:
+    """Ping until the database answers, waiting 1, 2, 4, 8... seconds between tries."""
+    for attempt in range(1, settings.MONGO_STARTUP_RETRIES + 1):
+        try:
+            await client.admin.command("ping")
+            return
+        except PyMongoError as e:
+            if attempt == settings.MONGO_STARTUP_RETRIES:
+                raise
+            delay = min(30, 2 ** (attempt - 1))
+            logger.warning("Database not reachable (attempt %d/%d): %s. Retrying in %ds.",
+                           attempt, settings.MONGO_STARTUP_RETRIES, e, delay)
+            await asyncio.sleep(delay)
+
+
 async def init_db():
-    # tz_aware=True so datetimes read back from Mongo compare correctly with
-    # datetime.now(timezone.utc) (expiry checks on tokens, alert timing, etc.).
-    # minPoolSize keeps a couple of connections open even when the site is quiet.
-    # Opening one to a hosted cluster (DNS lookup, TLS, sign-in) can take several
-    # seconds on a slow connection, and every first click after an idle spell
-    # would otherwise pay that.
-    # compressors: readings compress several times over, and on a slow link to
-    # the cluster the transfer, not the query, is most of the wait. zlib ships
-    # with Python, so it needs no extra package; the server agrees to it or not.
-    client = AsyncMongoClient(settings.MONGODB_URI, tz_aware=True, minPoolSize=2, compressors="zlib")
+    global _client
+    client = create_client()
+    await _wait_for_database(client)
     db = client[settings.MONGO_DB]
     await migrate_indexes(db)
 
@@ -86,3 +138,12 @@ async def init_db():
         database=db,
         document_models=DOCUMENT_MODELS,
     )
+    _client = client
+
+
+async def close_db():
+    """Close every pooled connection cleanly when the API shuts down."""
+    global _client
+    if _client is not None:
+        await _client.close()
+        _client = None

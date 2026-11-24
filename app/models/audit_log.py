@@ -1,3 +1,4 @@
+from pymongo import ASCENDING, DESCENDING, IndexModel
 from beanie import Document, Indexed
 from pydantic import Field
 from datetime import datetime, timezone
@@ -36,10 +37,11 @@ class AuditLog(Document):
         default_factory=lambda: datetime.now(timezone.utc)
     )
     
-    class settings:
-        name = "audit_logs"
+    # Beanie only reads `Settings` (capital S). These models had a lowercase
+    # `settings`, so their indexes were never built and the collections took
+    # the class name; `name` keeps them on those existing collections.
+    class Settings:
+        name = "AuditLog"
         indexes = [
-            "user_id",
-            "event_type",
-            "created_at",
+            IndexModel([("user_id", ASCENDING), ("created_at", DESCENDING)], name="user_created"),
         ]

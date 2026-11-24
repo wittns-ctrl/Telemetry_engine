@@ -23,7 +23,7 @@ async def test_processes_are_sent_live_but_not_stored(async_client, test_device)
     test_device.ingest_key_hash = hash_token(key)
     await test_device.save()
 
-    with patch("app.api.v1.ingest.manager.broadcast_to_device", AsyncMock()) as broadcast:
+    with patch("app.services.ingest_processor.manager.broadcast_to_device", AsyncMock()) as broadcast:
         response = await async_client.post("/api/v1/telemetry/ingest", headers={"X-Device-Key": key}, json=SNAPSHOT)
     assert response.status_code == 202
 

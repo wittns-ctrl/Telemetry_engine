@@ -422,10 +422,14 @@ async def agent_next(
     agent_version: Optional[str] = Query(None, max_length=32),
     device: Device = Depends(get_ingest_device),
 ):
+    # A direct update, not device.save(): agents check in every few seconds,
+    # and a save would also drop the device from the cache each time.
     device.agent_last_seen = datetime.now(timezone.utc)
+    changes = {"agent_last_seen": device.agent_last_seen}
     if agent_version:
         device.agent_version = agent_version
-    await device.save()
+        changes["agent_version"] = agent_version
+    await Device.get_pymongo_collection().update_one({"_id": device.id}, {"$set": changes})
 
     await _expire_stale(device.id)
     req = await FixRequest.find(

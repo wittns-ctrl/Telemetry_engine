@@ -5,7 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from app.core.config import settings
 from app.core.rate_limit import RateLimitMiddleware
-from app.db.session import init_db
+from app.db.session import init_db, close_db
+from app.core.cache import cache
+from app.services.ingest_processor import ingest_processor
+from app.api.v1 import system as system_router
 from app.core.websocket_manager import manager
 from app.api.v1 import auth as auth_router
 from app.api.v1 import google_auth as google_auth_router
@@ -22,7 +25,12 @@ from app.api.v1 import fixes as fixes_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    ingest_processor.start(settings.INGEST_WORKERS, settings.INGEST_QUEUE_SIZE)
     yield
+    # Graceful shutdown: finish queued alert checks, then close connections.
+    await ingest_processor.stop()
+    await cache.close()
+    await close_db()
 
 app = FastAPI(
     title="Lectio API",
@@ -48,16 +56,8 @@ app.add_middleware(
 # which matters once the API and the browser are on different networks.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
-# --- SYSTEM HEALTH & CONFIG ---
-
-@app.get("/api/v1/health", summary="Health Check")
-async def health_check():
-    return {
-        "status": "healthy",
-        "service": "Lectio",
-        "active_websockets": manager.total_connections(),
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }
+# --- SYSTEM HEALTH & PERFORMANCE ---
+app.include_router(system_router.router, prefix="/api/v1")
 
 # --- AUTH ROUTES ---
 app.include_router(auth_router.router, prefix="/api/v1")

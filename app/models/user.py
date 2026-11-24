@@ -1,4 +1,5 @@
-from beanie import Document,Indexed
+from pymongo import ASCENDING, DESCENDING, IndexModel
+from beanie import Delete, Document, Indexed, Replace, Save, SaveChanges, Update, after_event
 from pydantic import Field,BaseModel,EmailStr, field_validator
 from datetime import datetime,timezone
 from typing import Literal, Optional
@@ -43,19 +44,21 @@ class User(Document):
     email_alerts: bool = True
     fix_level: FixLevel = FixLevel.STANDARD
     
-    class settings:
-        name = "users"
+    # Beanie only reads `Settings` (capital S). These models had a lowercase
+    # `settings`, so their indexes were never built and the collections took
+    # the class name; `name` keeps them on those existing collections.
+    class Settings:
+        name = "User"
         indexes = [
-            [
-                ("normalized_email", 1),
-                {"unique": True, "sparse": True}
-            ],
-            [
-                ("google_id", 1),
-                {"sparse": True}
-            ],
+            IndexModel([("google_id", ASCENDING)], name="google_id_1", sparse=True),
         ]
     
+    @after_event(Save, Replace, SaveChanges, Update, Delete)
+    async def _forget_cached_copy(self):
+        """The signed-in user is cached (app/core/cache.py); drop it when it changes."""
+        from app.core.cache import cache, user_key
+        await cache.delete(user_key(self.id))
+
     @field_validator('normalized_email', mode='before')
     @classmethod
     def normalize_email(cls, v: str | None) -> str | None:

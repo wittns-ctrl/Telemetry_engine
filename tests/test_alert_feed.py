@@ -22,8 +22,8 @@ async def test_alerts_from_a_snapshot_reach_the_users_feed(async_client, test_de
     )
     await alert.insert()
 
-    with patch("app.api.v1.ingest.anomaly_engine.evaluate_snapshot", AsyncMock(return_value=[alert])), \
-         patch("app.api.v1.ingest.manager.broadcast_to_device", AsyncMock()) as broadcast:
+    with patch("app.services.ingest_processor.anomaly_engine.evaluate_snapshot", AsyncMock(return_value=[alert])), \
+         patch("app.services.ingest_processor.manager.broadcast_to_device", AsyncMock()) as broadcast:
         response = await async_client.post(
             "/api/v1/telemetry/ingest", headers={"X-Device-Key": key},
             json={"sensor_id": "agent-test", "cpu": {"core_temperature_c": 96}},
@@ -45,8 +45,8 @@ async def test_a_quiet_snapshot_sends_nothing_to_the_feed(async_client, test_dev
     test_device.ingest_key_hash = hash_token(key)
     await test_device.save()
 
-    with patch("app.api.v1.ingest.anomaly_engine.evaluate_snapshot", AsyncMock(return_value=[])), \
-         patch("app.api.v1.ingest.manager.broadcast_to_device", AsyncMock()) as broadcast:
+    with patch("app.services.ingest_processor.anomaly_engine.evaluate_snapshot", AsyncMock(return_value=[])), \
+         patch("app.services.ingest_processor.manager.broadcast_to_device", AsyncMock()) as broadcast:
         await async_client.post("/api/v1/telemetry/ingest", headers={"X-Device-Key": key},
                                 json={"sensor_id": "agent-test", "cpu": {"utilization_percent": 20}})
 

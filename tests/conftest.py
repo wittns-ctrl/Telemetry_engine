@@ -901,3 +901,12 @@ def _no_real_ai(monkeypatch):
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
     monkeypatch.setattr(ai_diagnostic_service, "client", None)
     monkeypatch.setattr(fix_advisor, "client", None)
+
+
+@pytest.fixture(autouse=True)
+async def _empty_cache():
+    """Each test starts with an empty cache (app/core/cache.py keeps one per process)."""
+    from app.core.cache import cache
+    await cache.clear()
+    yield
+    await cache.clear()

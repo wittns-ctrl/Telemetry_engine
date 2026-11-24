@@ -1,9 +1,9 @@
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 from datetime import datetime, timezone
-from beanie import Document, Indexed
+from beanie import Delete, Document, Indexed, Replace, Save, SaveChanges, Update, after_event
 from beanie.odm.fields import PydanticObjectId
-from pymongo import IndexModel, ASCENDING
+from pymongo import IndexModel, ASCENDING, DESCENDING
 
 from app.core.config import settings
 
@@ -146,7 +146,24 @@ class Device(Document):
     agent_last_seen: Optional[datetime] = Field(None, description="When the agent last checked in")
     # SHA-256 of the agent's device key. The plaintext key is shown once at registration.
     ingest_key_hash: Optional[str] = Field(None, description="Hash of the device ingest key")
+    _loaded_key_hash: Optional[str] = PrivateAttr(default=None)
     
+    @after_event(Save, Replace, SaveChanges, Update, Delete)
+    async def _forget_cached_copies(self):
+        """Drop this device's cache entries (app/core/cache.py) when it changes."""
+        from app.core.cache import cache, device_key_key, latest_key, ownership_key
+        keys = [ownership_key(self.user_id, self.id), latest_key(self.id)]
+        # The key it was loaded with too: when the key changes, the old one must stop working now.
+        for key_hash in {self.ingest_key_hash, self._loaded_key_hash}:
+            if key_hash:
+                keys.append(device_key_key(key_hash))
+        await cache.delete(*keys)
+        self._loaded_key_hash = self.ingest_key_hash
+
+    def model_post_init(self, context) -> None:
+        super().model_post_init(context)
+        self._loaded_key_hash = self.ingest_key_hash
+
     class Settings:
         name = "devices"
         indexes = [
@@ -189,12 +206,28 @@ class TelemetrySnapshotDocument(Document):
     processes: list[ProcessMetrics] = Field(default_factory=list, description="Busiest programs")
     
     collection_duration_ms: Optional[float] = Field(None, ge=0.0, description="Collection duration in milliseconds")
-    
+    # Set by the agent for each reading; a resent reading has the same id and
+    # is ignored (unique per device, below). Older readings have none.
+    event_id: Optional[str] = Field(None, description="Agent-chosen unique id of this reading")
+
     class Settings:
         name = "telemetry_snapshots"
         indexes = [
             "user_id",
             "device_id",
+            # Every dashboard read: one device's readings, newest first.
+            IndexModel(
+                [("user_id", ASCENDING), ("device_id", ASCENDING), ("timestamp", DESCENDING)],
+                name="user_device_time",
+            ),
+            # Duplicate prevention for resent readings. Partial, so the many
+            # readings without an event id don't collide with each other.
+            IndexModel(
+                [("device_id", ASCENDING), ("event_id", ASCENDING)],
+                name="device_event_unique",
+                unique=True,
+                partialFilterExpression={"event_id": {"$type": "string"}},
+            ),
             # Serves time-range queries and is a TTL index: MongoDB's background
             # task removes readings older than the retention period (it runs
             # about once a minute). app.db.session migrates older databases.

@@ -15,7 +15,11 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from beanie import PydanticObjectId
 
+from pydantic import BaseModel, Field
+
 from app.api.deps import get_current_user
+from app.core.cache import cache, latest_key, ownership_key
+from app.core.config import settings
 from app.models.user import User
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.services.storage_service import StorageService
@@ -37,14 +41,28 @@ def parse_device_id(device_id: str) -> PydanticObjectId:
 
 
 async def require_own_device(user: User, device_oid: PydanticObjectId) -> None:
-    """403 unless the device is one of the user's active devices (tenant isolation)."""
+    """
+    403 unless the device is one of the user's active devices (tenant isolation).
+    A yes is cached for CACHE_DEVICE_TTL_SECONDS; changing or deleting the
+    device drops it (Device model hooks).
+    """
+    key = ownership_key(user.id, device_oid)
+    if await cache.get(key) == "1":
+        return
     device = await Device.find_one(
         Device.id == device_oid,
         Device.user_id == user.id,
         Device.is_active == True,  # noqa: E712
+        projection_model=DeviceIdOnly,
     )
     if device is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Device does not belong to user")
+    await cache.set(key, "1", settings.CACHE_DEVICE_TTL_SECONDS)
+
+
+class DeviceIdOnly(BaseModel):
+    """Projection for the ownership check: fetch the id, not the whole device."""
+    id: PydanticObjectId = Field(alias="_id")
 
 
 async def while_checking_owner(user: User, device_oid: PydanticObjectId, query):
@@ -173,6 +191,12 @@ async def get_latest_metrics(
     """
     try:
         device_oid = parse_device_id(device_id)
+
+        # Real-time path: the newest reading is kept in the cache as it arrives.
+        cached = await cache.get(latest_key(device_oid))
+        if cached is not None:
+            await require_own_device(current_user, device_oid)
+            return TelemetrySnapshotResponse.model_validate_json(cached)
 
         # The newest stored snapshot, however old it is.
         snapshots = await while_checking_owner(current_user, device_oid, StorageService.get_historical_telemetry(

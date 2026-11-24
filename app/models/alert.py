@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from beanie import Document, Indexed
 from beanie.odm.fields import PydanticObjectId
 from pydantic import Field
+from pymongo import ASCENDING, DESCENDING, IndexModel
 
 
 class AlertSeverity(str, Enum):
@@ -60,4 +61,14 @@ class AnomalyAlertDocument(Document):
             "severity",
             "is_active",
             "created_at",
+            # A device's open alerts, newest first (alert lists, alert restore).
+            IndexModel(
+                [("user_id", ASCENDING), ("device_id", ASCENDING), ("is_active", ASCENDING), ("created_at", DESCENDING)],
+                name="user_device_active_created",
+            ),
+            # The alert-email cooldown check.
+            IndexModel(
+                [("device_id", ASCENDING), ("rule_name", ASCENDING), ("email_sent_at", DESCENDING)],
+                name="device_rule_emailed",
+            ),
         ]

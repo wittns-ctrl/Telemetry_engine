@@ -1,3 +1,4 @@
+from pymongo import ASCENDING, DESCENDING, IndexModel
 from beanie import Document, Indexed
 from pydantic import Field
 from datetime import datetime, timezone, timedelta
@@ -15,13 +16,15 @@ class PasswordReset(Document):
     )
     used_at: Optional[datetime] = None
     
-    class settings:
-        name = "password_resets"
+    # Beanie only reads `Settings` (capital S). These models had a lowercase
+    # `settings`, so their indexes were never built and the collections took
+    # the class name; `name` keeps them on those existing collections.
+    class Settings:
+        name = "PasswordReset"
         indexes = [
-            "user_id",
-            "token_hash",
-            "email",
-            "expires_at",
+            # MongoDB deletes rows a day after they expire (data retention); the
+            # day lets the API still answer "expired" rather than "not found".
+            IndexModel([("expires_at", ASCENDING)], name="expires_at_ttl", expireAfterSeconds=86400),
         ]
     
     def is_expired(self) -> bool:
