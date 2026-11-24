@@ -10,7 +10,7 @@ const TOPICS = [
   {
     id: "agent",
     title: "How do I start the agent?",
-    body: "Download lectio-agent.exe on the Windows PC you want to monitor, right-click it and choose Run as administrator (so it can read temperatures and fan speeds). If Windows says it protected your PC, choose More info, then Run anyway. The agent asks for your Lectio email and password the first time only; your password is used for that one registration and is not stored. Keep the window open: readings are sent while it runs.",
+    body: "Download lectio-agent.exe on the Windows PC you want to monitor and double-click it. Choose Yes when Windows asks for permission (it installs a background service that can read temperatures and fan speeds). If Windows says it protected your PC, choose More info, then Run anyway. Sign in with your Lectio email and password; your password is used for that one registration and is not stored. After that Lectio runs in the background and starts with Windows, so you can close the window. To check on it, run lectio-agent status; to remove it, run lectio-agent uninstall.",
     download: true,
     page: "devices",
     action: "Open My Devices",

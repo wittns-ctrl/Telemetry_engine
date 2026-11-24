@@ -62,10 +62,11 @@ function AddDevice({ onRefresh }) {
       <ol className="txt steps">
         <li>On the Windows PC you want to watch, download the Lectio agent{download?.size_mb ? ` (${download.size_mb} MB)` : ""}.</li>
         <li>
-          Right-click <b>lectio-agent.exe</b> and choose <b>Run as administrator</b>, so it can read temperatures and
-          fan speeds. If Windows says it protected your PC, choose <b>More info</b>, then <b>Run anyway</b>.
+          Double-click <b>lectio-agent.exe</b> and choose <b>Yes</b> when Windows asks for permission. If Windows says it
+          protected your PC, choose <b>More info</b>, then <b>Run anyway</b>.
         </li>
         <li>Sign in with your Lectio email and password. Your password is only used this once and isn&apos;t saved.</li>
+        <li>That&apos;s it: Lectio now runs in the background and starts with Windows. You can close the window.</li>
       </ol>
       <div className="row ac wrap" style={{ gap: "calc(4 * var(--u))" }}>
         {download === false ? (
