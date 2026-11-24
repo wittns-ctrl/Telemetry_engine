@@ -47,7 +47,19 @@ async function readError(response, fallback) {
   if (Array.isArray(detail)) {
     return detail.map((d) => (d.msg || "").replace(/^Value error, /, "")).join(", ") || fallback;
   }
+  // Some answers carry a reason code too: {"code": "...", "message": "..."}.
+  if (detail && typeof detail === "object") return detail.message || fallback;
   return detail || body?.message || fallback;
+}
+
+/** An Error with the API's reason code (e.g. "email_not_verified"), when it gave one. */
+async function apiError(response, fallback) {
+  const copy = response.clone();
+  const error = new Error(await readError(response, fallback));
+  const body = await copy.json().catch(() => null);
+  if (body?.detail && typeof body.detail === "object") error.code = body.detail.code;
+  error.status = response.status;
+  return error;
 }
 
 // Shared refresh so parallel 401s trigger only one refresh request.
@@ -127,9 +139,24 @@ export async function loginUser(email, password) {
   });
 
   if (!response.ok) {
-    throw new Error(await readError(response, "Authentication failed"));
+    // error.code is "email_not_verified" when the address still needs its code.
+    throw await apiError(response, "Authentication failed");
   }
 
+  const data = await response.json();
+  setAccessToken(data.access_token);
+  return data;
+}
+
+/** Confirm the email with the 6-digit code it was sent; signs in on success. */
+export async function verifyEmailCode(email, code) {
+  const response = await fetch(`${API_BASE}/api/v1/auth/verify-email-code`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
+  if (!response.ok) throw await apiError(response, "That code didn't work. Try again.");
   const data = await response.json();
   setAccessToken(data.access_token);
   return data;
@@ -257,7 +284,7 @@ export async function resendVerification(email) {
   return apiJson(
     "/api/v1/auth/resend-verification",
     { auth: false, method: "POST", body: JSON.stringify({ email }) },
-    "Failed to resend verification email",
+    "Couldn't send a new code. Try again in a minute.",
   );
 }
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+import asyncio
 import logging
 import secrets
 
@@ -12,7 +13,7 @@ from app.models.user import (
 )
 from app.models.auth import (
     ForgotPasswordRequest, ResetPasswordRequest, 
-    VerifyEmailRequest, ResendVerificationRequest,
+    VerifyEmailRequest, VerifyEmailCodeRequest, ResendVerificationRequest,
     MessageResponse
 )
 from app.models.refresh_token import RefreshToken
@@ -29,11 +30,12 @@ from app.core.security import (
     verify_password, get_password_hash, create_access_token,
     create_refresh_token, hash_token, verify_token_hash, generate_family_id,
     email_verification_token, verify_email_token,
-    password_reset_token, verify_reset_token
+    password_reset_token, verify_reset_token,
+    new_email_code, hash_email_code,
 )
 from app.core.config import settings
 from app.api.deps import get_current_user
-from app.services.email import email_service
+from app.services.email import email_service, send_in_background
 from beanie import PydanticObjectId
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -100,6 +102,76 @@ def clear_refresh_cookie(response: Response) -> None:
     )
 
 
+# ---------------------------------------------------------- email codes
+
+CODE_LIFETIME = timedelta(minutes=10)
+CODE_MAX_ATTEMPTS = 5
+CODE_RESEND_AFTER = timedelta(seconds=60)
+
+
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+async def issue_email_code(user: User, force: bool = True) -> bool:
+    """
+    Create a 6-digit code for the user's email and send it in the background.
+    With force=False nothing is sent if a code went out less than a minute ago
+    (so repeated sign-in attempts don't flood the inbox). Returns True if sent.
+    """
+    if not force:
+        latest = await EmailVerification.find(
+            EmailVerification.user_id == str(user.id),
+            EmailVerification.code_hash != None,  # noqa: E711 (query expression)
+        ).sort("-created_at").first_or_none()
+        if latest and datetime.now(timezone.utc) - _aware(latest.created_at) < CODE_RESEND_AFTER:
+            return False
+    code = new_email_code()
+    await EmailVerification(
+        user_id=str(user.id),
+        token_hash=secrets.token_hex(32),  # unique placeholder: codes are matched by code_hash
+        code_hash=hash_email_code(str(user.id), code),
+        email=user.email,
+        expires_at=datetime.now(timezone.utc) + CODE_LIFETIME,
+    ).insert()
+    if settings.APP_ENV == "development":
+        # So local testing works even when email can't be sent from this machine.
+        logger.warning(f"[development] Email code for {user.email}: {code}")
+    send_in_background(email_service.send_verification_code(user.email, code, user.full_name))
+    return True
+
+
+def email_not_verified(email: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": "email_not_verified",
+            "message": f"Confirm your email to sign in. We've sent a 6-digit code to {email}.",
+        },
+    )
+
+
+async def sign_in(user: User, request: Request, response: Response, event: AuditEventType) -> "Token":
+    """Issue tokens and record the sign-in. The three writes run together."""
+    access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token()
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    user.last_login_at = datetime.now(timezone.utc)
+    ip_address, user_agent = await get_client_info(request)
+    await asyncio.gather(
+        RefreshToken(
+            user_id=str(user.id),
+            token_hash=hash_token(refresh_token),
+            expires_at=expires_at,
+            family_id=generate_family_id(),
+        ).insert(),
+        user.save(),
+        log_audit_event(user_id=str(user.id), event_type=event, success=True, ip_address=ip_address, user_agent=user_agent),
+    )
+    set_refresh_cookie(response, refresh_token, expires_at)
+    return Token(access_token=access_token, refresh_token=refresh_token, token_type="bearer")
+
+
 def normalize_email(email: str) -> str:
     """Normalize email address."""
     return email.lower().strip()
@@ -126,36 +198,25 @@ async def register(
         email=user_in.email,
         normalized_email=normalized_email,
         full_name=user_in.full_name,
-        hashed_password=get_password_hash(user_in.password),
+        # Argon2 is deliberately slow; hashing in a thread keeps other requests moving.
+        hashed_password=await asyncio.to_thread(get_password_hash, user_in.password),
         auth_providers=[AuthProvider.PASSWORD]
     )
     await user.insert()
-    
-    # Log registration
+
+    # Log it and email a 6-digit code at the same time; the email itself is
+    # sent in the background so the page doesn't wait for the mail server.
     ip_address, user_agent = await get_client_info(request)
-    await log_audit_event(
-        user_id=str(user.id),
-        event_type=AuditEventType.REGISTRATION,
-        success=True,
-        ip_address=ip_address,
-        user_agent=user_agent
+    await asyncio.gather(
+        log_audit_event(
+            user_id=str(user.id),
+            event_type=AuditEventType.REGISTRATION,
+            success=True,
+            ip_address=ip_address,
+            user_agent=user_agent
+        ),
+        issue_email_code(user),
     )
-    
-    # Generate and store email verification token
-    verification_token = email_verification_token(str(user.id))
-    verification_hash = hash_token(verification_token)
-    
-    email_verification = EmailVerification(
-        user_id=str(user.id),
-        token_hash=verification_hash,
-        email=user.email,
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
-    )
-    await email_verification.insert()
-    
-    # Send verification email
-    verification_url = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
-    await email_service.send_verification_email(user.email, verification_url, user.full_name)
     
     return UserResponse(
         id=str(user.id),
@@ -182,8 +243,9 @@ async def login(
     
     user = await User.find_one(User.normalized_email == normalized_email)
     ip_address, user_agent = await get_client_info(request)
-    
-    if not user or not verify_password(form_data.password, user.hashed_password or ""):
+
+    password_ok = bool(user) and await asyncio.to_thread(verify_password, form_data.password, user.hashed_password or "")
+    if not password_ok:
         await log_audit_event(
             user_id="unknown",
             event_type=AuditEventType.LOGIN_FAILURE,
@@ -212,44 +274,12 @@ async def login(
             detail="Account is inactive"
         )
     
-    # Generate tokens
-    access_token = create_access_token(data={"sub": str(user.id)})
-    refresh_token = create_refresh_token()
-    refresh_token_hash = hash_token(refresh_token)
-    family_id = generate_family_id()
-    
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    
-    # Store refresh token
-    stored_refresh_token = RefreshToken(
-        user_id=str(user.id),
-        token_hash=refresh_token_hash,
-        expires_at=expires_at,
-        family_id=family_id
-    )
-    await stored_refresh_token.insert()
-    
-    # Update last login
-    user.last_login_at = datetime.now(timezone.utc)
-    await user.save()
-    
-    # Log successful login
-    await log_audit_event(
-        user_id=str(user.id),
-        event_type=AuditEventType.LOGIN_SUCCESS,
-        success=True,
-        ip_address=ip_address,
-        user_agent=user_agent
-    )
-    
-    # Set refresh token in HttpOnly cookie (on the injected response so it is actually sent)
-    set_refresh_cookie(response, refresh_token, expires_at)
-    
-    return Token(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer"
-    )
+    # The email address must be confirmed with a code before the first sign-in.
+    if not user.email_verified:
+        await issue_email_code(user, force=False)
+        raise email_not_verified(user.email)
+
+    return await sign_in(user, request, response, AuditEventType.LOGIN_SUCCESS)
 
 
 @router.post("/refresh", response_model=Token)
@@ -557,39 +587,56 @@ async def verify_email(
     return {"message": "Email verified successfully"}
 
 
+@router.post("/verify-email-code", response_model=Token)
+async def verify_email_code(body: VerifyEmailCodeRequest, request: Request, response: Response):
+    """
+    Confirm the email address with the 6-digit code sent to it, and sign in.
+    Each code works for 10 minutes and allows 5 tries.
+    """
+    wrong = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="That code isn't right. Check the email and try again.")
+    user = await User.find_one(User.normalized_email == normalize_email(body.email))
+    if not user or not user.is_active:
+        raise wrong
+    record = await EmailVerification.find(
+        EmailVerification.user_id == str(user.id),
+        EmailVerification.code_hash != None,  # noqa: E711 (query expression)
+        EmailVerification.is_used == False,  # noqa: E712
+    ).sort("-created_at").first_or_none()
+    if not record or datetime.now(timezone.utc) > _aware(record.expires_at):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="That code has expired. Ask for a new one.")
+    if record.attempts >= CODE_MAX_ATTEMPTS:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many wrong codes. Ask for a new one.")
+    if not secrets.compare_digest(record.code_hash, hash_email_code(str(user.id), body.code)):
+        record.attempts += 1
+        await record.save()
+        left = CODE_MAX_ATTEMPTS - record.attempts
+        if left <= 0:
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many wrong codes. Ask for a new one.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"That code isn't right. {left} {'try' if left == 1 else 'tries'} left.")
+
+    record.is_used = True
+    record.used_at = datetime.now(timezone.utc)
+    user.email_verified = True
+    user.updated_at = datetime.now(timezone.utc)
+    await record.save()
+    await log_audit_event(user_id=str(user.id), event_type=AuditEventType.EMAIL_VERIFICATION, success=True)
+    return await sign_in(user, request, response, AuditEventType.LOGIN_SUCCESS)
+
+
 @router.post("/resend-verification")
 async def resend_verification(
     request_data: ResendVerificationRequest,
     request: Request = None
 ):
-    """Resend email verification token."""
+    """Send a new 6-digit code (at most one a minute)."""
+    generic = {"message": "If that account still needs confirming, a new code is on its way."}
     normalized_email = normalize_email(request_data.email)
     user = await User.find_one(User.normalized_email == normalized_email)
-    
-    if not user:
-        # Generic response to prevent email enumeration
-        return {"message": "If an account exists with this email, a verification link has been sent."}
-    
-    if user.email_verified:
-        return {"message": "Email is already verified"}
-    
-    # Generate new verification token
-    verification_token = email_verification_token(str(user.id))
-    verification_hash = hash_token(verification_token)
-    
-    email_verification = EmailVerification(
-        user_id=str(user.id),
-        token_hash=verification_hash,
-        email=user.email,
-        expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
-    )
-    await email_verification.insert()
-    
-    # Send verification email
-    verification_url = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
-    await email_service.send_verification_email(user.email, verification_url, user.full_name)
-    
-    return {"message": "If an account exists with this email, a verification link has been sent."}
+    # The same answer either way, so nobody can test which emails have accounts.
+    if not user or user.email_verified:
+        return generic
+    await issue_email_code(user, force=False)
+    return generic
 
 
 @router.post("/forgot-password")

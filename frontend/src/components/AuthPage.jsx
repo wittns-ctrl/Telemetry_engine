@@ -4,11 +4,62 @@ import { Mail, User, ArrowRight } from "lucide-react";
 import {
   loginUser,
   signupUser,
+  verifyEmailCode,
+  resendVerification,
   startGoogleSignIn,
   completeGoogleSignIn,
   GOOGLE_ERROR_MESSAGES,
 } from "../services/api";
-import { AuthPageLayout, AuthHeading, Field, PasswordField, ErrorBanner, GoogleIcon, AppleIcon, u } from "./AuthLayout";
+import { AuthPageLayout, AuthHeading, Field, PasswordField, ErrorBanner, SuccessBanner, GoogleIcon, AppleIcon, u } from "./AuthLayout";
+
+const CODE_LENGTH = 6;
+const RESEND_SECONDS = 60;
+
+/**
+ * Six boxes for the emailed code. Typing moves to the next box, Backspace to
+ * the previous one, and pasting the whole code fills every box.
+ */
+function CodeInput({ value, onChange, disabled, onComplete }) {
+  const boxes = useRef([]);
+  const digits = Array.from({ length: CODE_LENGTH }, (_, i) => value[i] || "");
+  const setFrom = (index, text) => {
+    const clean = text.replace(/\D/g, "");
+    if (!clean) return;
+    const next = (value.slice(0, index) + clean).slice(0, CODE_LENGTH);
+    onChange(next);
+    boxes.current[Math.min(next.length, CODE_LENGTH - 1)]?.focus();
+    if (next.length === CODE_LENGTH) onComplete?.(next);
+  };
+  return (
+    <div className="au-code" role="group" aria-label="6-digit code">
+      {digits.map((digit, i) => (
+        <input
+          key={i}
+          ref={(el) => { boxes.current[i] = el; }}
+          value={digit}
+          inputMode="numeric"
+          autoComplete={i === 0 ? "one-time-code" : "off"}
+          maxLength={CODE_LENGTH}
+          aria-label={`Digit ${i + 1}`}
+          disabled={disabled}
+          autoFocus={i === 0}
+          onChange={(e) => setFrom(i, e.target.value)}
+          onPaste={(e) => { e.preventDefault(); setFrom(0, e.clipboardData.getData("text")); }}
+          onKeyDown={(e) => {
+            if (e.key === "Backspace" && !digit && i > 0) {
+              e.preventDefault();
+              onChange(value.slice(0, i - 1));
+              boxes.current[i - 1]?.focus();
+            } else if (e.key === "Backspace" && digit) {
+              e.preventDefault();
+              onChange(value.slice(0, i));
+            }
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 // "Or continue with" and the two provider buttons. gaps = space above each of the three rows.
 function SocialButtons({ lines = false, gaps, onGoogle, onApple, disabled }) {
@@ -37,6 +88,47 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  // The "check your email" step: the 6-digit code, a note, and the resend timer.
+  const [code, setCode] = useState("");
+  const [infoMsg, setInfoMsg] = useState(null);
+  const [resendIn, setResendIn] = useState(0);
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
+
+  const askForCode = (message) => {
+    setCode("");
+    setErrorMsg(null);
+    setInfoMsg(message);
+    setResendIn(RESEND_SECONDS);
+    setScreen("code");
+  };
+
+  const handleVerifyCode = async (entered = code) => {
+    if (entered.length !== CODE_LENGTH || loading) return;
+    setLoading(true); setErrorMsg(null); setInfoMsg(null);
+    try {
+      await verifyEmailCode(email.trim(), entered);
+      onAuthSuccess();
+    } catch (err) {
+      setErrorMsg(err.message);
+      setCode("");
+    } finally { setLoading(false); }
+  };
+
+  const handleResend = async () => {
+    setErrorMsg(null);
+    try {
+      await resendVerification(email.trim());
+      setInfoMsg(`A new code is on its way to ${email.trim()}.`);
+      setResendIn(RESEND_SECONDS);
+    } catch (err) {
+      setErrorMsg(err.message);
+    }
+  };
+
   const clearError = () => setErrorMsg(null);
   const navigateScreen = (s) => { clearError(); setScreen(s); };
 
@@ -47,7 +139,8 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
       await loginUser(email, password);
       onAuthSuccess();
     } catch (err) {
-      setErrorMsg(err.message || "Could not sign in. Please verify your credentials.");
+      if (err.code === "email_not_verified") askForCode(err.message);
+      else setErrorMsg(err.message || "Could not sign in. Please verify your credentials.");
     } finally { setLoading(false); }
   };
 
@@ -73,9 +166,8 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
         password,
         confirmPassword: password,
       });
-      // Automatically authenticate on successful registration
-      await loginUser(email, password);
-      onAuthSuccess();
+      // Next: the code emailed to that address proves it's theirs, and signs them in.
+      askForCode(null);  // the heading already says where the code went
     } catch (err) {
       setErrorMsg(err.message || "Could not create account.");
     } finally { setLoading(false); }
@@ -110,6 +202,32 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
 
   // The button is part of the design, but the backend only has Google sign-in so far.
   const handleAppleSignIn = () => setErrorMsg("Apple sign-in isn't available yet. Use Google or your email instead.");
+
+  // ─── CHECK YOUR EMAIL (6-digit code) ────────────────────────────────────────
+  if (screen === "code") return (
+    <AuthPageLayout art="verify" small formWidth={300} padX={24}>
+      <AuthHeading icon="mail" title="Check your email">
+        Enter the 6-digit code we sent to <b>{email.trim()}</b>
+      </AuthHeading>
+      <ErrorBanner msg={errorMsg} />
+      <SuccessBanner msg={!errorMsg ? infoMsg : null} />
+      <form className="au-form" onSubmit={(e) => { e.preventDefault(); handleVerifyCode(); }}>
+        <CodeInput value={code} onChange={setCode} disabled={loading} onComplete={handleVerifyCode} />
+        <button type="submit" disabled={loading || code.length !== CODE_LENGTH} className="au-btn" style={{ marginTop: u(14) }}>
+          {loading ? "Checking…" : "Confirm email"} <ArrowRight aria-hidden="true" />
+        </button>
+      </form>
+      <p className="au-foot" style={{ marginTop: u(16) }}>
+        Didn&apos;t get it? Check your spam folder, or{" "}
+        {resendIn > 0
+          ? <span>ask for a new code in {resendIn} s</span>
+          : <button type="button" onClick={handleResend} className="au-link">send a new code</button>}
+      </p>
+      <p className="au-foot" style={{ marginTop: u(6) }}>
+        <button type="button" onClick={() => navigateScreen("signin")} className="au-link">Back to sign in</button>
+      </p>
+    </AuthPageLayout>
+  );
 
   // ─── SIGN UP ────────────────────────────────────────────────────────────────
   if (screen === "signup") return (

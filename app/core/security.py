@@ -37,6 +37,20 @@ def hash_token(token: str) -> str:
     """Hash a token for secure storage."""
     return hashlib.sha256(token.encode()).hexdigest()
 
+def new_email_code() -> str:
+    """A 6-digit verification code, e.g. "048213"."""
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def hash_email_code(user_id: str, code: str) -> str:
+    """
+    Keyed hash of a verification code. Codes are short, so a plain hash could be
+    reversed by trying all million; with the server's secret key it can't.
+    """
+    import hmac
+    return hmac.new(settings.SECRET_KEY.encode(), f"{user_id}:{code}".encode(), hashlib.sha256).hexdigest()
+
+
 def verify_token_hash(token: str, token_hash: str) -> bool:
     """Verify a token against its hash."""
     return hashlib.sha256(token.encode()).hexdigest() == token_hash

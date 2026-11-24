@@ -205,7 +205,7 @@ const SCENES = {
     backdrop: { disc: [25, 115, 185], band: [-35, 380, 80] },
     logo: { x: 20, cy: 30.5, mark: 16.5, f: 13.9 },
     heading: { x: 21, cap: 80, f: 23.2, l: 25, text: <>Check your<br />email</> },
-    body: { x: 21, cap: 137, f: 10.1, l: 15, text: <>We've sent a verification link<br />to your email address.</> },
+    body: { x: 21, cap: 137, f: 10.1, l: 15, text: <>We've sent a 6-digit code<br />to your email address.</> },
   },
 };
 

@@ -14,6 +14,9 @@ class EmailVerification(Document):
         default_factory=lambda: datetime.now(timezone.utc)
     )
     used_at: Optional[datetime] = None
+    # Set for 6-digit codes (sign-up and sign-in); links leave it None.
+    code_hash: Optional[str] = None
+    attempts: int = 0
     
     class settings:
         name = "email_verifications"

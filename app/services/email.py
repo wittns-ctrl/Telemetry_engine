@@ -120,6 +120,31 @@ class EmailService:
         
         return await self.send_email(to_email, subject, html_content, text_content)
     
+    async def send_verification_code(self, to_email: str, code: str, user_name: Optional[str] = None) -> bool:
+        """Email the 6-digit code that confirms the address belongs to the user."""
+        subject = f"{code} is your Lectio code"
+        hello = f"Hello {user_name}," if user_name else "Hello,"
+        html_content = f"""
+        <!DOCTYPE html>
+        <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Your Lectio code</title></head>
+        <body style="margin:0;background:#ebebed;font-family:Arial,sans-serif;color:#0e0e10;">
+          <div style="max-width:480px;margin:0 auto;padding:32px 20px;">
+            <div style="background:#ffffff;border-radius:20px;padding:32px 28px;text-align:center;">
+              <div style="font-size:20px;font-weight:700;">lectio</div>
+              <h1 style="font-size:20px;margin:24px 0 8px;">Confirm your email</h1>
+              <p style="color:#5f5f68;margin:0 0 24px;">{hello} enter this code in Lectio to confirm it's your email address.</p>
+              <div style="font-size:34px;font-weight:700;letter-spacing:10px;background:#eaf5ec;color:#176b22;border-radius:14px;padding:16px 0;">{code}</div>
+              <p style="color:#5f5f68;font-size:13px;margin:24px 0 0;">The code works for 10 minutes. If you didn't try to sign up or sign in to Lectio, ignore this email.</p>
+            </div>
+          </div>
+        </body></html>
+        """
+        text_content = (
+            f"{hello}\n\nYour Lectio code is {code}\n\nEnter it in Lectio to confirm your email address. "
+            "It works for 10 minutes.\n\nIf you didn't try to sign up or sign in to Lectio, ignore this email.\n"
+        )
+        return await self.send_email(to_email, subject, html_content, text_content)
+
     async def send_password_reset_email(
         self,
         to_email: str,
@@ -236,3 +261,16 @@ class EmailService:
 
 # Global email service instance
 email_service = EmailService()
+
+# Emails sent in the background, kept here so they aren't garbage-collected mid-send.
+_sending: set[asyncio.Task] = set()
+
+
+def send_in_background(coro) -> None:
+    """
+    Send an email without making the request wait for the mail server (which
+    can take seconds, or time out when SMTP is blocked). Failures are logged.
+    """
+    task = asyncio.get_running_loop().create_task(coro)
+    _sending.add(task)
+    task.add_done_callback(_sending.discard)

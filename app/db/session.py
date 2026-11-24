@@ -71,7 +71,11 @@ async def migrate_indexes(db):
 async def init_db():
     # tz_aware=True so datetimes read back from Mongo compare correctly with
     # datetime.now(timezone.utc) (expiry checks on tokens, alert timing, etc.).
-    client = AsyncMongoClient(settings.MONGODB_URI, tz_aware=True)
+    # minPoolSize keeps a couple of connections open even when the site is quiet.
+    # Opening one to a hosted cluster (DNS lookup, TLS, sign-in) can take several
+    # seconds on a slow connection, and every first click after an idle spell
+    # would otherwise pay that.
+    client = AsyncMongoClient(settings.MONGODB_URI, tz_aware=True, minPoolSize=2)
     db = client[settings.MONGO_DB]
     await migrate_indexes(db)
 

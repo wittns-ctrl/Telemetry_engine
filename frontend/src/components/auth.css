@@ -163,6 +163,13 @@
 .au-banner-error { color: #be123c; background: #fff1f2; border-color: #fecdd3; }
 .au-banner-ok { color: #14511c; background: #eaf5ec; border-color: #cfe8d4; }
 
+/* The emailed 6-digit code: six boxes in the field style. */
+.au-code { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: calc(6 * var(--u)); margin-top: calc(18 * var(--u)); }
+.au-code input { width: 100%; height: calc(40 * var(--u)); min-height: 44px; border: 1px solid #dfe3e8; border-radius: calc(9 * var(--u)); background: #fff; text-align: center; font: 600 calc(17 * var(--u)) / 1 inherit; color: #0e0e10; outline: 0; transition: border-color 0.15s, box-shadow 0.15s; }
+.au-code input:focus { border-color: #1c7a2e; box-shadow: 0 0 0 3px rgba(28, 122, 46, 0.15); }
+.au-code input:disabled { opacity: 0.6; }
+.au-sub b { font-weight: 600; color: #0e0e10; }
+
 /* ---------- the three smaller cards (forgot, reset, verify) ---------- */
 .au-sm .au-tile { width: calc(53 * var(--u)); height: calc(53 * var(--u)); }
 .au-sm .au-title { margin-top: calc(7 * var(--u)); font-size: calc(15.5 * var(--u)); }
