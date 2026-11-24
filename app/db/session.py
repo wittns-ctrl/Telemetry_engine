@@ -75,7 +75,10 @@ async def init_db():
     # Opening one to a hosted cluster (DNS lookup, TLS, sign-in) can take several
     # seconds on a slow connection, and every first click after an idle spell
     # would otherwise pay that.
-    client = AsyncMongoClient(settings.MONGODB_URI, tz_aware=True, minPoolSize=2)
+    # compressors: readings compress several times over, and on a slow link to
+    # the cluster the transfer, not the query, is most of the wait. zlib ships
+    # with Python, so it needs no extra package; the server agrees to it or not.
+    client = AsyncMongoClient(settings.MONGODB_URI, tz_aware=True, minPoolSize=2, compressors="zlib")
     db = client[settings.MONGO_DB]
     await migrate_indexes(db)
 

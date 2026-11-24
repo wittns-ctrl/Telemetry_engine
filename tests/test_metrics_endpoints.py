@@ -122,3 +122,38 @@ async def test_summary_averages_reported_values_and_skips_missing_ones(authentic
     assert data["snapshot_count"] == 3
     assert data["cpu_temperature"] == {"avg_c": 65.0, "max_c": 70.0, "min_c": 60.0}
     assert data["ram_usage"]["avg_percent"] == 55.0
+
+
+@pytest.mark.asyncio
+async def test_history_with_points_returns_the_thinned_snapshots(authenticated_client, test_device, monkeypatch):
+    # The thinning itself runs in MongoDB ($bucketAuto), which the in-memory
+    # test database lacks; this checks the endpoint asks for it and returns it.
+    kept = [await _store(test_device, minutes_ago=1, core_temp=61.0), await _store(test_device, minutes_ago=5, core_temp=55.0)]
+    asked = {}
+
+    async def fake_sampled(user, device_oid, start, end, points):
+        asked.update(device=device_oid, points=points, span=end - start)
+        return kept
+
+    monkeypatch.setattr("app.api.v1.metrics.sampled_history", fake_sampled)
+    start = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    response = await authenticated_client.get(
+        "/api/v1/metrics/history",
+        params={"device_id": str(test_device.id), "start_time": start, "points": 240},
+    )
+
+    assert response.status_code == 200
+    assert [s["cpu"]["core_temperature_c"] for s in response.json()["snapshots"]] == [61.0, 55.0]
+    assert asked["device"] == test_device.id and asked["points"] == 240
+    assert timedelta(hours=23) < asked["span"] < timedelta(hours=25)
+
+
+@pytest.mark.asyncio
+async def test_history_with_points_still_refuses_other_peoples_devices(authenticated_client, test_device):
+    from bson import ObjectId
+    start = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    response = await authenticated_client.get(
+        "/api/v1/metrics/history",
+        params={"device_id": str(ObjectId()), "start_time": start, "points": 12},
+    )
+    assert response.status_code == 403

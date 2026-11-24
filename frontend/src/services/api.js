@@ -424,10 +424,15 @@ export async function fetchLatestTelemetry(deviceId) {
   );
 }
 
-/** Stored snapshots for a device, newest first (the API caps one request at 1000). */
-export async function fetchTelemetryHistory(deviceId, { start = null, limit = 1000 } = {}) {
+/**
+ * Stored snapshots for a device, newest first (the API caps one request at 1000).
+ * With `points` (and a start), the API thins the range to that many snapshots
+ * spread evenly across it, which is plenty for a graph and far less to download.
+ */
+export async function fetchTelemetryHistory(deviceId, { start = null, limit = 1000, points = null } = {}) {
   const params = new URLSearchParams({ device_id: deviceId, limit: String(limit) });
   if (start) params.append("start_time", start.toISOString());
+  if (start && points) params.append("points", String(points));
   return apiJson(`/api/v1/metrics/history?${params.toString()}`, {}, "Failed to load telemetry history");
 }
 

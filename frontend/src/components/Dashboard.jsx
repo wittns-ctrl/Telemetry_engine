@@ -32,6 +32,11 @@ const TITLES = { cpu_util: "CPU Utilization", gpu_util: "GPU Utilization", ram_u
 // Live snapshots kept in memory for the graphs (about 100 minutes at one every 2 s).
 const LIVE_KEEP = 3000;
 
+// Stored snapshots fetched for a period's graphs, spread evenly across it.
+// The graphs average them into at most 30 points; two per point keeps the
+// download small (each snapshot is about 2 KB) on a slow connection.
+const HISTORY_POINTS = 60;
+
 /** Merge alerts from the live connection: update known ones, add new ones, drop closed ones. */
 function mergeAlerts(prev, incoming) {
   if (!incoming?.length) return prev;
@@ -55,7 +60,7 @@ function useTelemetry(period, onAlerts) {
   useEffect(() => {
     let cancelled = false;
     const span = PERIODS.find((p) => p.id === period).ms;
-    const load = async () => {
+    const load = async (withHistory) => {
       try {
         const device = (await fetchDevices())?.devices?.[0];
         if (!device) {
@@ -63,8 +68,12 @@ function useTelemetry(period, onAlerts) {
           return;
         }
         // Show the latest reading as soon as it arrives; the history for the
-        // graphs and averages can take longer and fills in afterwards.
-        const historyRequest = fetchTelemetryHistory(device.id, { start: new Date(Date.now() - span) }).catch(() => null);
+        // graphs and averages can take longer and fills in afterwards. The
+        // graphs average it into at most 30 points, so a few hundred snapshots
+        // spread over the period are plenty.
+        const historyRequest = withHistory
+          ? fetchTelemetryHistory(device.id, { start: new Date(Date.now() - span), points: HISTORY_POINTS }).catch(() => null)
+          : Promise.resolve(null);
         const snapshot = await fetchLatestTelemetry(device.id).catch(() => null);
         if (cancelled) return;
         setState((prev) => ({
@@ -88,9 +97,10 @@ function useTelemetry(period, onAlerts) {
         if (!cancelled) setState({ status: "error", error });
       }
     };
-    load();
-    // A safety net only: live updates arrive over the socket below.
-    const timer = setInterval(load, 60000);
+    load(true);
+    // A safety net only: live updates arrive over the socket below and are
+    // added to the history, so the history isn't downloaded again each time.
+    const timer = setInterval(() => load(false), 60000);
     return () => {
       cancelled = true;
       clearInterval(timer);

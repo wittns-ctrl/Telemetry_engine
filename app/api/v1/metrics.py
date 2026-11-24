@@ -8,15 +8,16 @@ Author: Lectio Backend Team
 Version: 6.0.0
 """
 
+import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from beanie import PydanticObjectId
 
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.models.telemetry import TelemetrySnapshotDocument
+from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.services.storage_service import StorageService
 from app.schemas.api import (
     TelemetryHistoryResponse,
@@ -26,6 +27,57 @@ from app.schemas.api import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def parse_device_id(device_id: str) -> PydanticObjectId:
+    try:
+        return PydanticObjectId(device_id)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid device ID format")
+
+
+async def require_own_device(user: User, device_oid: PydanticObjectId) -> None:
+    """403 unless the device is one of the user's active devices (tenant isolation)."""
+    device = await Device.find_one(
+        Device.id == device_oid,
+        Device.user_id == user.id,
+        Device.is_active == True,  # noqa: E712
+    )
+    if device is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Device does not belong to user")
+
+
+async def while_checking_owner(user: User, device_oid: PydanticObjectId, query):
+    """
+    Run a query and the ownership check at the same time. The database is
+    often a long round trip away, so doing them one after the other doubled
+    the wait. The query is filtered by user as well, so nothing leaks if the
+    check then fails.
+    """
+    _, result = await asyncio.gather(require_own_device(user, device_oid), query)
+    return result
+
+
+async def sampled_history(
+    user: User, device_oid: PydanticObjectId, start: datetime, end: datetime, points: int
+) -> List[TelemetrySnapshotDocument]:
+    """
+    At most `points` snapshots from start..end, newest first: the range's
+    snapshots are split into `points` runs of equal size and the newest of each
+    run is kept. Graphs average a period into a few dozen points, so sending
+    every snapshot (hundreds of KB) only made the dashboard slow on a slow
+    connection. Runs of equal size, not equal stretches of time, keep the
+    detail where the readings are, e.g. when the PC was only on for an hour.
+    """
+    pipeline = [
+        {"$match": {"user_id": user.id, "device_id": device_oid, "timestamp": {"$gte": start, "$lte": end}}},
+        {"$bucketAuto": {"groupBy": "$timestamp", "buckets": points, "output": {"doc": {"$last": "$$ROOT"}}}},
+        {"$replaceRoot": {"newRoot": "$doc"}},
+        {"$sort": {"timestamp": -1}},
+    ]
+    # allowDiskUse: a month of readings can exceed the 100 MB a sort may hold in memory.
+    rows = await TelemetrySnapshotDocument.aggregate(aggregation_pipeline=pipeline, allowDiskUse=True).to_list()
+    return [TelemetrySnapshotDocument.model_validate(row) for row in rows]
 
 
 @router.get(
@@ -39,57 +91,35 @@ async def get_historical_metrics(
     start_time: Optional[datetime] = Query(None, description="Start of time range (ISO 8601)"),
     end_time: Optional[datetime] = Query(None, description="End of time range (ISO 8601)"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records"),
+    points: Optional[int] = Query(
+        None, ge=10, le=1000,
+        description="With start_time: return at most this many snapshots spread evenly over the range",
+    ),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Retrieve historical telemetry snapshots for a specific device.
-    
-    Args:
-        device_id: The device ID to query
-        start_time: Optional start of time range
-        end_time: Optional end of time range
-        limit: Maximum number of records to return
-        current_user: The authenticated user
-        
-    Returns:
-        TelemetryHistoryResponse containing snapshots and metadata
-        
-    Raises:
-        HTTPException: If device not found or doesn't belong to user
+    Retrieve historical telemetry snapshots for a specific device, newest first.
+    With `points` and a start time, the range is thinned to that many snapshots
+    spread evenly across it, which is all a graph needs.
     """
     try:
         user_id = str(current_user.id)
-        
-        # Validate device ID format
-        try:
-            device_oid = PydanticObjectId(device_id)
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid device ID format"
+        device_oid = parse_device_id(device_id)
+
+        if points and start_time:
+            query = sampled_history(
+                current_user, device_oid, start_time, end_time or datetime.now(timezone.utc), points
             )
-        
-        # Verify device belongs to user (tenant isolation)
-        user_devices = await StorageService.get_user_devices(user_id)
-        device_belongs_to_user = any(
-            str(device.id) == device_id for device in user_devices
-        )
-        
-        if not device_belongs_to_user:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Device does not belong to user"
+        else:
+            query = StorageService.get_historical_telemetry(
+                user_id=user_id,
+                device_id=device_id,
+                start_time=start_time,
+                end_time=end_time,
+                limit=limit
             )
-        
-        # Query historical telemetry
-        snapshots = await StorageService.get_historical_telemetry(
-            user_id=user_id,
-            device_id=device_id,
-            start_time=start_time,
-            end_time=end_time,
-            limit=limit
-        )
-        
+        snapshots = await while_checking_owner(current_user, device_oid, query)
+
         snapshot_responses = [TelemetrySnapshotResponse.from_document(doc) for doc in snapshots]
         
         # Build time range info
@@ -142,35 +172,14 @@ async def get_latest_metrics(
         HTTPException: If device not found, doesn't belong to user, or no data available
     """
     try:
-        user_id = str(current_user.id)
-        
-        # Validate device ID format
-        try:
-            device_oid = PydanticObjectId(device_id)
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid device ID format"
-            )
-        
-        # Verify device belongs to user (tenant isolation)
-        user_devices = await StorageService.get_user_devices(user_id)
-        device_belongs_to_user = any(
-            str(device.id) == device_id for device in user_devices
-        )
-        
-        if not device_belongs_to_user:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Device does not belong to user"
-            )
-        
+        device_oid = parse_device_id(device_id)
+
         # The newest stored snapshot, however old it is.
-        snapshots = await StorageService.get_historical_telemetry(
-            user_id=user_id,
+        snapshots = await while_checking_owner(current_user, device_oid, StorageService.get_historical_telemetry(
+            user_id=str(current_user.id),
             device_id=device_id,
             limit=1
-        )
+        ))
         
         if not snapshots:
             raise HTTPException(
@@ -228,15 +237,7 @@ async def get_metrics_trend(
     period: str = Query("24h", pattern="^(24h|7d|30d)$", description="24h (hourly), 7d or 30d (daily)"),
     current_user: User = Depends(get_current_user),
 ):
-    try:
-        device_oid = PydanticObjectId(device_id)
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid device ID format")
-
-    user_devices = await StorageService.get_user_devices(str(current_user.id))
-    if not any(str(device.id) == device_id for device in user_devices):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Device does not belong to user")
-
+    device_oid = parse_device_id(device_id)
     span, bucket_format, bucket = TREND_PERIODS[period]
     start = datetime.now(timezone.utc) - span
 
@@ -254,7 +255,11 @@ async def get_metrics_trend(
         {"$sort": {"_id": 1}},
     ]
     try:
-        rows = await TelemetrySnapshotDocument.aggregate(aggregation_pipeline=pipeline).to_list()
+        rows = await while_checking_owner(
+            current_user, device_oid, TelemetrySnapshotDocument.aggregate(aggregation_pipeline=pipeline).to_list()
+        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error building the trend for device {device_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to build the trend")
@@ -303,41 +308,17 @@ async def get_metrics_summary(
         Dictionary with summary statistics
     """
     try:
-        user_id = str(current_user.id)
-        
-        # Validate device ID format
-        try:
-            device_oid = PydanticObjectId(device_id)
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid device ID format"
-            )
-        
-        # Verify device belongs to user (tenant isolation)
-        user_devices = await StorageService.get_user_devices(user_id)
-        device_belongs_to_user = any(
-            str(device.id) == device_id for device in user_devices
-        )
-        
-        if not device_belongs_to_user:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Device does not belong to user"
-            )
-        
-        # Calculate time range
+        device_oid = parse_device_id(device_id)
         end_time = datetime.now(timezone.utc)
         start_time = end_time - timedelta(hours=hours)
-        
-        # Query telemetry for the time range
-        snapshots = await StorageService.get_historical_telemetry(
-            user_id=user_id,
+
+        snapshots = await while_checking_owner(current_user, device_oid, StorageService.get_historical_telemetry(
+            user_id=str(current_user.id),
             device_id=device_id,
             start_time=start_time,
             end_time=end_time,
             limit=1000
-        )
+        ))
         
         if not snapshots:
             return {

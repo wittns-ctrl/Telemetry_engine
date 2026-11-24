@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from app.core.config import settings
 from app.core.rate_limit import RateLimitMiddleware
 from app.db.session import init_db
@@ -42,6 +43,10 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# Compress JSON responses: snapshot lists shrink to a fraction of their size,
+# which matters once the API and the browser are on different networks.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # --- SYSTEM HEALTH & CONFIG ---
 
