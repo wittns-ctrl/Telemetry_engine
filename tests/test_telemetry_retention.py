@@ -14,7 +14,8 @@ from app.models.telemetry import (
 )
 
 COLL = TelemetrySnapshotDocument.Settings.name
-THIRTY_DAYS = 30 * 24 * 60 * 60
+# The configured retention (default 7 days; .env may change it).
+RETENTION = telemetry_retention_seconds()
 
 
 @pytest.fixture
@@ -45,14 +46,14 @@ def test_model_declares_one_ttl_index_on_timestamp():
     ]
     assert len(ttl) == 1
     assert ttl[0].document["name"] == TELEMETRY_TIMESTAMP_INDEX
-    assert ttl[0].document["expireAfterSeconds"] == THIRTY_DAYS
+    assert ttl[0].document["expireAfterSeconds"] == RETENTION
     # No second, plain timestamp index: MongoDB allows one per key pattern.
     assert "timestamp" not in [i for i in TelemetrySnapshotDocument.Settings.indexes if isinstance(i, str)]
 
 
 async def test_app_database_gets_the_ttl_index(mock_mongo_client):
     info = await mock_mongo_client.telemetry_test[COLL].index_information()
-    assert info[TELEMETRY_TIMESTAMP_INDEX]["expireAfterSeconds"] == THIRTY_DAYS
+    assert info[TELEMETRY_TIMESTAMP_INDEX]["expireAfterSeconds"] == RETENTION
 
 
 async def test_migration_drops_an_old_plain_timestamp_index(fresh_db):
@@ -63,7 +64,7 @@ async def test_migration_drops_an_old_plain_timestamp_index(fresh_db):
 
 async def test_migration_drops_a_ttl_index_with_another_retention(fresh_db):
     await fresh_db[COLL].create_index(
-        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=7 * 24 * 3600
+        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=RETENTION + 24 * 3600
     )
     await migrate_indexes(fresh_db)
     assert TELEMETRY_TIMESTAMP_INDEX not in await _indexes(fresh_db)
@@ -71,15 +72,15 @@ async def test_migration_drops_a_ttl_index_with_another_retention(fresh_db):
 
 async def test_migration_keeps_a_matching_ttl_index(fresh_db):
     await fresh_db[COLL].create_index(
-        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=THIRTY_DAYS
+        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=RETENTION
     )
     await migrate_indexes(fresh_db)
-    assert (await _indexes(fresh_db))[TELEMETRY_TIMESTAMP_INDEX]["expireAfterSeconds"] == THIRTY_DAYS
+    assert (await _indexes(fresh_db))[TELEMETRY_TIMESTAMP_INDEX]["expireAfterSeconds"] == RETENTION
 
 
 async def test_migration_follows_a_changed_retention_setting(fresh_db, monkeypatch):
     await fresh_db[COLL].create_index(
-        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=THIRTY_DAYS
+        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=RETENTION
     )
     monkeypatch.setattr(settings, "TELEMETRY_RETENTION_DAYS", 90)
     await migrate_indexes(fresh_db)

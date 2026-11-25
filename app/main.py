@@ -14,6 +14,7 @@ from app.core.cache import cache
 from app.services.ingest_processor import ingest_processor
 from app.api.v1 import system as system_router
 from app.core.websocket_manager import manager
+from app.core import shared
 from app.api.v1 import auth as auth_router
 from app.api.v1 import google_auth as google_auth_router
 from app.api.v1 import websocket as websocket_router
@@ -30,10 +31,15 @@ from app.api.v1 import fixes as fixes_router
 async def lifespan(app: FastAPI):
     await init_db()
     ingest_processor.start(settings.INGEST_WORKERS, settings.INGEST_QUEUE_SIZE)
+    # With REDIS_URL: receive live updates sent by the other API processes.
+    manager.start_relay()
+    logger.info("Shared state: %s", shared.mode())
     yield
     # Graceful shutdown: finish queued alert checks, then close connections.
     await ingest_processor.stop()
+    await manager.stop_relay()
     await cache.close()
+    await shared.close()
     await close_db()
 
 app = FastAPI(

@@ -16,9 +16,10 @@ Each budget is a token bucket: it holds up to one minute's allowance and
 refills steadily, so short bursts are fine but a sustained flood is not.
 Over the limit the API answers 429 with a Retry-After header.
 
-Counters live in this process's memory. With several worker processes each
-keeps its own count, so the effective limit is multiplied by the number of
-workers; move the buckets to a shared store such as Redis before scaling out.
+With REDIS_URL set the buckets live in Redis (updated atomically by a small
+Lua script), so every API process and server shares one count per key.
+Without it they live in this process's memory, which is right for a single
+process; if Redis fails, the process falls back to its own buckets.
 Behind a reverse proxy, run uvicorn with --proxy-headers and
 --forwarded-allow-ips so the client IP is the visitor's, not the proxy's.
 """
@@ -106,6 +107,9 @@ class RateLimiter:
             retry_after = max(1, math.ceil((1.0 - bucket.tokens) / rate))
             return Decision(False, per_minute, 0, retry_after)
 
+    async def check(self, key: str, per_minute: int) -> Decision:
+        return self.hit(key, per_minute)
+
     def reset(self) -> None:
         with self._lock:
             self._buckets.clear()
@@ -123,6 +127,60 @@ class RateLimiter:
 
 
 limiter = RateLimiter()
+
+
+# Token bucket in a Redis hash {tokens, ts}, refilled from Redis's own clock
+# so every server agrees on the time. Returns {allowed (1/0), tokens left}.
+_REDIS_BUCKET = """
+local cap = tonumber(ARGV[1])
+local rate = tonumber(ARGV[2])
+local t = redis.call('TIME')
+local now = tonumber(t[1]) + tonumber(t[2]) / 1000000
+local b = redis.call('HMGET', KEYS[1], 'tokens', 'ts')
+local tokens = tonumber(b[1])
+local ts = tonumber(b[2])
+if tokens == nil then tokens = cap; ts = now end
+tokens = math.min(cap, tokens + math.max(0, now - ts) * rate)
+local allowed = 0
+if tokens >= 1 then tokens = tokens - 1; allowed = 1 end
+redis.call('HSET', KEYS[1], 'tokens', tostring(tokens), 'ts', tostring(now))
+redis.call('EXPIRE', KEYS[1], 120)
+return {allowed, tostring(tokens)}
+"""
+
+
+class SharedRateLimiter:
+    """
+    Buckets in Redis when REDIS_URL is set, shared by every API process;
+    otherwise (or while Redis is failing) the in-memory `fallback`.
+    """
+
+    def __init__(self, fallback: RateLimiter):
+        self.fallback = fallback
+
+    async def check(self, key: str, per_minute: int) -> Decision:
+        from app.core import shared
+
+        client = shared.redis_client()
+        if client is None:
+            return self.fallback.hit(key, per_minute)
+        per_minute = max(1, per_minute)
+        rate = per_minute / 60.0
+        try:
+            allowed, tokens = await client.eval(_REDIS_BUCKET, 1, f"rl:{key}", per_minute, rate)
+        except Exception as e:
+            shared.warn("rate limit", e)
+            return self.fallback.hit(key, per_minute)
+        tokens = float(tokens)
+        if int(allowed):
+            return Decision(True, per_minute, int(tokens), 0)
+        return Decision(False, per_minute, 0, max(1, math.ceil((1.0 - tokens) / rate)))
+
+    def reset(self) -> None:
+        self.fallback.reset()
+
+
+shared_limiter = SharedRateLimiter(limiter)
 
 
 def _header(scope, name: bytes) -> str | None:
@@ -179,7 +237,7 @@ def classify(scope) -> tuple[str, int] | None:
 class RateLimitMiddleware:
     """Pure ASGI middleware; WebSocket and lifespan traffic passes straight through."""
 
-    def __init__(self, app, rate_limiter: RateLimiter = limiter):
+    def __init__(self, app, rate_limiter=shared_limiter):
         self.app = app
         self.limiter = rate_limiter
 
@@ -194,7 +252,7 @@ class RateLimitMiddleware:
             return
 
         key, per_minute = bucket
-        decision = self.limiter.hit(key, per_minute)
+        decision = await self.limiter.check(key, per_minute)
         limit_headers = [
             (b"x-ratelimit-limit", str(decision.limit).encode()),
             (b"x-ratelimit-remaining", str(decision.remaining).encode()),

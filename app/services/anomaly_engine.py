@@ -11,7 +11,10 @@ Version: 4.0.0
 """
 
 import asyncio
+import contextlib
+import json
 import logging
+from dataclasses import asdict
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Optional, List, Tuple
 from dataclasses import dataclass, field
@@ -27,9 +30,14 @@ from app.core.anomaly_rules import (
 from app.services.alert_notifier import alert_notifier
 from app.models.alert import AnomalyAlertDocument, AlertSeverity
 from app.models.telemetry import TelemetrySnapshot
+from app.core import shared
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# With REDIS_URL, each device's breach tracking lives in Redis (shared by
+# every API process), kept this long after its last reading.
+STATE_TTL_SECONDS = 24 * 60 * 60
 
 
 def _aware(dt: datetime) -> datetime:
@@ -73,6 +81,40 @@ class DeviceState:
     user_id: str
     breach_states: Dict[str, BreachState] = field(default_factory=dict)
     last_updated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+def _state_to_json(state: "DeviceState") -> str:
+    def plain(value):
+        return value.isoformat() if isinstance(value, datetime) else value
+    data = asdict(state)
+    data["last_updated"] = plain(data["last_updated"])
+    data["breach_states"] = {
+        rule: {k: plain(v) for k, v in breach.items()} for rule, breach in data["breach_states"].items()
+    }
+    return json.dumps(data)
+
+
+def _state_from_json(raw: str) -> "DeviceState":
+    def when(value):
+        return _aware(datetime.fromisoformat(value)) if value else None
+    data = json.loads(raw)
+    breaches = {
+        rule: BreachState(
+            breach_start_time=when(b.get("breach_start_time")),
+            consecutive_breaches=b.get("consecutive_breaches", 0),
+            last_breach_time=when(b.get("last_breach_time")),
+            last_normal_time=when(b.get("last_normal_time")),
+            is_triggered=b.get("is_triggered", False),
+            alert_id=b.get("alert_id"),
+        )
+        for rule, b in (data.get("breach_states") or {}).items()
+    }
+    return DeviceState(
+        device_id=data["device_id"],
+        user_id=data["user_id"],
+        breach_states=breaches,
+        last_updated=when(data.get("last_updated")) or datetime.now(timezone.utc),
+    )
 
 
 class AnomalyEngine:
@@ -150,6 +192,51 @@ class AnomalyEngine:
             del self._device_states[key]
             logger.debug(f"Cleaned up old device state: {key}")
     
+    # ---------------------------------------------------- shared (Redis) state
+
+    @contextlib.asynccontextmanager
+    async def _shared_state(self, user_id: str, device_id: str):
+        """
+        With REDIS_URL: hold the device's lock in Redis (so two API processes
+        never check the same device at once), load its breach tracking into
+        self._device_states before the body runs, and save it back after.
+        Without Redis, or if Redis fails, the in-memory copy is used as is.
+        """
+        client = shared.redis_client()
+        key = self._get_device_key(user_id, device_id)
+        if client is None:
+            yield
+            return
+        lock = client.lock(f"alertlock:{key}", timeout=30, blocking_timeout=10)
+        acquired = False
+        try:
+            acquired = await lock.acquire()
+            raw = await client.get(f"alertstate:{key}")
+            if raw:
+                self._device_states[key] = _state_from_json(raw)
+            else:
+                # Not seen by any process lately: start fresh (open alerts
+                # are restored from the database).
+                self._device_states.pop(key, None)
+        except Exception as e:
+            shared.warn("alert state load", e)
+            client = None  # carry on with this process's copy
+        try:
+            yield
+        finally:
+            if client is not None:
+                state = self._device_states.get(key)
+                try:
+                    if state is None:
+                        await client.delete(f"alertstate:{key}")
+                    else:
+                        await client.set(f"alertstate:{key}", _state_to_json(state), ex=STATE_TTL_SECONDS)
+                except Exception as e:
+                    shared.warn("alert state save", e)
+                if acquired:
+                    with contextlib.suppress(Exception):
+                        await lock.release()
+
     async def evaluate_snapshot(
         self,
         user_id: str,
@@ -175,7 +262,7 @@ class AnomalyEngine:
             logger.debug("Anomaly engine is disabled, skipping evaluation")
             return []
         
-        async with self._lock:
+        async with self._lock, self._shared_state(user_id, device_id):
             # Periodic cleanup of old states
             self._cleanup_old_states()
             
@@ -513,7 +600,7 @@ class AnomalyEngine:
         If the reading is still over the limit, a new alert then needs the
         rule's full duration again instead of reopening on the next reading.
         """
-        async with self._lock:
+        async with self._lock, self._shared_state(user_id, device_id):
             state = self._device_states.get(self._get_device_key(user_id, device_id))
             if state:
                 state.breach_states.pop(rule_name, None)
@@ -541,7 +628,7 @@ class AnomalyEngine:
             user_id: The user identifier
             device_id: The device identifier
         """
-        async with self._lock:
+        async with self._lock, self._shared_state(user_id, device_id):
             key = self._get_device_key(user_id, device_id)
             if key in self._device_states:
                 del self._device_states[key]

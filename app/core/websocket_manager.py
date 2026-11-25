@@ -10,11 +10,15 @@ Version: 5.0.0
 """
 
 import asyncio
+import json
 import logging
 from typing import Dict, List, Optional
 from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
+
+# Redis channel that carries live updates between API processes (REDIS_URL).
+RELAY_CHANNEL = "lectio:live"
 
 
 class ConnectionManager:
@@ -122,14 +126,23 @@ class ConnectionManager:
         except Exception as e:
             logger.error(f"Error sending personal message: {e}")
     
-    async def broadcast_to_device(
+    async def broadcast_to_device(self, user_id: str, device_id: str, message: dict):
+        """
+        Send a message to every browser watching a device: those connected to
+        this process now, and (with REDIS_URL) those on other processes or
+        servers through the Redis relay.
+        """
+        await self._deliver_to_device(user_id, device_id, message)
+        await self._publish({"kind": "device", "user_id": user_id, "device_id": device_id, "message": message})
+
+    async def _deliver_to_device(
         self,
         user_id: str,
         device_id: str,
         message: dict
     ):
         """
-        Broadcast a message to all WebSocket connections for a specific device.
+        Broadcast a message to this process's WebSocket connections for a device.
         
         Args:
             user_id: The user's identifier for tenant isolation
@@ -256,7 +269,11 @@ class ConnectionManager:
             return total
     
     async def disconnect_device(self, user_id: str, device_id: str, reason: str = "Device deleted"):
-        """Close and forget every connection watching one device."""
+        """Close every connection watching one device, on every API process."""
+        await self._disconnect_device_here(user_id, device_id, reason)
+        await self._publish({"kind": "disconnect_device", "user_id": user_id, "device_id": device_id, "reason": reason})
+
+    async def _disconnect_device_here(self, user_id: str, device_id: str, reason: str):
         async with self._lock:
             devices = self._connections.get(user_id, {})
             connections = devices.pop(device_id, [])
@@ -269,7 +286,11 @@ class ConnectionManager:
                 logger.error(f"Error closing WebSocket: {e}")
 
     async def disconnect_user(self, user_id: str, reason: str = "Account deleted"):
-        """Close and forget every connection belonging to one user."""
+        """Close every connection belonging to one user, on every API process."""
+        await self._disconnect_user_here(user_id, reason)
+        await self._publish({"kind": "disconnect_user", "user_id": user_id, "reason": reason})
+
+    async def _disconnect_user_here(self, user_id: str, reason: str):
         async with self._lock:
             devices = self._connections.pop(user_id, {})
         for connections in devices.values():
@@ -278,6 +299,86 @@ class ConnectionManager:
                     await websocket.close(code=1000, reason=reason)
                 except Exception as e:
                     logger.error(f"Error closing WebSocket: {e}")
+
+    # ------------------------------------------------------------ Redis relay
+    # With REDIS_URL, every process publishes what it sends and subscribes to
+    # what the others send, delivering it to its own connections. Without
+    # Redis (or while it is down) delivery is local only, as before.
+
+    async def _publish(self, event: dict) -> None:
+        from app.core import shared
+
+        client = shared.redis_client()
+        if client is None:
+            return
+        try:
+            await client.publish(RELAY_CHANNEL, json.dumps({**event, "origin": shared.INSTANCE_ID}, default=str))
+        except Exception as e:
+            shared.warn("live-update publish", e)
+
+    async def handle_relayed(self, raw: str) -> None:
+        """Deliver one event published by another process."""
+        from app.core import shared
+
+        try:
+            event = json.loads(raw)
+        except (TypeError, ValueError):
+            return
+        if event.get("origin") == shared.INSTANCE_ID:
+            return  # this process sent it and already delivered it
+        kind = event.get("kind")
+        if kind == "device":
+            await self._deliver_to_device(event["user_id"], event["device_id"], event["message"])
+        elif kind == "disconnect_device":
+            await self._disconnect_device_here(event["user_id"], event["device_id"], event.get("reason", "Device deleted"))
+        elif kind == "disconnect_user":
+            await self._disconnect_user_here(event["user_id"], event.get("reason", "Account deleted"))
+
+    def start_relay(self) -> None:
+        """Start listening for other processes' updates (no-op without Redis)."""
+        from app.core import shared
+
+        if shared.redis_client() is None or getattr(self, "_relay_task", None):
+            return
+        self._relay_task = asyncio.create_task(self._relay_loop(), name="live-update-relay")
+
+    async def stop_relay(self) -> None:
+        task = getattr(self, "_relay_task", None)
+        self._relay_task = None
+        if task:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+
+    async def _relay_loop(self) -> None:
+        from app.core import shared
+
+        delay = 1.0
+        while True:
+            pubsub = None
+            try:
+                pubsub = shared.redis_client().pubsub(ignore_subscribe_messages=True)
+                await pubsub.subscribe(RELAY_CHANNEL)
+                logger.info("Live-update relay listening on Redis")
+                delay = 1.0
+                while True:
+                    message = await pubsub.get_message(timeout=5.0)
+                    if message and message.get("type") == "message":
+                        try:
+                            await self.handle_relayed(message["data"])
+                        except Exception:
+                            logger.exception("Couldn't deliver a relayed live update")
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                shared.warn("live-update relay", e)
+                await asyncio.sleep(delay)
+                delay = min(30.0, delay * 2)
+            finally:
+                if pubsub is not None:
+                    try:
+                        await pubsub.aclose()
+                    except Exception:
+                        pass
 
     async def disconnect_all(self):
         """

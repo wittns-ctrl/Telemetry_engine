@@ -105,14 +105,28 @@ def require_admin():
     return require_role(UserRole.ADMIN)
 
 
-# Tickets already used to open a socket, with their expiry (per process; a
-# ticket lives 30 seconds, so this stays tiny).
+# Tickets already used to open a socket, with their expiry. In Redis when
+# REDIS_URL is set, so a ticket can't be used again on another server;
+# otherwise per process (a ticket lives 30 seconds, so this stays tiny).
 _used_ws_tickets: dict[str, float] = {}
 _ws_ticket_lock = threading.Lock()
 
 
-def _claim_ws_ticket(jti: str, exp: float) -> bool:
+async def _claim_ws_ticket(jti: str, exp: float) -> bool:
     """Record a ticket as used. False if it was used before."""
+    from app.core import shared
+
+    client = shared.redis_client()
+    if client is not None:
+        try:
+            ttl = max(1, int(exp - time.time()) + 1)
+            return bool(await client.set(f"wsticket:{jti}", "1", nx=True, ex=ttl))
+        except Exception as e:
+            shared.warn("ticket check", e)
+    return _claim_ws_ticket_locally(jti, exp)
+
+
+def _claim_ws_ticket_locally(jti: str, exp: float) -> bool:
     now = time.time()
     with _ws_ticket_lock:
         for key in [k for k, e in _used_ws_tickets.items() if e < now]:
@@ -152,7 +166,7 @@ async def get_current_user_ws(
     jti = payload.get("jti")
     if payload.get("type") != "ws" or not user_id or not jti:
         await reject("Invalid token type")
-    if not _claim_ws_ticket(jti, float(payload.get("exp", 0))):
+    if not await _claim_ws_ticket(jti, float(payload.get("exp", 0))):
         await reject("Ticket already used")
 
     user = await load_user(user_id)
