@@ -19,6 +19,7 @@ const DevicesView = named(() => import('./components/DevicesView'), 'DevicesView
 import { AuthPage } from './components/AuthPage';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { AlertPopup } from './components/AlertPopup';
+import { AlertsModal } from './components/AlertsModal';
 import { LogOut, PenLine } from 'lucide-react';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -69,6 +70,7 @@ function App() {
 
   // Open alerts across all the user's PCs, for the bell in the header.
   const [openAlerts, setOpenAlerts] = useState(0);
+  const [alertsOpen, setAlertsOpen] = useState(false);  // the bell's window
   useEffect(() => {
     if (!isAuthenticated) return undefined;
     let cancelled = false;
@@ -160,7 +162,7 @@ function App() {
           />
 
           <div className="panel">
-            <PageHeader title={activeItem.label} alertsCount={openAlerts} onNavigate={goTo} />
+            <PageHeader title={activeItem.label} alertsCount={openAlerts} onNavigate={goTo} onBell={() => setAlertsOpen(true)} />
 
             <main className="page" aria-label={activeItem.label}>
               <Suspense fallback={<div className="empty" role="status">Loading…</div>}>
@@ -192,6 +194,8 @@ function App() {
 
 
           <AlertPopup onSeeAll={() => { setDashboardTab('alerts'); goTo('dashboard'); }} />
+
+          {alertsOpen && <AlertsModal onClose={() => setAlertsOpen(false)} />}
 
           <ConfirmDialog
             open={isLogoutOpen}

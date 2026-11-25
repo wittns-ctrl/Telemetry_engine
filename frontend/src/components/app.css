@@ -600,6 +600,21 @@
   /* Live dashboard: "Live" badge, red alert count on the Alerts tab. */
   .live-dot { display: inline-flex; align-items: center; gap: 5px; margin-right: 8px; padding: 2px 8px; border-radius: 999px; background: var(--green-soft); font-weight: 600; color: var(--green-deep); }
   .live-dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: live-pulse 1.6s ease-in-out infinite; }
+  /* Bell's alerts window (option B): the list, then one alert's fixes. */
+  .am-list { margin: 0; padding: 0; list-style: none; }
+  .am-row { display: flex; align-items: center; gap: calc(6 * var(--u)); padding: calc(7 * var(--u)) 0; border-top: 1px solid var(--ink-100); }
+  .am-row:first-child { border-top: 0; }
+  .am-dot { flex: none; align-self: flex-start; width: 10px; height: 10px; margin-top: 4px; border-radius: 50%; background: var(--rose); }
+  .am-dot.info { background: var(--ink-300); }
+  .am-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .am-text b { font-size: var(--fs-4); font-weight: 600; }
+  .am-head { display: flex; align-items: center; gap: calc(5 * var(--u)); }
+  .modal-x.am-back { flex: none; margin-left: 0; }
+  .am-why { align-self: flex-start; }
+  .am-calm { display: flex; align-items: center; gap: calc(6 * var(--u)); color: var(--green-deep); }
+  .am-calm svg { flex: none; width: 22px; height: 22px; }
+  .modal .ap-sent { margin: 0; }
+
   /* Health summary (option B): four plain questions, answered in a sentence. */
   .hs { display: flex; flex-direction: column; gap: calc(6 * var(--u)); }
   .hs-list { margin: 0; padding: calc(2 * var(--u)) calc(10 * var(--u)); list-style: none; }
@@ -677,6 +692,9 @@
 @media (max-width: 860px) {
   .ld-frame .net-off, .ld-frame:has(.rail.is-slim) .net-off { left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
   .ld-frame .net-off span { flex: 1; }
+  .ld-frame .am-row { flex-wrap: wrap; }
+  .ld-frame .am-text { flex-basis: calc(100% - 10px - 6 * var(--u)); }
+  .ld-frame .am-row .bk { margin-left: calc(10px + 6 * var(--u)); }
   .ld-frame .hs-row { flex-wrap: wrap; }
   .ld-frame .hs-text { flex-basis: calc(100% - 10px - 7 * var(--u)); }
   .ld-frame .hs-row .bk { margin-left: calc(10px + 7 * var(--u)); }

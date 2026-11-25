@@ -27,7 +27,7 @@ function searchTarget(query) {
 }
 
 /** Page title on the left; page search and the alerts bell on the right. */
-export function PageHeader({ title, alertsCount = 0, onNavigate }) {
+export function PageHeader({ title, alertsCount = 0, onNavigate, onBell }) {
   const [query, setQuery] = useState("");
   const [missed, setMissed] = useState("");
   return (
@@ -67,7 +67,8 @@ export function PageHeader({ title, alertsCount = 0, onNavigate }) {
         <button
           type="button"
           className="bell"
-          onClick={() => onNavigate?.("live")}
+          onClick={() => (onBell ? onBell() : onNavigate?.("live"))}
+          aria-haspopup="dialog"
           aria-label={alertsCount ? `Alerts (${alertsCount})` : "Alerts"}
           title="Alerts"
         >

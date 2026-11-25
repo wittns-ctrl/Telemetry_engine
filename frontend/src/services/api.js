@@ -446,6 +446,12 @@ export async function fetchMetricsTrend(deviceId, period = "24h") {
   return apiJson(`/api/v1/metrics/trend?${params.toString()}`, {}, "Failed to load the trend");
 }
 
+/** Every open alert across all the user's PCs (for the bell's window). */
+export async function fetchOpenAlerts() {
+  const data = await apiJson("/api/v1/alerts?is_active=true&limit=100", {}, "Failed to load alerts");
+  return data?.alerts || [];
+}
+
 /** How many alerts are open across all the user's PCs (for the header bell). */
 export async function fetchOpenAlertCount() {
   const data = await apiJson("/api/v1/alerts?is_active=true&limit=500", {}, "Failed to load alerts");
