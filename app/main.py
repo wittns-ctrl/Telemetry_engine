@@ -1,7 +1,11 @@
+import logging
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pymongo.errors import ConnectionFailure
 from fastapi.middleware.gzip import GZipMiddleware
 from app.core.config import settings
 from app.core.rate_limit import RateLimitMiddleware
@@ -38,6 +42,29 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+logger = logging.getLogger(__name__)
+_last_db_warning = 0.0
+
+
+@app.exception_handler(ConnectionFailure)
+async def database_unreachable(request: Request, exc: ConnectionFailure):
+    """
+    The database can't be reached (no internet, DNS failing, cluster down).
+    Answer 503 so the website and agent retry later, and log one short line
+    a minute instead of a full traceback for every request.
+    """
+    global _last_db_warning
+    now = time.monotonic()
+    if now - _last_db_warning > 60:
+        _last_db_warning = now
+        logger.warning("Database unreachable, answering 503 (check this machine's internet/DNS): %s",
+                       str(exc).split(",")[0])
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "The service can't reach its database right now. Try again in a moment."},
+        headers={"Retry-After": "15"},
+    )
 
 # Rate limiting. Added before CORS so CORS wraps it and 429 responses still
 # carry the CORS headers the browser needs to read them.

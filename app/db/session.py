@@ -120,6 +120,11 @@ async def _wait_for_database(client: AsyncMongoClient) -> None:
             return
         except PyMongoError as e:
             if attempt == settings.MONGO_STARTUP_RETRIES:
+                logger.error(
+                    "Can't reach the database after %d attempts. Usually this machine has no internet "
+                    "or its DNS can't look up the cluster; check the connection and start the API again.",
+                    attempt,
+                )
                 raise
             delay = min(30, 2 ** (attempt - 1))
             logger.warning("Database not reachable (attempt %d/%d): %s. Retrying in %ds.",

@@ -120,7 +120,9 @@ class Settings(BaseSettings):
     MONGO_SERVER_SELECTION_TIMEOUT_MS: int = 15_000  # how long to wait for a usable server
     MONGO_SOCKET_TIMEOUT_MS: int = 120_000  # one operation's network wait; generous for slow links
     MONGO_WAIT_QUEUE_TIMEOUT_MS: int = 10_000  # how long a request waits for a free connection
-    MONGO_STARTUP_RETRIES: int = Field(default=5, ge=1)  # attempts to reach the database at startup
+    # Attempts to reach the database at startup, 1, 2, 4... up to 30 s apart:
+    # 10 rides out a Wi-Fi drop of about two and a half minutes.
+    MONGO_STARTUP_RETRIES: int = Field(default=10, ge=1)
     SLOW_QUERY_MS: int = 500  # database commands slower than this are logged
 
     # --- Cache. With REDIS_URL set, Redis (shared by every API process);
