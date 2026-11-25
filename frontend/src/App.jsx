@@ -49,7 +49,7 @@ function App() {
 
   // Which signed-in page is open, and the Dashboard's tab (the alert pop-up opens "Alerts").
   const [activeNav, setActiveNav] = useState('dashboard');
-  const [dashboardTab, setDashboardTab] = useState('cpu');
+  const [dashboardTab, setDashboardTab] = useState('summary');
 
   // Settings reports unsaved edits here, so leaving the page asks first.
   const [settingsDirty, setSettingsDirty] = useState(false);

@@ -600,6 +600,28 @@
   /* Live dashboard: "Live" badge, red alert count on the Alerts tab. */
   .live-dot { display: inline-flex; align-items: center; gap: 5px; margin-right: 8px; padding: 2px 8px; border-radius: 999px; background: var(--green-soft); font-weight: 600; color: var(--green-deep); }
   .live-dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: live-pulse 1.6s ease-in-out infinite; }
+  /* Health summary (option B): four plain questions, answered in a sentence. */
+  .hs { display: flex; flex-direction: column; gap: calc(6 * var(--u)); }
+  .hs-list { margin: 0; padding: calc(2 * var(--u)) calc(10 * var(--u)); list-style: none; }
+  .hs-row { display: flex; align-items: center; gap: calc(7 * var(--u)); padding: calc(9 * var(--u)) 0; border-top: 1px solid var(--ink-100); }
+  .hs-row:first-child { border-top: 0; }
+  .hs-dot { flex: none; align-self: flex-start; width: 10px; height: 10px; margin-top: 5px; border-radius: 50%; background: var(--ink-300); }
+  .hs-row.ok .hs-dot { background: var(--green); }
+  .hs-row.warn .hs-dot { background: var(--rose); }
+  .hs-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .hs-text b { font-size: var(--fs-5); font-weight: 600; }
+  .hs-row.warn .hs-text b { color: var(--rose-text); }
+  .hs-text > span { font-size: var(--fs-3); line-height: 1.5; color: var(--ink-500); }
+  .hs-adv { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; padding: 4px 0; border: 0; background: none; font-size: var(--fs-2); color: var(--ink-500); }
+  .hs-adv:hover { color: var(--ink); text-decoration: underline; }
+  .hs-adv svg { width: 14px; height: 14px; }
+
+  /* No internet (option C): dark notice in the panel's lower-left corner. */
+  .net-off { position: fixed; z-index: 40; bottom: calc(14 * var(--u)); left: calc(125 * var(--u) + 12 * var(--u)); display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 24px); padding: 9px 10px 9px 12px; border-radius: 10px; background: var(--ink); font-size: 13px; color: #fff; animation: cf-pop 0.2s ease-out; }
+  &:has(.rail.is-slim) .net-off { left: calc(40 * var(--u) + 12 * var(--u)); }
+  .net-off > svg { width: 18px; height: 18px; }
+  .net-off button { flex: none; padding: 4px 10px; border: 1px solid var(--ink-600); border-radius: 7px; background: var(--charcoal); font-size: 12px; font-weight: 500; color: #fff; }
+  .net-off button:hover:not(:disabled) { background: var(--ink-800); }
   .ctabs .tab-alerts { display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--rose); font-size: 11px; font-style: normal; font-weight: 700; color: #fff; }
 
   /* Processes tab: Task Manager's list in the gauge and big-card slots. */
@@ -650,8 +672,14 @@
   .ld-frame * { transition: none !important; }
   .ld-frame .cf-back, .ld-frame .cf { animation: none; }
   .ld-frame .live-dot::before { animation: none; }
+  .ld-frame .net-off { animation: none; }
 }
 @media (max-width: 860px) {
+  .ld-frame .net-off, .ld-frame:has(.rail.is-slim) .net-off { left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); }
+  .ld-frame .net-off span { flex: 1; }
+  .ld-frame .hs-row { flex-wrap: wrap; }
+  .ld-frame .hs-text { flex-basis: calc(100% - 10px - 7 * var(--u)); }
+  .ld-frame .hs-row .bk { margin-left: calc(10px + 7 * var(--u)); }
   .ld-frame .al-wrap { grid-template-columns: minmax(0, 1fr); }
   .ld-frame .proc-card { grid-column: auto; }
 }

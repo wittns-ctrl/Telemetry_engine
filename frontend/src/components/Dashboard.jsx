@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Check, Flame, ListTree } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Bell, Check, Flame, HeartPulse, ListTree, WifiOff } from "lucide-react";
 import {
   fetchDeviceAlerts,
   fetchDevices,
@@ -9,6 +9,7 @@ import {
   telemetrySocketUrl,
 } from "../services/api";
 import { DashboardAlerts } from "./DashboardAlerts";
+import { HealthSummary } from "./HealthSummary";
 import { GROUPS, READING_COUNT, valueOf, maxOf, statusOf, display, show, isCharted, healthOf } from "./readings";
 import { Card, Chip, Stat, Pill, Ring, Gauge, Tabs, Seg, LineGraph, Modal, Promo, Empty } from "./ui";
 import { DeviceMap } from "./DeviceMap";
@@ -56,6 +57,10 @@ function useTelemetry(period, onAlerts) {
   const [state, setState] = useState({ status: "loading", live: false });
   const onAlertsRef = useRef(onAlerts);
   onAlertsRef.current = onAlerts;
+  // "Try again" and the browser's "online" event: fetch now and reconnect
+  // without waiting for the next scheduled attempt.
+  const reloadRef = useRef(() => {});
+  const reconnectRef = useRef(() => {});
 
   useEffect(() => {
     let cancelled = false;
@@ -94,9 +99,11 @@ function useTelemetry(period, onAlerts) {
           return { ...prev, history: [...older, ...live] };
         });
       } catch (error) {
-        if (!cancelled) setState({ status: "error", error });
+        // Offline after the first load: keep showing the last readings.
+        if (!cancelled) setState((prev) => (prev.snapshot ? prev : { status: "error", error }));
       }
     };
+    reloadRef.current = () => load(true);  // the history may have failed too
     load(true);
     // A safety net only: live updates arrive over the socket below and are
     // added to the history, so the history isn't downloaded again each time.
@@ -151,15 +158,82 @@ function useTelemetry(period, onAlerts) {
         retry = setTimeout(connect, Math.min(30000, 1000 * 2 ** attempts++));
       };
     };
+    reconnectRef.current = () => {
+      if (disposed || ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
+      clearTimeout(retry);
+      attempts = 0;
+      connect().catch(() => {});
+    };
     connect();
     return () => {
       disposed = true;
       clearTimeout(retry);
+      reconnectRef.current = () => {};
       ws?.close();
     };
   }, [deviceId, period]);
 
-  return state;
+  const retryNow = useCallback(() => {
+    reloadRef.current();
+    reconnectRef.current();
+  }, []);
+
+  return { ...state, retryNow };
+}
+
+// How long the live connection may be down before the dashboard says so; a
+// short drop reconnects on its own and isn't worth a notice.
+const OFFLINE_AFTER_MS = 8000;
+
+/**
+ * True when live monitoring is off because of the connection: the browser
+ * reports no network, or the live connection has been down a while (Wi-Fi
+ * with no internet still counts as "online" to the browser).
+ */
+function useOffline(live, retryNow) {
+  const [online, setOnline] = useState(() => navigator.onLine !== false);
+  const [stalled, setStalled] = useState(false);
+
+  useEffect(() => {
+    const on = () => { setOnline(true); retryNow(); };
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, [retryNow]);
+
+  useEffect(() => {
+    if (live) {
+      setStalled(false);
+      return undefined;
+    }
+    const timer = setTimeout(() => setStalled(true), OFFLINE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [live]);
+
+  return !online || stalled;
+}
+
+/** Option C: a dark notice in the corner asking for an internet connection. */
+function OfflineNotice({ onRetry }) {
+  const [trying, setTrying] = useState(false);
+  useEffect(() => {
+    if (!trying) return undefined;
+    const timer = setTimeout(() => setTrying(false), 3000);
+    return () => clearTimeout(timer);
+  }, [trying]);
+  return (
+    <div className="net-off" role="status">
+      <WifiOff strokeWidth={2} aria-hidden="true" />
+      <span>No internet. Connect for live monitoring.</span>
+      <button type="button" onClick={() => { setTrying(true); onRetry(); }} disabled={trying}>
+        {trying ? "Trying…" : "Try again"}
+      </button>
+    </div>
+  );
 }
 
 /** A reading's values over the period, with a time label for each point. */
@@ -295,13 +369,16 @@ function TopProcesses({ processes }) {
 
 export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
   // The tab can be chosen from outside (the alert pop-up opens "Alerts").
-  const [ownTab, setOwnTab] = useState("cpu");
+  const [ownTab, setOwnTab] = useState("summary");
   const tab = tabProp ?? ownTab;
   const setTab = onTabChange ?? setOwnTab;
   const [period, setPeriod] = useState("24h");
   const [detail, setDetail] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const data = useTelemetry(period, (incoming) => setAlerts((prev) => mergeAlerts(prev, incoming)));
+  // With no PC set up there's no live connection to miss.
+  const offline = useOffline(data.live || data.status === "empty", data.retryNow);
+  const notice = offline && <OfflineNotice onRetry={data.retryNow} />;
 
   // Open alerts for the device; the live connection keeps them current.
   const deviceId = data.device?.id;
@@ -330,11 +407,32 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
             </Empty>
           )}
         </Card>
+        {notice}
       </div>
     );
   }
 
   const { snapshot, device, live } = data;
+
+  const status = (
+    <span className="sub r">
+      {live && <span className="live-dot">Live</span>}
+      {device.device_name}
+      {tab === "storage" && snapshot.storage?.[0]?.device_name ? ` · ${snapshot.storage[0].device_name}` : ""}
+      {` · updated ${timeAgo(snapshot.timestamp)}`}
+    </span>
+  );
+
+  // The first view: four plain questions; the tabs are the advanced details.
+  if (tab === "summary") {
+    return (
+      <div className="page">
+        <div className="row ac wrap">{status}</div>
+        <HealthSummary snapshot={snapshot} alerts={alerts} onOpenTab={setTab} />
+        {notice}
+      </div>
+    );
+  }
 
   const tabs = (
     <div className="row ac wrap">
@@ -343,6 +441,7 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
         value={tab}
         onChange={setTab}
         items={[
+          { id: "summary", label: "Summary", icon: HeartPulse },
           ...GROUPS.map((g) => ({ id: g.id, label: g.label, icon: g.icon, count: g.readings.length })),
           {
             id: "alerts",
@@ -352,12 +451,7 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
           },
         ]}
       />
-      <span className="sub r">
-        {live && <span className="live-dot">Live</span>}
-        {device.device_name}
-        {tab === "storage" && snapshot.storage?.[0]?.device_name ? ` · ${snapshot.storage[0].device_name}` : ""}
-        {` · updated ${timeAgo(snapshot.timestamp)}`}
-      </span>
+      {status}
     </div>
   );
 
@@ -366,6 +460,7 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
       <div className="page">
         {tabs}
         <DashboardAlerts device={device} alerts={alerts} onAlertsChange={setAlerts} readingCount={READING_COUNT} />
+        {notice}
       </div>
     );
   }
@@ -493,6 +588,7 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
           onNavigate={onNavigate}
         />
       )}
+      {notice}
     </div>
   );
 }
