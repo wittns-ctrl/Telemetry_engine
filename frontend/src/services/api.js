@@ -1,5 +1,24 @@
 export const API_BASE = (import.meta.env.VITE_API_BASE || "http://localhost:8000").replace(/\/$/, "");
 
+export const NETWORK_ERROR_MESSAGE =
+  "Couldn't reach Lectio's server. Check your internet connection and try again in a moment.";
+
+/**
+ * Every request in this file goes through here. When the server can't be
+ * reached at all, the browser only says "Failed to fetch"; replace that with
+ * a message people understand. Still a TypeError, so callers can detect it.
+ */
+async function fetch(url, options) {
+  try {
+    return await window.fetch(url, options);
+  } catch (err) {
+    if (err?.name === "AbortError") throw err;
+    const friendly = new TypeError(NETWORK_ERROR_MESSAGE);
+    friendly.network = true;
+    throw friendly;
+  }
+}
+
 // The Windows agent, served by the API itself (app/api/v1/agent_download.py).
 // VITE_AGENT_DOWNLOAD_URL points the buttons somewhere else instead.
 export const AGENT_DOWNLOAD_URL = import.meta.env.VITE_AGENT_DOWNLOAD_URL || `${API_BASE}/api/v1/agent/download`;

@@ -15,7 +15,7 @@ def prod(**overrides):
         FRONTEND_URL="https://app.lectio.example",
         SECRET_KEY=GOOD_SECRET,
         GOOGLE_CLIENT_ID=None, GOOGLE_CLIENT_SECRET=None, GOOGLE_REDIRECT_URI=None,
-        RATE_LIMIT_ENABLED=True,
+        RATE_LIMIT_ENABLED=True, EMAIL_FROM="Lectio <alerts@lectio.example>",
         GEMINI_API_KEY="key", REDIS_URL="redis://redis:6379/0",
     )
     values.update(overrides)
@@ -100,3 +100,9 @@ async def test_the_api_refuses_to_start_in_unsafe_production(monkeypatch):
     with pytest.raises(UnsafeConfiguration):
         async with lifespan(app):
             pass
+
+
+@pytest.mark.parametrize("sender", ["me@gmail.com", "Lectio <Someone@Outlook.com>"])
+def test_free_mailbox_sender_is_refused(sender):
+    errors, _ = review(prod(EMAIL_FROM=sender), email_configured=True)
+    assert any("EMAIL_FROM" in e for e in errors)

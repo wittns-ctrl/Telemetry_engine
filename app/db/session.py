@@ -41,20 +41,20 @@ DOCUMENT_MODELS = [
 ]
 
 
-async def _migrate_device_indexes(db):
+async def _migrate_device_indexes(db, collections=None):
     """Replace the old unique+sparse ingest_key_hash index with the partial one.
 
     Beanie won't change options on an existing index of the same name, so drop
     the old form and let init_beanie recreate it from the Device model.
     """
-    if "devices" not in await db.list_collection_names():
+    if "devices" not in (collections if collections is not None else await db.list_collection_names()):
         return
     old = (await db["devices"].index_information()).get("ingest_key_hash_1")
     if old and "partialFilterExpression" not in old:
         await db["devices"].drop_index("ingest_key_hash_1")
 
 
-async def _migrate_telemetry_ttl_index(db):
+async def _migrate_telemetry_ttl_index(db, collections=None):
     """Make telemetry_snapshots.timestamp_1 a TTL index with the configured retention.
 
     Older databases have a plain timestamp index, which never deleted anything,
@@ -64,18 +64,18 @@ async def _migrate_telemetry_ttl_index(db):
     MongoDB then removes readings past the retention period on its own.
     """
     coll = TelemetrySnapshotDocument.Settings.name
-    if coll not in await db.list_collection_names():
+    if coll not in (collections if collections is not None else await db.list_collection_names()):
         return
     current = (await db[coll].index_information()).get(TELEMETRY_TIMESTAMP_INDEX)
     if current and current.get("expireAfterSeconds") != telemetry_retention_seconds():
         await db[coll].drop_index(TELEMETRY_TIMESTAMP_INDEX)
 
 
-async def _drop_redundant_telemetry_indexes(db):
+async def _drop_redundant_telemetry_indexes(db, collections=None):
     """Drop single-field user_id/device_id indexes on readings: user_device_time
     covers every query on them, and each extra index slows every upload."""
     coll = TelemetrySnapshotDocument.Settings.name
-    if coll not in await db.list_collection_names():
+    if coll not in (collections if collections is not None else await db.list_collection_names()):
         return
     existing = await db[coll].index_information()
     for name in TELEMETRY_DROPPED_INDEXES:
@@ -85,8 +85,11 @@ async def _drop_redundant_telemetry_indexes(db):
 
 
 async def migrate_indexes(db):
-    await _migrate_device_indexes(db)
-    await _drop_redundant_telemetry_indexes(db)
+    # One collection listing for all the checks: each round trip to the
+    # database can take seconds on a slow connection, and startup waits on them.
+    collections = set(await db.list_collection_names())
+    await _migrate_device_indexes(db, collections)
+    await _drop_redundant_telemetry_indexes(db, collections)
     # Summaries first: a shorter raw retention (the TTL change below) lets
     # MongoDB delete older readings soon after, so build them while they exist.
     from app.services.rollups import backfill_from_raw
@@ -95,7 +98,7 @@ async def migrate_indexes(db):
     except PyMongoError as e:
         logger.error("Couldn't build the telemetry summaries from stored readings; keeping raw retention as is: %s", e)
         return
-    await _migrate_telemetry_ttl_index(db)
+    await _migrate_telemetry_ttl_index(db, collections)
 
 
 logger = logging.getLogger(__name__)

@@ -19,13 +19,9 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str | None = None
     GOOGLE_REDIRECT_URI: str | None = None
 
-    # SMTP settings
-    SMTP_HOST: str | None = None
-    SMTP_PORT: int = 587
-    SMTP_USERNAME: str | None = None
-    SMTP_PASSWORD: str | None = None
-    SMTP_FROM_EMAIL: str | None = None
-    SMTP_USE_TLS: bool = True
+    # Email through Resend (https://resend.com)
+    RESEND_API_KEY: str | None = None
+    EMAIL_FROM: str | None = None  # e.g. "Lectio <alerts@yourdomain.com>", on a domain verified in Resend
 
     # Optional URL that receives a POST for every threshold-breach alert
     ALERT_WEBHOOK_URL: str | None = None

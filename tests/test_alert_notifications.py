@@ -20,7 +20,7 @@ from app.services.email import email_service
 
 @pytest.fixture
 def notifications_on(monkeypatch):
-    """Alert emails on, SMTP 'configured', and the email send replaced by a mock."""
+    """Alert emails on, email 'configured', and the email send replaced by a mock."""
     monkeypatch.setattr(settings, "ALERT_EMAILS_ENABLED", True)
     monkeypatch.setattr(settings, "ALERT_EMAIL_MIN_SEVERITY", "WARNING")
     monkeypatch.setattr(settings, "ALERT_EMAIL_COOLDOWN_MINUTES", 30)
@@ -116,7 +116,7 @@ async def test_an_invalid_minimum_severity_falls_back_to_warning(notifications_o
     notifications_on.assert_awaited_once()
 
 
-async def test_no_email_when_smtp_is_not_configured(notifications_on, test_device):
+async def test_no_email_when_email_is_not_configured(notifications_on, test_device):
     with patch.object(email_service, "is_configured", return_value=False):
         await alert_notifier.notify(await new_alert(test_device))
 
@@ -179,7 +179,7 @@ async def test_a_failed_send_leaves_the_alert_unmarked(notifications_on, test_de
 
 
 async def test_an_error_while_sending_is_swallowed(notifications_on, test_device):
-    notifications_on.side_effect = RuntimeError("smtp exploded")
+    notifications_on.side_effect = RuntimeError("email exploded")
 
     await alert_notifier.notify(await new_alert(test_device))  # must not raise
 
@@ -315,25 +315,65 @@ async def test_the_alert_email_escapes_user_controlled_text():
     assert "https://lectio.example/app?x=1&y=2" in sent["text"]
 
 
-async def test_smtp_delivery_runs_with_a_timeout_and_tls():
-    from unittest.mock import MagicMock
+def _resend(handler):
+    """email_service configured for Resend, with its HTTP calls answered by handler."""
+    import httpx
 
-    server = MagicMock()
-    smtp = MagicMock()
-    smtp.return_value.__enter__.return_value = server
+    real_client = httpx.AsyncClient
 
-    with patch.object(email_service, "is_configured", return_value=True), \
-         patch.object(email_service, "smtp_host", "smtp.example.test"), \
-         patch.object(email_service, "smtp_port", 587), \
-         patch.object(email_service, "smtp_username", "user"), \
-         patch.object(email_service, "smtp_password", "pass"), \
-         patch.object(email_service, "smtp_from_email", "alerts@example.test"), \
-         patch.object(email_service, "use_tls", True), \
-         patch("app.services.email.smtplib.SMTP", smtp):
+    def client(**kwargs):
+        return real_client(transport=httpx.MockTransport(handler), **kwargs)
+
+    return patch.multiple(email_service, api_key="re_test_key", from_email="Lectio <alerts@example.test>"),         patch("app.services.email.httpx.AsyncClient", client)
+
+
+async def test_email_is_sent_through_resend():
+    import json
+    import httpx
+
+    seen = {}
+
+    def handler(request: httpx.Request):
+        seen.update(url=str(request.url), auth=request.headers["Authorization"], body=json.loads(request.content))
+        return httpx.Response(200, json={"id": "email-1"})
+
+    settings_patch, client_patch = _resend(handler)
+    with settings_patch, client_patch:
         ok = await email_service.send_email("a@example.com", "Subject", "<p>Hi</p>", "Hi")
 
     assert ok is True
-    smtp.assert_called_once_with("smtp.example.test", 587, timeout=15)
-    server.starttls.assert_called_once()
-    server.login.assert_called_once_with("user", "pass")
-    server.send_message.assert_called_once()
+    assert seen["url"] == "https://api.resend.com/emails"
+    assert seen["auth"] == "Bearer re_test_key"
+    assert seen["body"] == {"from": "Lectio <alerts@example.test>", "to": ["a@example.com"],
+                            "subject": "Subject", "html": "<p>Hi</p>", "text": "Hi"}
+
+
+async def test_a_resend_refusal_is_logged_not_raised(caplog):
+    import httpx
+
+    def handler(request):
+        return httpx.Response(403, json={"name": "validation_error", "message": "The example.test domain is not verified."})
+
+    settings_patch, client_patch = _resend(handler)
+    with settings_patch, client_patch:
+        ok = await email_service.send_email("a@example.com", "Subject", "<p>Hi</p>")
+
+    assert ok is False
+    assert "domain is not verified" in caplog.text and "EMAIL_FROM" in caplog.text
+
+
+async def test_resend_unreachable_returns_false():
+    import httpx
+
+    def handler(request):
+        raise httpx.ConnectTimeout("timed out")
+
+    settings_patch, client_patch = _resend(handler)
+    with settings_patch, client_patch:
+        assert await email_service.send_email("a@example.com", "Subject", "<p>Hi</p>") is False
+
+
+async def test_no_resend_key_means_not_configured():
+    with patch.multiple(email_service, api_key=None, from_email="alerts@example.test"):
+        assert email_service.is_configured() is False
+        assert await email_service.send_email("a@example.com", "Subject", "<p>Hi</p>") is False
