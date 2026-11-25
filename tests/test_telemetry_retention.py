@@ -8,6 +8,7 @@ from pymongo import ASCENDING
 from app.core.config import Settings, settings
 from app.db.session import migrate_indexes
 from app.models.telemetry import (
+    TELEMETRY_DROPPED_INDEXES,
     TELEMETRY_TIMESTAMP_INDEX,
     TelemetrySnapshotDocument,
     telemetry_retention_seconds,
@@ -104,3 +105,29 @@ async def test_readings_past_retention_are_removed(mock_mongo_client, test_user,
 
     left = await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.device_id == test_device.id).to_list()
     assert [s.sensor_id for s in left] == ["sensor_fresh"]
+
+
+# --- The single-field user_id / device_id indexes (covered by user_device_time)
+
+def test_model_has_no_single_field_user_or_device_index():
+    keys = []
+    for index in TelemetrySnapshotDocument.Settings.indexes:
+        keys.append(list(index.document["key"]) if hasattr(index, "document") else [index])
+    assert ["user_id"] not in keys and ["device_id"] not in keys
+    assert ["user_id", "device_id", "timestamp"] in keys
+
+
+async def test_app_database_has_no_single_field_user_or_device_index(mock_mongo_client):
+    names = set(await TelemetrySnapshotDocument.get_pymongo_collection().index_information())
+    assert not names & set(TELEMETRY_DROPPED_INDEXES)
+    assert "user_device_time" in names
+
+
+async def test_migration_drops_the_old_single_field_indexes(fresh_db):
+    await fresh_db[COLL].create_index([("user_id", ASCENDING)], name="user_id_1")
+    await fresh_db[COLL].create_index([("device_id", ASCENDING)], name="device_id_1")
+    await fresh_db[COLL].create_index([("user_id", ASCENDING), ("device_id", ASCENDING), ("timestamp", -1)], name="user_device_time")
+    await migrate_indexes(fresh_db)
+    names = set(await _indexes(fresh_db))
+    assert not names & {"user_id_1", "device_id_1"}
+    assert "user_device_time" in names

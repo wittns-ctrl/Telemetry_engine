@@ -9,6 +9,9 @@ from app.core.config import settings
 
 # The TTL index on telemetry_snapshots.timestamp (see TelemetrySnapshotDocument).
 TELEMETRY_TIMESTAMP_INDEX = "timestamp_1"
+# Single-field indexes older databases have on telemetry_snapshots, covered by
+# user_device_time and dropped by app.db.session.
+TELEMETRY_DROPPED_INDEXES = ("user_id_1", "device_id_1")
 
 
 def telemetry_retention_seconds() -> int:
@@ -188,8 +191,11 @@ class TelemetrySnapshotDocument(Document):
     TELEMETRY_RETENTION_DAYS after its timestamp (TTL index below). All queries
     enforce multi-tenant isolation through user_id and device_id filtering.
     """
-    device_id: Indexed(PydanticObjectId, description="Reference to the Device")
-    user_id: Indexed(PydanticObjectId, description="Reference to the User for tenant isolation")
+    # Not indexed on their own: every query filters by user (and device), which
+    # the user_device_time index below serves; a separate index on each only
+    # slowed every upload down. app.db.session drops them from older databases.
+    device_id: PydanticObjectId = Field(..., description="Reference to the Device")
+    user_id: PydanticObjectId = Field(..., description="Reference to the User for tenant isolation")
     # Indexed by the TTL index in Settings, not here: MongoDB allows one index
     # per key pattern, and a plain one would block the TTL options.
     timestamp: datetime = Field(..., description="Telemetry collection timestamp (UTC)")
@@ -213,8 +219,6 @@ class TelemetrySnapshotDocument(Document):
     class Settings:
         name = "telemetry_snapshots"
         indexes = [
-            "user_id",
-            "device_id",
             # Every dashboard read: one device's readings, newest first.
             IndexModel(
                 [("user_id", ASCENDING), ("device_id", ASCENDING), ("timestamp", DESCENDING)],

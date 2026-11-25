@@ -15,6 +15,7 @@ from app.models.audit_log import AuditLog
 from app.models.telemetry import (
     Device,
     TelemetrySnapshotDocument,
+    TELEMETRY_DROPPED_INDEXES,
     TELEMETRY_TIMESTAMP_INDEX,
     telemetry_retention_seconds,
 )
@@ -70,8 +71,22 @@ async def _migrate_telemetry_ttl_index(db):
         await db[coll].drop_index(TELEMETRY_TIMESTAMP_INDEX)
 
 
+async def _drop_redundant_telemetry_indexes(db):
+    """Drop single-field user_id/device_id indexes on readings: user_device_time
+    covers every query on them, and each extra index slows every upload."""
+    coll = TelemetrySnapshotDocument.Settings.name
+    if coll not in await db.list_collection_names():
+        return
+    existing = await db[coll].index_information()
+    for name in TELEMETRY_DROPPED_INDEXES:
+        if name in existing:
+            await db[coll].drop_index(name)
+            logger.info("Dropped the redundant index %s on %s", name, coll)
+
+
 async def migrate_indexes(db):
     await _migrate_device_indexes(db)
+    await _drop_redundant_telemetry_indexes(db)
     # Summaries first: a shorter raw retention (the TTL change below) lets
     # MongoDB delete older readings soon after, so build them while they exist.
     from app.services.rollups import backfill_from_raw

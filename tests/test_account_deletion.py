@@ -16,6 +16,7 @@ from app.models.fix import FixRequest, FixStatus
 from app.models.metric import Metrics
 from app.models.password_reset import PasswordReset
 from app.models.refresh_token import RefreshToken
+from app.models.rollup import TelemetryRollupDocument
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.user import User, UserRole
 
@@ -50,6 +51,7 @@ async def make_user_with_data(email: str) -> User:
         user_id=user.id, device_id=device.id, timestamp=now,
         sensor_id=device.system_uuid, collection_duration_ms=10.0,
     ).insert()
+    await _summary(user, device, now)
     await AnomalyAlertDocument(
         user_id=user.id, device_id=device.id, rule_name="CPU_OVERHEATING_CRITICAL",
         severity=AlertSeverity.CRITICAL, metric_name="cpu_core_temperature_c",
@@ -64,12 +66,22 @@ async def make_user_with_data(email: str) -> User:
     return user
 
 
+async def _summary(user: User, device: Device, now: datetime) -> None:
+    start = now.replace(minute=0, second=0, microsecond=0)
+    await TelemetryRollupDocument(
+        user_id=user.id, device_id=device.id, granularity="hour", start=start, readings=1,
+        sums={"cpu__core_temperature_c": 50.0}, n={"cpu__core_temperature_c": 1},
+        expires_at=start + timedelta(days=90),
+    ).insert()
+
+
 async def counts_for(user: User) -> dict:
     uid, oid = str(user.id), user.id
     return {
         "user": await User.find(User.id == oid).count(),
         "devices": await Device.find(Device.user_id == oid).count(),
         "readings": await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.user_id == oid).count(),
+        "summaries": await TelemetryRollupDocument.find(TelemetryRollupDocument.user_id == oid).count(),
         "alerts": await AnomalyAlertDocument.find(AnomalyAlertDocument.user_id == oid).count(),
         "metrics": await Metrics.find(Metrics.user_id == uid).count(),
         "sessions": await RefreshToken.find(RefreshToken.user_id == uid).count(),
@@ -151,17 +163,20 @@ async def test_delete_device_removes_its_readings_and_alerts_only(full_db, async
         user_id=user.id, device_id=kept.id, timestamp=datetime.now(timezone.utc),
         sensor_id=kept.system_uuid, collection_duration_ms=10.0,
     ).insert()
+    await _summary(user, kept, datetime.now(timezone.utc))
 
     response = await async_client.delete(f"/api/v1/devices/{doomed.id}", headers=bearer(user))
 
     assert response.status_code == 204
     assert await Device.get(doomed.id) is None
     assert await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.device_id == doomed.id).count() == 0
+    assert await TelemetryRollupDocument.find(TelemetryRollupDocument.device_id == doomed.id).count() == 0
     assert await AnomalyAlertDocument.find(AnomalyAlertDocument.device_id == doomed.id).count() == 0
     assert await FixRequest.find(FixRequest.device_id == doomed.id).count() == 0
     # The other machine on this account, and the account itself, are untouched.
     assert await Device.get(kept.id) is not None
     assert await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.device_id == kept.id).count() == 1
+    assert await TelemetryRollupDocument.find(TelemetryRollupDocument.device_id == kept.id).count() == 1
     assert (await counts_for(user))["metrics"] == 1
     # Another account is untouched.
     assert all(n == 1 for n in (await counts_for(other)).values())
