@@ -61,6 +61,25 @@ func (e *StatusError) Retryable() bool {
 	return e.Code >= 500 || e.Code == http.StatusTooManyRequests || e.Code == http.StatusRequestTimeout
 }
 
+// RefusesData reports whether the server judged the data itself unacceptable
+// (malformed, too large, failed validation), so sending it again can never
+// work. Only these answers may make the agent throw readings away: any other
+// refusal (404 from a wrong or outdated server, 403 from a proxy, ...) says
+// nothing about the readings, which are kept and sent once it's sorted out.
+func (e *StatusError) RefusesData() bool {
+	return e.Code == http.StatusBadRequest || e.Code == http.StatusRequestEntityTooLarge || e.Code == http.StatusUnprocessableEntity
+}
+
+// WrongEndpoint reports answers meaning this server doesn't have the API
+// path at all: usually a wrong API address, or a server older than the agent.
+func (e *StatusError) WrongEndpoint() bool {
+	switch e.Code {
+	case http.StatusNotFound, http.StatusMethodNotAllowed, http.StatusGone, http.StatusNotImplemented:
+		return true
+	}
+	return false
+}
+
 type Client struct {
 	base      string
 	http      *http.Client
@@ -89,6 +108,9 @@ func New(base, version string, timeout time.Duration) *Client {
 }
 
 func (c *Client) SetDeviceKey(key string) { c.deviceKey = key }
+
+// Base is the API address this client talks to (for log messages).
+func (c *Client) Base() string { return c.base }
 
 func (c *Client) do(ctx context.Context, method, path string, query url.Values, body any, form url.Values,
 	auth string, want int, out any) error {

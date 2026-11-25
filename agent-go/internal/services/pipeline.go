@@ -13,6 +13,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync/atomic"
 	"time"
@@ -163,9 +164,20 @@ func (u *Uploader) Run(ctx context.Context) {
 		case err != nil:
 			wait := u.backoff.Next()
 			u.Stats.UploadFailures.Add(1)
-			u.Stats.SetError(err)
-			u.Log.Warn("upload failed; will retry", "error", err, "retry_in", wait.Round(time.Second).String(),
-				"attempt", u.backoff.Attempts())
+			var status *api.StatusError
+			if errors.As(err, &status) && status.WrongEndpoint() {
+				// Usually a wrong API address, or a server older than this agent.
+				err = fmt.Errorf("the server at %s has no upload endpoint (HTTP %d): check the API address "+
+					"(lectio-agent config) or update the server; readings are kept and will be sent: %w",
+					u.Client.Base(), status.Code, err)
+				u.Stats.SetError(err)
+				u.Log.Error("upload endpoint not found; keeping readings", "error", err,
+					"retry_in", wait.Round(time.Second).String(), "attempt", u.backoff.Attempts())
+			} else {
+				u.Stats.SetError(err)
+				u.Log.Warn("upload failed; will retry", "error", err, "retry_in", wait.Round(time.Second).String(),
+					"attempt", u.backoff.Attempts())
+			}
 			if !retry.Sleep(ctx, wait) {
 				return
 			}
@@ -194,9 +206,11 @@ func (u *Uploader) sendOnce(ctx context.Context) (sent bool, err error) {
 	}
 	resp, err := u.Client.SendBatch(ctx, batch)
 	var status *api.StatusError
-	if errors.As(err, &status) && !status.Retryable() {
-		// The server will never accept these (e.g. 422 invalid data). Keeping
-		// them would block everything behind them, so drop them and say so.
+	if errors.As(err, &status) && status.RefusesData() {
+		// The server judged these readings invalid (400/413/422), so it will
+		// never accept them; keeping them would block everything behind them.
+		// Any other refusal (e.g. 404 from a wrong or outdated server) says
+		// nothing about the readings: they stay buffered and are retried.
 		u.Stats.Rejected.Add(int64(len(batch.Readings)))
 		u.Log.Error("the server refused readings; dropping them", "readings", len(batch.Readings), "error", err)
 		u.remove(items)

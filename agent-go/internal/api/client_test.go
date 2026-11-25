@@ -58,6 +58,19 @@ func TestStatusesAreClassified(t *testing.T) {
 	}
 }
 
+func TestOnlyDataErrorsRefuseData(t *testing.T) {
+	for code, want := range map[int][2]bool{ // {RefusesData, WrongEndpoint}
+		400: {true, false}, 413: {true, false}, 422: {true, false},
+		403: {false, false}, 404: {false, true}, 405: {false, true}, 410: {false, true},
+		429: {false, false}, 500: {false, false}, 501: {false, true}, 503: {false, false},
+	} {
+		e := &StatusError{Code: code}
+		if e.RefusesData() != want[0] || e.WrongEndpoint() != want[1] {
+			t.Errorf("%d: RefusesData=%v WrongEndpoint=%v, want %v", code, e.RefusesData(), e.WrongEndpoint(), want)
+		}
+	}
+}
+
 func TestReceivedCountIsChecked(t *testing.T) {
 	c := server(t, func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)

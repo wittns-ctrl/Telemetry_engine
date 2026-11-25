@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -145,6 +146,58 @@ func TestRefusedReadingsDontBlockTheQueue(t *testing.T) {
 	}
 	if buf.Stats().Batches != 0 || u.Stats.Rejected.Load() != 2 {
 		t.Fatal("refused readings not dropped")
+	}
+}
+
+func TestWrongServerKeepsReadingsAndRetries(t *testing.T) {
+	// A wrong API address or an outdated server answers 404/405/410: that says
+	// nothing about the readings, so none may be thrown away. (An old server
+	// without /ingest/batch once cost a real PC 100 minutes of readings.)
+	for _, code := range []int32{404, 405, 410, 403} {
+		f, c := newFake(t)
+		u, buf := uploader(t, c)
+		put(buf, 3)
+		f.status.Store(code)
+		if sent, err := u.sendOnce(context.Background()); sent || err == nil {
+			t.Fatalf("%d: expected an error to retry, got sent=%v err=%v", code, sent, err)
+		}
+		if buf.Stats().Batches != 3 || u.Stats.Rejected.Load() != 0 {
+			t.Fatalf("%d: readings dropped", code)
+		}
+	}
+}
+
+func TestReadingsHeldOnAWrongServerArriveOnceItIsRight(t *testing.T) {
+	f, c := newFake(t)
+	u, buf := uploader(t, c)
+	put(buf, 4)
+	f.status.Store(404)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go u.Run(ctx)
+	waitFor(t, "a failed attempt", func() bool { return u.Stats.UploadFailures.Load() >= 2 })
+	if err := u.Stats.LastError(); err == "" || !strings.Contains(err, "no upload endpoint") || !strings.Contains(err, "HTTP 404") {
+		t.Fatalf("expected a clear wrong-address error, got %q", err)
+	}
+	f.status.Store(0) // the right server answers again
+	waitFor(t, "the held readings", func() bool { return f.count() == 4 })
+	if buf.Stats().Batches != 0 || u.Stats.Rejected.Load() != 0 {
+		t.Fatal("expected every held reading sent, none dropped")
+	}
+}
+
+func TestOnlyInvalidDataIsDropped(t *testing.T) {
+	for _, code := range []int32{400, 413, 422} {
+		f, c := newFake(t)
+		u, buf := uploader(t, c)
+		put(buf, 2)
+		f.status.Store(code)
+		if sent, err := u.sendOnce(context.Background()); !sent || err != nil {
+			t.Fatalf("%d: %v %v", code, sent, err)
+		}
+		if buf.Stats().Batches != 0 || u.Stats.Rejected.Load() != 2 {
+			t.Fatalf("%d: invalid readings not dropped", code)
+		}
 	}
 }
 
