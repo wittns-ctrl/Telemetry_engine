@@ -14,7 +14,7 @@ from app.core.cache import cache
 from app.services.ingest_processor import ingest_processor
 from app.api.v1 import system as system_router
 from app.core.websocket_manager import manager
-from app.core import shared
+from app.core import shared, startup_checks
 from app.api.v1 import auth as auth_router
 from app.api.v1 import google_auth as google_auth_router
 from app.api.v1 import websocket as websocket_router
@@ -29,6 +29,8 @@ from app.api.v1 import fixes as fixes_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Before anything else: in production, refuse to run with unsafe settings.
+    startup_checks.enforce()
     await init_db()
     ingest_processor.start(settings.INGEST_WORKERS, settings.INGEST_QUEUE_SIZE)
     # With REDIS_URL: receive live updates sent by the other API processes.
