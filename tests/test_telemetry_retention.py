@@ -8,13 +8,15 @@ from pymongo import ASCENDING
 from app.core.config import Settings, settings
 from app.db.session import migrate_indexes
 from app.models.telemetry import (
+    TELEMETRY_DROPPED_INDEXES,
     TELEMETRY_TIMESTAMP_INDEX,
     TelemetrySnapshotDocument,
     telemetry_retention_seconds,
 )
 
 COLL = TelemetrySnapshotDocument.Settings.name
-THIRTY_DAYS = 30 * 24 * 60 * 60
+# The configured retention (default 7 days; .env may change it).
+RETENTION = telemetry_retention_seconds()
 
 
 @pytest.fixture
@@ -27,9 +29,10 @@ async def _indexes(db):
     return await db[COLL].index_information()
 
 
-def test_default_retention_is_30_days():
-    assert settings.TELEMETRY_RETENTION_DAYS == 30
-    assert telemetry_retention_seconds() == THIRTY_DAYS
+def test_default_retention_is_7_days():
+    # Raw readings for a week; longer graphs use the hourly and daily summaries.
+    assert Settings.model_fields["TELEMETRY_RETENTION_DAYS"].default == 7
+    assert telemetry_retention_seconds() == settings.TELEMETRY_RETENTION_DAYS * 24 * 60 * 60
 
 
 def test_retention_must_be_at_least_one_day():
@@ -44,14 +47,14 @@ def test_model_declares_one_ttl_index_on_timestamp():
     ]
     assert len(ttl) == 1
     assert ttl[0].document["name"] == TELEMETRY_TIMESTAMP_INDEX
-    assert ttl[0].document["expireAfterSeconds"] == THIRTY_DAYS
+    assert ttl[0].document["expireAfterSeconds"] == RETENTION
     # No second, plain timestamp index: MongoDB allows one per key pattern.
     assert "timestamp" not in [i for i in TelemetrySnapshotDocument.Settings.indexes if isinstance(i, str)]
 
 
 async def test_app_database_gets_the_ttl_index(mock_mongo_client):
     info = await mock_mongo_client.telemetry_test[COLL].index_information()
-    assert info[TELEMETRY_TIMESTAMP_INDEX]["expireAfterSeconds"] == THIRTY_DAYS
+    assert info[TELEMETRY_TIMESTAMP_INDEX]["expireAfterSeconds"] == RETENTION
 
 
 async def test_migration_drops_an_old_plain_timestamp_index(fresh_db):
@@ -62,7 +65,7 @@ async def test_migration_drops_an_old_plain_timestamp_index(fresh_db):
 
 async def test_migration_drops_a_ttl_index_with_another_retention(fresh_db):
     await fresh_db[COLL].create_index(
-        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=7 * 24 * 3600
+        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=RETENTION + 24 * 3600
     )
     await migrate_indexes(fresh_db)
     assert TELEMETRY_TIMESTAMP_INDEX not in await _indexes(fresh_db)
@@ -70,15 +73,15 @@ async def test_migration_drops_a_ttl_index_with_another_retention(fresh_db):
 
 async def test_migration_keeps_a_matching_ttl_index(fresh_db):
     await fresh_db[COLL].create_index(
-        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=THIRTY_DAYS
+        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=RETENTION
     )
     await migrate_indexes(fresh_db)
-    assert (await _indexes(fresh_db))[TELEMETRY_TIMESTAMP_INDEX]["expireAfterSeconds"] == THIRTY_DAYS
+    assert (await _indexes(fresh_db))[TELEMETRY_TIMESTAMP_INDEX]["expireAfterSeconds"] == RETENTION
 
 
 async def test_migration_follows_a_changed_retention_setting(fresh_db, monkeypatch):
     await fresh_db[COLL].create_index(
-        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=THIRTY_DAYS
+        [("timestamp", ASCENDING)], name=TELEMETRY_TIMESTAMP_INDEX, expireAfterSeconds=RETENTION
     )
     monkeypatch.setattr(settings, "TELEMETRY_RETENTION_DAYS", 90)
     await migrate_indexes(fresh_db)
@@ -102,3 +105,29 @@ async def test_readings_past_retention_are_removed(mock_mongo_client, test_user,
 
     left = await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.device_id == test_device.id).to_list()
     assert [s.sensor_id for s in left] == ["sensor_fresh"]
+
+
+# --- The single-field user_id / device_id indexes (covered by user_device_time)
+
+def test_model_has_no_single_field_user_or_device_index():
+    keys = []
+    for index in TelemetrySnapshotDocument.Settings.indexes:
+        keys.append(list(index.document["key"]) if hasattr(index, "document") else [index])
+    assert ["user_id"] not in keys and ["device_id"] not in keys
+    assert ["user_id", "device_id", "timestamp"] in keys
+
+
+async def test_app_database_has_no_single_field_user_or_device_index(mock_mongo_client):
+    names = set(await TelemetrySnapshotDocument.get_pymongo_collection().index_information())
+    assert not names & set(TELEMETRY_DROPPED_INDEXES)
+    assert "user_device_time" in names
+
+
+async def test_migration_drops_the_old_single_field_indexes(fresh_db):
+    await fresh_db[COLL].create_index([("user_id", ASCENDING)], name="user_id_1")
+    await fresh_db[COLL].create_index([("device_id", ASCENDING)], name="device_id_1")
+    await fresh_db[COLL].create_index([("user_id", ASCENDING), ("device_id", ASCENDING), ("timestamp", -1)], name="user_device_time")
+    await migrate_indexes(fresh_db)
+    names = set(await _indexes(fresh_db))
+    assert not names & {"user_id_1", "device_id_1"}
+    assert "user_device_time" in names

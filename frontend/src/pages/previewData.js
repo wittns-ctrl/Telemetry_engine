@@ -16,13 +16,3 @@ export const SAMPLE_SNAPSHOT = {
   ram: { usage_percent: 92, used_gb: 29.4, total_gb: 32, pagefile_usage_percent: 34, whea_error_count: 0 },
   power_vrm: { vrm_temperature_c: 52, psu_12v_voltage: 12.08, chipset_temperature_c: 44, chassis_fan_speed_rpm: 900 },
 };
-
-// Countries shaded on the preview's map.
-export const SAMPLE_PLACES = [
-  { country: "Rwanda", health: 89 },
-  { country: "United Kingdom", health: 85 },
-  { country: "Kenya", health: 82 },
-  { country: "Germany", health: 80 },
-  { country: "Nigeria", health: 79 },
-  { country: "South Africa", health: 76 },
-];

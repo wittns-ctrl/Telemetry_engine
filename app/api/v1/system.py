@@ -26,6 +26,7 @@ from app.core.websocket_manager import manager
 from app.db import session
 from app.models.user import User
 from app.services.ingest_processor import ingest_processor
+from app.core import shared
 
 logger = logging.getLogger(__name__)
 
@@ -51,12 +52,15 @@ async def ping_database() -> tuple[bool, float | None]:
 
 @router.get("/health", summary="Health Check")
 async def health_check():
-    ok, ping_ms = await ping_database()
+    (ok, ping_ms), redis_ok = await asyncio.gather(ping_database(), shared.ping())
     body = {
         "status": "healthy" if ok else "degraded",
         "service": "Lectio",
         "database": "ok" if ok else "unreachable",
         "database_ping_ms": ping_ms,
+        # "memory": this process only; "redis": shared with other API processes.
+        # A Redis outage doesn't fail the check: the API keeps working per process.
+        "shared_state": shared.mode() if redis_ok is not False else "redis (unreachable, using memory)",
         "active_websockets": manager.total_connections(),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
@@ -96,6 +100,7 @@ async def db_stats():
         "pool": session.pool_stats.snapshot(settings.MONGO_MAX_POOL_SIZE),
         "queries": session.command_stats.snapshot(),
         "cache": cache.info(),
+        "shared_state": {"mode": shared.mode(), "redis_reachable": await shared.ping()},
         "ingest": ingest_processor.info(),
         "server": await _server_status(),
     }

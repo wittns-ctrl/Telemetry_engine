@@ -22,6 +22,7 @@ from app.core.cache import cache, latest_key, ownership_key
 from app.core.config import settings
 from app.models.user import User
 from app.models.telemetry import Device, TelemetrySnapshotDocument
+from app.services import rollups
 from app.services.storage_service import StorageService
 from app.schemas.api import (
     TelemetryHistoryResponse,
@@ -98,6 +99,31 @@ async def sampled_history(
     return [TelemetrySnapshotDocument.model_validate(row) for row in rows]
 
 
+# Graphs over more than this read the summaries instead of raw readings.
+RAW_GRAPH_SPAN = timedelta(hours=26)
+
+
+def _aware(ts: datetime) -> datetime:
+    return ts if ts.tzinfo else ts.replace(tzinfo=timezone.utc)
+
+
+async def summary_history(
+    user: User, device_oid: PydanticObjectId, start: datetime, end: datetime, points: int
+) -> List[TelemetrySnapshotDocument]:
+    """
+    At most `points` readings for start..end, newest first, built from the
+    hourly summaries (daily ones beyond the hourly retention): each point is
+    the average over a run of neighbouring hours, shaped like a reading.
+    """
+    granularity = "hour" if _aware(start) >= datetime.now(timezone.utc) - timedelta(days=settings.ROLLUP_HOURLY_RETENTION_DAYS) else "day"
+    docs = await rollups.read(user.id, device_oid, granularity, _aware(start), _aware(end))
+    out = []
+    for summary in reversed(rollups.thin(docs, points)):
+        snap = rollups.as_snapshot(summary, granularity)
+        out.append(TelemetrySnapshotDocument(id=PydanticObjectId(), user_id=user.id, device_id=device_oid, **snap))
+    return out
+
+
 @router.get(
     "/metrics/history",
     response_model=TelemetryHistoryResponse,
@@ -124,10 +150,13 @@ async def get_historical_metrics(
         user_id = str(current_user.id)
         device_oid = parse_device_id(device_id)
 
-        if points and start_time:
-            query = sampled_history(
-                current_user, device_oid, start_time, end_time or datetime.now(timezone.utc), points
-            )
+        end = end_time or datetime.now(timezone.utc)
+        if points and start_time and _aware(end) - _aware(start_time) > RAW_GRAPH_SPAN:
+            # Longer than a day: the summaries (raw readings are only kept a week,
+            # and reading a month of them would be slow).
+            query = summary_history(current_user, device_oid, start_time, end, points)
+        elif points and start_time:
+            query = sampled_history(current_user, device_oid, start_time, end, points)
         else:
             query = StorageService.get_historical_telemetry(
                 user_id=user_id,
@@ -224,22 +253,23 @@ async def get_latest_metrics(
 
 
 # Readings the trend endpoint summarises, by the ids the frontend uses
-# (frontend/src/components/readings.js), and where each is stored.
+# (frontend/src/components/readings.js), and their summary key
+# (app/services/rollups.py).
 TREND_FIELDS = {
-    "cpu_util": "cpu.utilization_percent",
-    "cpu_core_temp": "cpu.core_temperature_c",
-    "cpu_package_temp": "cpu.package_temperature_c",
-    "cpu_clock": "cpu.clock_speed_ghz",
-    "gpu_util": "gpu.utilization_percent",
-    "gpu_core_temp": "gpu.core_temperature_c",
-    "gpu_hotspot": "gpu.hotspot_temperature_c",
-    "ram_usage": "ram.usage_percent",
-    "ram_pagefile": "ram.pagefile_usage_percent",
-    "vrm_temp": "power_vrm.vrm_temperature_c",
-    "psu_12v": "power_vrm.psu_12v_voltage",
+    "cpu_util": "cpu__utilization_percent",
+    "cpu_core_temp": "cpu__core_temperature_c",
+    "cpu_package_temp": "cpu__package_temperature_c",
+    "cpu_clock": "cpu__clock_speed_ghz",
+    "gpu_util": "gpu__utilization_percent",
+    "gpu_core_temp": "gpu__core_temperature_c",
+    "gpu_hotspot": "gpu__hotspot_temperature_c",
+    "ram_usage": "ram__usage_percent",
+    "ram_pagefile": "ram__pagefile_usage_percent",
+    "vrm_temp": "power_vrm__vrm_temperature_c",
+    "psu_12v": "power_vrm__psu_12v_voltage",
 }
 
-# period -> (how far back, bucket format for $dateToString, bucket name)
+# period -> (how far back, bucket label format, granularity)
 TREND_PERIODS = {
     "24h": (timedelta(hours=24), "%Y-%m-%dT%H:00:00Z", "hour"),
     "7d": (timedelta(days=7), "%Y-%m-%dT00:00:00Z", "day"),
@@ -252,8 +282,8 @@ TREND_PERIODS = {
     summary="Readings Averaged per Hour or Day",
     description=(
         "Average and peak of the main readings for one device, per hour over the last 24 hours "
-        "or per day over the last 7 or 30 days, worked out in the database so the whole period "
-        "counts (not just the newest snapshots). Buckets with no snapshots are left out."
+        "or per day over the last 7 or 30 days, read from the hourly and daily summaries kept "
+        "as readings arrive, so the whole period counts. Buckets with no readings are left out."
     ),
 )
 async def get_metrics_trend(
@@ -262,26 +292,11 @@ async def get_metrics_trend(
     current_user: User = Depends(get_current_user),
 ):
     device_oid = parse_device_id(device_id)
-    span, bucket_format, bucket = TREND_PERIODS[period]
+    span, label_format, bucket = TREND_PERIODS[period]
     start = datetime.now(timezone.utc) - span
 
-    group: dict = {
-        "_id": {"$dateToString": {"format": bucket_format, "date": "$timestamp"}},
-        "count": {"$sum": 1},
-    }
-    for reading_id, path in TREND_FIELDS.items():
-        group[f"{reading_id}__avg"] = {"$avg": f"${path}"}
-        group[f"{reading_id}__max"] = {"$max": f"${path}"}
-
-    pipeline = [
-        {"$match": {"user_id": current_user.id, "device_id": device_oid, "timestamp": {"$gte": start}}},
-        {"$group": group},
-        {"$sort": {"_id": 1}},
-    ]
     try:
-        rows = await while_checking_owner(
-            current_user, device_oid, TelemetrySnapshotDocument.aggregate(aggregation_pipeline=pipeline).to_list()
-        )
+        rows = await while_checking_owner(current_user, device_oid, rollups.read(current_user.id, device_oid, bucket, start))
     except HTTPException:
         raise
     except Exception as e:
@@ -298,11 +313,11 @@ async def get_metrics_trend(
         "start": start.isoformat(),
         "buckets": [
             {
-                "start": row["_id"],
-                "count": row["count"],
+                "start": _aware(row["start"]).strftime(label_format),
+                "count": row.get("readings", 0),
                 "readings": {
-                    reading_id: {"avg": rounded(row.get(f"{reading_id}__avg")), "max": rounded(row.get(f"{reading_id}__max"))}
-                    for reading_id in TREND_FIELDS
+                    reading_id: {"avg": rounded(rollups.average(row, key)), "max": rounded((row.get("hi") or {}).get(key))}
+                    for reading_id, key in TREND_FIELDS.items()
                 },
             }
             for row in rows

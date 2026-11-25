@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
-import { MAIN_ITEMS, OTHER_ITEMS } from './components/navItems';
+import { MAIN_ITEMS, ALL_PAGES, PAGE_INTROS } from './components/navItems';
 import { PageHeader } from './components/ui';
 import './components/app.css';
 
@@ -19,6 +19,7 @@ const DevicesView = named(() => import('./components/DevicesView'), 'DevicesView
 import { AuthPage } from './components/AuthPage';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { AlertPopup } from './components/AlertPopup';
+import { AlertsModal } from './components/AlertsModal';
 import { LogOut, PenLine } from 'lucide-react';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -49,12 +50,18 @@ function App() {
 
   // Which signed-in page is open, and the Dashboard's tab (the alert pop-up opens "Alerts").
   const [activeNav, setActiveNav] = useState('dashboard');
-  const [dashboardTab, setDashboardTab] = useState('cpu');
+  const [dashboardTab, setDashboardTab] = useState('summary');
 
   // Settings reports unsaved edits here, so leaving the page asks first.
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [pendingNav, setPendingNav] = useState(null);
+  const [alertsOpen, setAlertsOpen] = useState(false);  // the alerts window (bell, menu, pop-up)
   const goTo = useCallback((id) => {
+    // "Alerts" isn't a page: it opens the alerts window over the current one.
+    if (id === 'alerts') {
+      setAlertsOpen(true);
+      return;
+    }
     if (settingsDirty && activeNav === 'settings' && id !== 'settings') {
       setPendingNav(id);
       return;
@@ -134,7 +141,7 @@ function App() {
     navigate("/signin");
   };
 
-  const activeItem = [...MAIN_ITEMS, ...OTHER_ITEMS].find((item) => item.id === activeNav) || MAIN_ITEMS[0];
+  const activeItem = ALL_PAGES.find((item) => item.id === activeNav) || MAIN_ITEMS[0];
 
   if (!sessionChecked) return null;
 
@@ -157,16 +164,24 @@ function App() {
             user={user}
             expanded={sidebarExpanded}
             onToggle={toggleSidebar}
+            alertsCount={openAlerts}
           />
 
           <div className="panel">
-            <PageHeader title={activeItem.label} alertsCount={openAlerts} onNavigate={goTo} />
+            <PageHeader
+              title={activeItem.label}
+              intro={PAGE_INTROS[activeNav]}
+              alertsCount={openAlerts}
+              onNavigate={goTo}
+              onBell={() => setAlertsOpen(true)}
+              onDashboardTab={(tab) => { setDashboardTab(tab); goTo('dashboard'); }}
+            />
 
             <main className="page" aria-label={activeItem.label}>
               <Suspense fallback={<div className="empty" role="status">Loading…</div>}>
                 {activeNav === 'dashboard' && <Dashboard onNavigate={goTo} tab={dashboardTab} onTabChange={setDashboardTab} />}
 
-                {activeNav === 'devices' && <DevicesView />}
+                {activeNav === 'devices' && <DevicesView onOpenAlerts={() => setAlertsOpen(true)} />}
 
                 {activeNav === 'metrics' && <MetricsStudioView onNavigate={goTo} />}
 
@@ -191,7 +206,9 @@ function App() {
           </div>
 
 
-          <AlertPopup onSeeAll={() => { setDashboardTab('alerts'); goTo('dashboard'); }} />
+          <AlertPopup onSeeAll={() => setAlertsOpen(true)} />
+
+          {alertsOpen && <AlertsModal onClose={() => setAlertsOpen(false)} />}
 
           <ConfirmDialog
             open={isLogoutOpen}

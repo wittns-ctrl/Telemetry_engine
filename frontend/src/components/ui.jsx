@@ -1,73 +1,140 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import { Search, Bell, X } from "lucide-react";
 import { cx, fmt } from "./format";
+import { fetchDevices } from "../services/api";
+import { GROUPS } from "./readings";
+import { ALL_PAGES } from "./navItems";
 
 // Shared pieces of the signed-in app: the page header, cards, pills, the line
 // graph and the dialog. Styles live in app.css.
 
 // ------------------------------------------------------------ page header
 
-// What the header search understands: a query matching any word opens that page.
-const SEARCH_TARGETS = [
-  { id: "dashboard", words: ["dashboard", "home", "overview"] },
-  { id: "devices", words: ["device", "devices", "pc", "computer", "machine", "windows", "storage", "disk", "drive", "agent"] },
-  { id: "sensors", words: ["sensor", "sensors"] },
-  { id: "live", words: ["alert", "alerts", "live", "monitor", "stream", "simulator", "notification", "notifications"] },
-  { id: "analytics", words: ["analytics", "trend", "trends", "history", "report", "totals"] },
-  { id: "metrics", words: ["metric", "metrics", "studio", "reading", "readings", "send", "ingest"] },
-  { id: "settings", words: ["setting", "settings", "account", "profile", "password", "email"] },
-  { id: "help", words: ["help", "support", "faq", "guide", "question"] },
-];
+// What the header search finds: the user's PCs by name, the open alerts,
+// readings (opening that part of the dashboard) and pages. Matching is by the
+// start of any word, so "temp", "drive" or "office" all work.
+const PAGE_WORDS = {
+  dashboard: ["home", "dashboard", "overview", "summary", "health", "status"],
+  devices: ["pc", "pcs", "computer", "device", "devices", "machine", "agent", "download", "install", "add"],
+  help: ["help", "support", "faq", "guide", "question", "how"],
+  live: ["live", "monitor", "real", "time", "stream"],
+  analytics: ["analytics", "trend", "trends", "history", "week", "month"],
+  sensors: ["sensor", "sensors"],
+  metrics: ["metric", "metrics", "studio", "raw", "data", "ingest"],
+  settings: ["setting", "settings", "account", "profile", "password", "email", "notification", "notifications"],
+};
+const GROUP_WORDS = {
+  cpu: ["cpu", "processor", "temperature", "temp", "hot", "heat", "fan", "speed", "busy", "load"],
+  gpu: ["gpu", "graphics", "video", "card", "vram"],
+  ram: ["ram", "memory", "errors", "whea", "pagefile"],
+  storage: ["storage", "disk", "drive", "ssd", "nvme", "space", "full", "smart"],
+  board: ["power", "supply", "psu", "voltage", "motherboard", "vrm", "board"],
+  network: ["network", "internet", "wifi", "download", "upload", "speed"],
+  processes: ["programs", "processes", "apps", "running", "task", "tasks"],
+};
+const ALERT_WORDS = ["alert", "alerts", "problem", "problems", "warning", "warnings", "issue", "issues", "fix", "wrong"];
 
-function searchTarget(query) {
-  const words = query.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-  if (!words.length) return null;
-  const hit = SEARCH_TARGETS.find((t) => words.some((w) => t.words.some((tw) => tw.startsWith(w))));
-  return hit ? hit.id : null;
+const wordsOf = (text) => String(text).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+function searchResults(query, devices) {
+  const q = wordsOf(query);
+  if (!q.length) return [];
+  const hits = (words) => q.every((w) => words.some((t) => t.startsWith(w)));
+  const out = [];
+  devices.forEach((d) => {
+    if (hits(wordsOf(d.device_name))) out.push({ key: `pc-${d.id}`, kind: "PC", label: d.device_name, go: { nav: "devices" } });
+  });
+  if (hits(ALERT_WORDS)) out.push({ key: "alerts", kind: "Alerts", label: "Open alerts", go: { nav: "alerts" } });
+  GROUPS.forEach((g) => {
+    const words = [...GROUP_WORDS[g.id] || [], ...wordsOf(g.label), ...g.readings.flatMap((r) => wordsOf(r.label))];
+    if (hits(words)) out.push({ key: `g-${g.id}`, kind: "Readings", label: `${g.label} readings`, go: { tab: g.id } });
+  });
+  ALL_PAGES.forEach((p) => {
+    if (hits([...(PAGE_WORDS[p.id] || []), ...wordsOf(p.label)])) out.push({ key: `p-${p.id}`, kind: "Page", label: p.label, go: { nav: p.id } });
+  });
+  return out.slice(0, 7);
 }
 
-/** Page title on the left; page search and the alerts bell on the right. */
-export function PageHeader({ title, alertsCount = 0, onNavigate }) {
+/** Page title on the left; search and the alerts bell on the right. */
+export function PageHeader({ title, intro, alertsCount = 0, onNavigate, onBell, onDashboardTab }) {
   const [query, setQuery] = useState("");
-  const [missed, setMissed] = useState("");
+  const [devices, setDevices] = useState(null);
+  const [focused, setFocused] = useState(false);
+  const listId = useId();
+
+  // PC names are fetched the first time someone uses the search.
+  const loadDevices = () => {
+    if (devices) return;
+    setDevices([]);
+    fetchDevices().then((res) => setDevices(res?.devices || [])).catch(() => {});
+  };
+
+  const results = searchResults(query, devices || []);
+  const open = focused && query.trim().length > 0;
+
+  const pick = (r) => {
+    setQuery("");
+    setFocused(false);
+    if (r.go.tab) onDashboardTab?.(r.go.tab);
+    else onNavigate?.(r.go.nav);
+  };
+
   return (
     <header className="top">
-      <h1 className="title">{title}</h1>
+      <div className="title-wrap">
+        <h1 className="title">{title}</h1>
+        {intro && <p className="page-intro">{intro}</p>}
+      </div>
       <div className="tools">
         <form
           className="search"
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
-            const target = searchTarget(query);
-            if (target) {
-              setMissed("");
-              setQuery("");
-              onNavigate?.(target);
-            } else {
-              setMissed(query.trim());
-            }
+            if (results[0]) pick(results[0]);
           }}
+          onFocus={() => { setFocused(true); loadDevices(); }}
+          onBlur={(e) => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setFocused(false); }}
+          onKeyDown={(e) => { if (e.key === "Escape") { setQuery(""); setFocused(false); } }}
         >
           <Search strokeWidth={2} aria-hidden="true" />
           <input
             type="search"
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setMissed(""); }}
-            placeholder="Search devices, metrics, alerts..."
-            aria-label="Search pages"
-            aria-describedby={missed ? "page-search-miss" : undefined}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search your PCs, alerts, readings…"
+            aria-label="Search your PCs, alerts, readings and pages"
+            aria-controls={open ? listId : undefined}
           />
         </form>
-        {missed && (
-          <span id="page-search-miss" className="search-miss" role="status">
-            Nothing matches “{missed}”. Try devices, alerts or settings.
-          </span>
+        {open && (
+          <div
+            id={listId}
+            className="search-results"
+            onBlur={(e) => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setFocused(false); }}
+          >
+            <p className="sr-only" role="status">{results.length ? `${results.length} results` : "No results"}</p>
+            {results.length ? (
+              <ul>
+                {results.map((r) => (
+                  <li key={r.key}>
+                    <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => pick(r)}>
+                      <span>{r.label}</span>
+                      <small>{r.kind}</small>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="search-none">Nothing matches “{query.trim()}”. Try a PC's name, “temperature” or “alerts”.</p>
+            )}
+          </div>
         )}
         <button
           type="button"
           className="bell"
-          onClick={() => onNavigate?.("live")}
+          onClick={() => (onBell ? onBell() : onNavigate?.("alerts"))}
+          aria-haspopup="dialog"
           aria-label={alertsCount ? `Alerts (${alertsCount})` : "Alerts"}
           title="Alerts"
         >

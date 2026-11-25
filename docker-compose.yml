@@ -1,10 +1,16 @@
-# Run the API with its own MongoDB:
+# Run the API with its own MongoDB and Redis, as several API containers
+# behind a load balancer:
 #
-#   docker compose up --build
+#   docker compose up --build                      # 2 API containers
+#   docker compose up --build --scale api=4        # or any number
 #
-# Reads secrets and settings from .env (copy .env.example). MONGODB_URI and
-# MONGO_DB from .env are overridden here so the API talks to the bundled
-# database; drop the `mongo` service and those two lines to use Atlas instead.
+# The API is reached through nginx on http://localhost:8000. Reads secrets and
+# settings from .env (copy .env.example). MONGODB_URI, MONGO_DB and REDIS_URL
+# from .env are overridden here so the API talks to the bundled services;
+# drop the `mongo` service and those lines to use Atlas instead.
+#
+# Every API container shares rate limits, alert state and live updates
+# through Redis, so any of them can serve any request.
 
 services:
   api:
@@ -13,8 +19,12 @@ services:
     environment:
       MONGODB_URI: mongodb://mongo:27017
       MONGO_DB: lectio
-    ports:
-      - "8000:8000"
+      REDIS_URL: redis://redis:6379/0
+      # The API containers aren't published; only nginx can reach them, so
+      # trust its X-Forwarded-For for each visitor's IP (rate limits).
+      FORWARDED_ALLOW_IPS: "*"
+    deploy:
+      replicas: 2
     volumes:
       # The Windows agent served at /api/v1/agent/download. Replace
       # downloads/lectio-agent.exe to publish a new one; no rebuild needed.
@@ -22,6 +32,29 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    # Only short-lived shared state lives here; nothing needs saving to disk.
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   mongo:

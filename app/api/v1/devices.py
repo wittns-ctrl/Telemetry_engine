@@ -16,6 +16,7 @@ from beanie import PydanticObjectId
 
 from app.api.deps import get_current_user
 from app.models.user import User, UserRole
+from app.models.rollup import TelemetryRollupDocument
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument
 from app.models.fix import FixRequest
@@ -310,6 +311,10 @@ async def delete_device(
         readings = await TelemetrySnapshotDocument.find(
             TelemetrySnapshotDocument.device_id == device_oid,
             TelemetrySnapshotDocument.user_id == current_user.id,
+        ).delete()
+        await TelemetryRollupDocument.find(
+            TelemetryRollupDocument.device_id == device_oid,
+            TelemetryRollupDocument.user_id == current_user.id,
         ).delete()
         alerts = await AnomalyAlertDocument.find(
             AnomalyAlertDocument.device_id == device_oid,
