@@ -27,9 +27,10 @@ async def _indexes(db):
     return await db[COLL].index_information()
 
 
-def test_default_retention_is_30_days():
-    assert settings.TELEMETRY_RETENTION_DAYS == 30
-    assert telemetry_retention_seconds() == THIRTY_DAYS
+def test_default_retention_is_7_days():
+    # Raw readings for a week; longer graphs use the hourly and daily summaries.
+    assert Settings.model_fields["TELEMETRY_RETENTION_DAYS"].default == 7
+    assert telemetry_retention_seconds() == settings.TELEMETRY_RETENTION_DAYS * 24 * 60 * 60
 
 
 def test_retention_must_be_at_least_one_day():

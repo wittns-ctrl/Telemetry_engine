@@ -20,6 +20,7 @@ from app.models.telemetry import (
 )
 from app.models.alert import AnomalyAlertDocument
 from app.models.fix import FixRequest
+from app.models.rollup import TelemetryRollupDocument
 
 
 # Every Beanie document the app uses. The test suite's in-memory database
@@ -33,6 +34,7 @@ DOCUMENT_MODELS = [
     AuditLog,
     Device,
     TelemetrySnapshotDocument,
+    TelemetryRollupDocument,
     AnomalyAlertDocument,
     FixRequest,
 ]
@@ -70,6 +72,14 @@ async def _migrate_telemetry_ttl_index(db):
 
 async def migrate_indexes(db):
     await _migrate_device_indexes(db)
+    # Summaries first: a shorter raw retention (the TTL change below) lets
+    # MongoDB delete older readings soon after, so build them while they exist.
+    from app.services.rollups import backfill_from_raw
+    try:
+        await backfill_from_raw(db)
+    except PyMongoError as e:
+        logger.error("Couldn't build the telemetry summaries from stored readings; keeping raw retention as is: %s", e)
+        return
     await _migrate_telemetry_ttl_index(db)
 
 

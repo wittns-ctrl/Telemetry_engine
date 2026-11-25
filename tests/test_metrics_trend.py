@@ -1,19 +1,23 @@
-"""GET /api/v1/metrics/trend: readings averaged per hour or day, worked out in the database."""
+"""GET /api/v1/metrics/trend: readings averaged per hour or day, from the summaries kept as readings arrive."""
 
 from datetime import datetime, timedelta, timezone
 
 from app.models.telemetry import CPUMetrics, RAMMetrics, TelemetrySnapshotDocument
+from app.services import rollups
 
 
 async def _snapshot(device, *, ago, cpu_util=None, cpu_temp=None, ram=None):
-    await TelemetrySnapshotDocument(
+    """Store a reading and fold it into the summaries, as an upload does."""
+    doc = TelemetrySnapshotDocument(
         user_id=device.user_id,
         device_id=device.id,
         timestamp=datetime.now(timezone.utc) - ago,
         sensor_id="agent-test",
         cpu=CPUMetrics(utilization_percent=cpu_util, core_temperature_c=cpu_temp),
         ram=RAMMetrics(usage_percent=ram),
-    ).insert()
+    )
+    await doc.insert()
+    await rollups.add_readings(device.user_id, device.id, [doc.model_dump()])
 
 
 def _url(device, period="24h"):

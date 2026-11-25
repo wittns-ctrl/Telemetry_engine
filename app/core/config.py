@@ -35,9 +35,12 @@ class Settings(BaseSettings):
     ALERT_EMAIL_MIN_SEVERITY: str = "WARNING"  # INFO, WARNING or CRITICAL
     ALERT_EMAIL_COOLDOWN_MINUTES: int = 30  # at most one email per device and rule in this time
 
-    # Hardware readings older than this are deleted by MongoDB (TTL index on
-    # telemetry_snapshots.timestamp). The dashboard shows up to 30 days.
-    TELEMETRY_RETENTION_DAYS: int = Field(default=30, ge=1)
+    # Every raw reading is kept this long, then deleted by MongoDB (TTL index on
+    # telemetry_snapshots.timestamp). Longer graphs read the hourly and daily
+    # summaries (telemetry_rollups), kept for the two periods after it.
+    TELEMETRY_RETENTION_DAYS: int = Field(default=7, ge=1)
+    ROLLUP_HOURLY_RETENTION_DAYS: int = Field(default=90, ge=1)
+    ROLLUP_DAILY_RETENTION_DAYS: int = Field(default=730, ge=1)
 
     # Rate limiting
     RATE_LIMIT_ENABLED: bool = True

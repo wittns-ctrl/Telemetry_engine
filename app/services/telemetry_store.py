@@ -24,8 +24,12 @@ from app.core.cache import cache, latest_key
 from app.core.config import settings
 from app.models.telemetry import Device, TelemetrySnapshot, TelemetrySnapshotDocument
 from app.schemas.api import TelemetrySnapshotResponse
+from app.services import rollups
 
 logger = logging.getLogger(__name__)
+
+# The parts of a stored reading the summaries read.
+SUMMARY_FIELDS = {"timestamp", "cpu", "gpu", "ram", "power_vrm", "disk", "network", "storage"}
 
 DUPLICATE_KEY = 11000
 
@@ -101,8 +105,21 @@ async def store_readings(device: Device, readings: list[tuple[Optional[str], Tel
     result.duplicates += len(rejected)
     result.stored = [pair for i, pair in enumerate(pairs) if i not in rejected]
     if result.stored:
-        await remember_latest(device, result.stored[-1][0])
+        # Only readings actually stored count towards the summaries, so a
+        # resent batch is never counted twice.
+        await asyncio.gather(remember_latest(device, result.stored[-1][0]), update_summaries(device, result.stored))
     return result
+
+
+async def update_summaries(device: Device, stored: list[tuple[TelemetrySnapshotDocument, TelemetrySnapshot]]) -> None:
+    """Fold the new readings into the hourly and daily summaries. A failure is
+    logged, not raised: the readings themselves are already stored."""
+    try:
+        await rollups.add_readings(
+            device.user_id, device.id, [doc.model_dump(include=SUMMARY_FIELDS) for doc, _ in stored]
+        )
+    except Exception:
+        logger.exception("Couldn't update the summaries for device %s", device.id)
 
 
 async def remember_latest(device: Device, doc: TelemetrySnapshotDocument) -> None:

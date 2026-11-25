@@ -65,6 +65,20 @@ async def _aggregate_compat(self, *args, **kwargs):
 
 
 mongomock_motor.AsyncMongoMockCollection.aggregate = _aggregate_compat
+
+
+# pymongo 4.x passes sort= to bulk updates (UpdateOne), which mongomock's bulk
+# builder predates. The app never sets it, so it's always None: drop it.
+import mongomock.collection as _mm_collection  # noqa: E402
+
+_add_update = _mm_collection.BulkOperationBuilder.add_update
+
+
+def _add_update_compat(self, *args, sort=None, **kwargs):
+    return _add_update(self, *args, **kwargs)
+
+
+_mm_collection.BulkOperationBuilder.add_update = _add_update_compat
 from app.core.config import settings
 from app.core.security import get_password_hash, create_access_token
 from app.models.user import User, UserRole
