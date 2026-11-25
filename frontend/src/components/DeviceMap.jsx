@@ -259,7 +259,7 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
 
   return (
     <article className="card mapcard">
-      <h3>Devices by Country</h3>
+      <h3>Where your PCs are</h3>
       <p>Countries shaded by the share of each PC's readings that are within their limits.</p>
 
       {ranked.length > 0 ? (

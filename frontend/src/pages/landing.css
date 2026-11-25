@@ -451,6 +451,22 @@ html.lp-smooth { scroll-behavior: smooth; scroll-padding-top: 96px; }
 .pv-geo-zoom span + span { border-top: 1px solid #e3e3e5; }
 .pv-geo-attr { position: absolute; right: 0; bottom: 0; padding: calc(2 * var(--p)) calc(6 * var(--p)); background: rgba(255, 255, 255, 0.8); font-size: calc(9.5 * var(--p)); color: #45454c; }
 
+.pv-nav.pv-gap { margin-top: calc(18 * var(--p)); }
+/* Home: the four plain questions, as on the real summary. */
+.pv-sum { flex: 1; justify-content: space-between; padding: calc(10 * var(--p)) calc(24 * var(--p)); }
+.pv-sum-row { display: flex; align-items: flex-start; gap: calc(14 * var(--p)); padding: calc(12 * var(--p)) 0; border-top: 1px solid #ebebed; }
+.pv-sum-row:first-child { border-top: 0; }
+.pv-sum-row > i { flex: none; width: calc(11 * var(--p)); height: calc(11 * var(--p)); margin-top: calc(6 * var(--p)); border-radius: 50%; background: #b9b9bf; }
+.pv-sum-row.ok > i { background: var(--gl); }
+.pv-sum-row.warn > i { background: #ec003f; }
+.pv-sum-row b { display: block; font-size: calc(17 * var(--p)); font-weight: 600; }
+.pv-sum-row small { display: block; margin-top: calc(4 * var(--p)); font-size: calc(14 * var(--p)); line-height: 1.45; color: #5f5f68; }
+.pv-sum > u { align-self: flex-start; margin-top: calc(6 * var(--p)); font-size: calc(13 * var(--p)); text-decoration: none; color: #5f5f68; }
+.pv-alerts { flex-direction: row; align-items: center; gap: calc(16 * var(--p)); }
+.pv-alerts-ico { flex: none; width: calc(52 * var(--p)); height: calc(52 * var(--p)); display: grid; place-items: center; border-radius: 50%; background: #dcefe0; color: #176b22; }
+.pv-alerts-ico svg { width: calc(24 * var(--p)); height: calc(24 * var(--p)); }
+.pv-alerts b { display: block; font-size: calc(17 * var(--p)); font-weight: 600; }
+.pv-alerts small { display: block; margin-top: calc(4 * var(--p)); font-size: calc(13.5 * var(--p)); line-height: 1.45; color: #5f5f68; }
 .pv-low { display: grid; grid-template-columns: 1.45fr 1.55fr; gap: calc(14 * var(--p)); height: calc(150 * var(--p)); }
 .pv-pills { display: flex; flex-direction: column; gap: calc(12 * var(--p)); }
 .pv-pill { flex: 1; display: flex; align-items: center; gap: calc(14 * var(--p)); padding: 0 calc(20 * var(--p)) 0 calc(12 * var(--p)); border-radius: 999px; }

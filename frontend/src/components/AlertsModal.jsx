@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, ShieldCheck, Sparkles } from "lucide-react";
-import { fetchDevices, fetchOpenAlerts, requestDiagnosis, requestFix } from "../services/api";
+import { ArrowLeft, Check, ShieldCheck, Sparkles } from "lucide-react";
+import { closeAlert, fetchDevices, fetchOpenAlerts, requestDiagnosis, requestFix } from "../services/api";
 import { alertWords, sortAlerts } from "./alertWords";
 import { DiagnosisPanel } from "./DiagnosisPanel";
 import { FixOptions } from "./fixes";
@@ -36,7 +36,25 @@ export function AlertsModal({ onClose }) {
   const deviceOf = (a) => devices[a.device_id] || { id: a.device_id, device_name: "Your PC" };
   const open = alerts?.find((a) => a.id === openId) || null;
 
-  const back = () => { setOpenId(null); setSent(null); };
+  const back = () => { setOpenId(null); setSent(null); setCloseError(null); };
+
+  // "I've dealt with this": closes the alert. If the reading is still over
+  // its limit, Lectio raises it again later.
+  const [closing, setClosing] = useState(false);
+  const [closeError, setCloseError] = useState(null);
+  const dismiss = async (a) => {
+    setClosing(true);
+    setCloseError(null);
+    try {
+      await closeAlert(a.id);
+      setAlerts((prev) => prev.filter((x) => x.id !== a.id));
+      back();
+    } catch (err) {
+      setCloseError(err.message);
+    } finally {
+      setClosing(false);
+    }
+  };
 
   const diagnose = async (a) => {
     setDiagnosis((prev) => ({ ...prev, [a.id]: { status: "loading" } }));
@@ -81,13 +99,24 @@ export function AlertsModal({ onClose }) {
             }}
           />
         )}
-        {diagnosis[open.id] ? (
-          <DiagnosisPanel state={diagnosis[open.id]} onRetry={() => diagnose(open)} />
-        ) : (
-          <button type="button" className="bk ol am-why" onClick={() => diagnose(open)}>
-            <Sparkles strokeWidth={1.9} aria-hidden="true" /> Why is this happening?
+        {diagnosis[open.id] && <DiagnosisPanel state={diagnosis[open.id]} onRetry={() => diagnose(open)} />}
+        <div className="row ac wrap">
+          {!diagnosis[open.id] && (
+            <button type="button" className="bk ol" onClick={() => diagnose(open)}>
+              <Sparkles strokeWidth={1.9} aria-hidden="true" /> Why is this happening?
+            </button>
+          )}
+          <button
+            type="button"
+            className="bk ol"
+            onClick={() => dismiss(open)}
+            disabled={closing}
+            title="If the reading is still over its limit, Lectio raises the alert again."
+          >
+            <Check strokeWidth={2} aria-hidden="true" /> {closing ? "Closing…" : "I've dealt with this"}
           </button>
-        )}
+        </div>
+        {closeError && <p className="note w" role="alert">{closeError}</p>}
       </Modal>
     );
   }

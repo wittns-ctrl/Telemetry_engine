@@ -1,28 +1,38 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { LogOut, ChevronLeft, ChevronRight, Menu, X } from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight, ChevronDown, Menu, SlidersHorizontal, X } from 'lucide-react';
 import { LectioMark } from './LectioMark';
 import { initialsFor } from './format';
-import { MAIN_ITEMS, OTHER_ITEMS } from './navItems';
+import { MAIN_ITEMS, ADVANCED_ITEMS, OTHER_ITEMS } from './navItems';
+
+const ADVANCED_KEY = 'lectio-advanced-open';
+const loadAdvanced = () => {
+  try { return localStorage.getItem(ADVANCED_KEY) === '1'; } catch { return false; }
+};
+const saveAdvanced = (open) => {
+  try { localStorage.setItem(ADVANCED_KEY, open ? '1' : '0'); } catch { /* not remembered */ }
+};
 
 // Below this width the sidebar is a top bar with a menu button (the narrow
 // layout in app.css). What shows at each width is decided by CSS alone; this
 // is only used to close the menu when the screen becomes wide.
 const PHONE_QUERY = '(max-width: 860px)';
 
-function NavButton({ item, active, onSelect, slim }) {
+function NavButton({ item, active, onSelect, slim, count = 0 }) {
   const Icon = item.icon;
+  const name = count ? `${item.label} (${count} open)` : item.label;
   return (
     <button
       type="button"
       className={active ? 'on' : undefined}
       onClick={() => onSelect?.(item.id)}
       aria-current={active ? 'page' : undefined}
-      aria-label={slim ? item.label : undefined}
-      title={slim ? item.label : undefined}
+      aria-label={slim || count ? name : undefined}
+      title={slim ? name : undefined}
     >
-      <i aria-hidden="true"><Icon strokeWidth={1.9} /></i>
+      <i aria-hidden="true"><Icon strokeWidth={1.9} />{count > 0 && <em className="nav-dot" />}</i>
       {/* Hidden by CSS on the slim desktop rail, where aria-label names the button. */}
       <span>{item.label}</span>
+      {count > 0 && <b className="nav-count" aria-hidden="true">{count}</b>}
     </button>
   );
 }
@@ -35,8 +45,13 @@ function NavButton({ item, active, onSelect, slim }) {
  * On phones and small tablets it is a top bar with the logo and a menu button;
  * the button opens the full menu over the page.
  */
-export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout, user, expanded = true, onToggle }) => {
+export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout, user, expanded = true, onToggle, alertsCount = 0 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  // The expert pages stay folded away unless opened (or one of them is showing).
+  const [advancedOpen, setAdvancedOpen] = useState(loadAdvanced);
+  const onAdvancedPage = ADVANCED_ITEMS.some((it) => it.id === activeNav);
+  const showAdvanced = advancedOpen || onAdvancedPage;
+  const toggleAdvanced = () => setAdvancedOpen((open) => { saveAdvanced(!open); return !open; });
   const closeBtnRef = useRef(null);
 
   // While open: Escape closes it, the page behind doesn't scroll, focus moves
@@ -71,7 +86,7 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout, user,
   const slim = !expanded;
   const name = user?.full_name || user?.email?.split('@')[0] || 'Account';
   const item = (it) => (
-    <NavButton key={it.id} item={it} active={activeNav === it.id} onSelect={go} slim={slim} />
+    <NavButton key={it.id} item={it} active={activeNav === it.id} onSelect={go} slim={slim} count={it.id === 'alerts' ? alertsCount : 0} />
   );
   const Toggle = expanded ? ChevronLeft : ChevronRight;
 
@@ -115,11 +130,29 @@ export const Sidebar = ({ activeNav = 'dashboard', setActiveNav, onLogout, user,
         </button>
       )}
 
-      <h2 className="cap">Main menu</h2>
+      <h2 className="cap">Menu</h2>
       <nav className="nav" aria-label="Main menu">{MAIN_ITEMS.map(item)}</nav>
 
-      <h2 className="cap">Others</h2>
-      <nav className="nav" aria-label="Others">{OTHER_ITEMS.map(item)}</nav>
+      <nav className="nav nav-adv" aria-label="Advanced">
+        <button
+          type="button"
+          className="adv-toggle"
+          onClick={toggleAdvanced}
+          aria-expanded={showAdvanced}
+          aria-controls="nav-advanced"
+          aria-label={slim ? (showAdvanced ? 'Hide advanced pages' : 'Show advanced pages') : undefined}
+          title={slim ? 'Advanced' : undefined}
+        >
+          <i aria-hidden="true"><SlidersHorizontal strokeWidth={1.9} /></i>
+          <span>Advanced</span>
+          <ChevronDown className={`adv-chev${showAdvanced ? ' up' : ''}`} strokeWidth={2} aria-hidden="true" />
+        </button>
+        <div id="nav-advanced" className="adv-items" hidden={!showAdvanced}>
+          {ADVANCED_ITEMS.map(item)}
+        </div>
+      </nav>
+
+      <nav className="nav nav-other" aria-label="Settings">{OTHER_ITEMS.map(item)}</nav>
 
       <div className="acct">
         <h2 className="cap">User account</h2>

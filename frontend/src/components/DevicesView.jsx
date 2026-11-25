@@ -1,9 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Monitor, Plus, RefreshCw, TriangleAlert, Info, HardDrive, ChartLine, Bell, Sparkles, ChevronUp, Download, MapPin, Wrench, Check, Trash2 } from "lucide-react";
+import { Monitor, Plus, RefreshCw, HardDrive, ChartLine, Bell, Download, MapPin, Wrench, Trash2 } from "lucide-react";
 import {
   AGENT_DOWNLOAD_URL,
   fetchAgentDownloadInfo,
-  closeAlert,
   deleteDevice,
   fetchDevices,
   fetchLatestTelemetry,
@@ -12,25 +11,23 @@ import {
   updateDevice,
   telemetrySocketUrl,
   refreshAccessToken,
-  requestDiagnosis,
   fetchFixHistory,
-  requestFix,
   cancelFix,
   undoFix,
 } from "../services/api";
-import { DiagnosisPanel } from "./DiagnosisPanel";
 import { Card, Head, Chip, Ico, Empty, LineGraph, Tabs } from "./ui";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { FixHistory, FixOptions, FixStatusLine } from "./fixes";
+import { FixHistory } from "./fixes";
+import { alertWords, sortAlerts } from "./alertWords";
 import { cx, fmt, timeAgo } from "./format";
 
 const MAX_POINTS = 60;
 // Three colours far apart in lightness, so the lines stay distinct. The reading
 // tiles above the graph use the same colours: CPU black, GPU grey, Memory green.
 const LINES = [
-  { key: "ram", name: "RAM", colour: "#1c7a2e" },
-  { key: "cpu", name: "CPU", colour: "#0e0e10" },
-  { key: "gpu", name: "GPU", colour: "#8e8e96", tagText: "#0e0e10", tagBg: "#d9d9dc" },
+  { key: "ram", name: "Memory", colour: "#1c7a2e" },
+  { key: "cpu", name: "Processor", colour: "#0e0e10" },
+  { key: "gpu", name: "Graphics", colour: "#8e8e96", tagText: "#0e0e10", tagBg: "#d9d9dc" },
 ];
 
 const timeLabel = (iso) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
@@ -45,7 +42,7 @@ const pointOf = (snap) => ({
 const isOnline = (device) => Boolean(device.last_seen) && Date.now() - new Date(device.last_seen).getTime() < 120000;
 
 /** How to connect a PC: download the agent and run it. Shown when there are no devices or on "Add a device". */
-function AddDevice({ onRefresh }) {
+export function AddDevice({ onRefresh, waiting = false }) {
   // null while checking; false when this server has no agent to hand out yet.
   const [download, setDownload] = useState(null);
   useEffect(() => {
@@ -80,6 +77,11 @@ function AddDevice({ onRefresh }) {
           <RefreshCw strokeWidth={1.9} aria-hidden="true" /> I&apos;ve started the agent, refresh
         </button>
       </div>
+      {waiting && (
+        <p className="wait-line" role="status">
+          <span className="wait-dot" aria-hidden="true" /> Waiting for your PC. It appears here by itself once the agent is running.
+        </p>
+      )}
     </Card>
   );
 }
@@ -177,7 +179,7 @@ function LocationCard({ device, onSaved }) {
  * live readings on the right. Telemetry is pushed by the host agent
  * (agent/telemetry_agent.py) and streamed here over WebSocket.
  */
-export function DevicesView() {
+export function DevicesView({ onOpenAlerts }) {
   const [devices, setDevices] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(true);
   const [error, setError] = useState(null);
@@ -188,24 +190,18 @@ export function DevicesView() {
   const [history, setHistory] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [socketState, setSocketState] = useState("idle");
-  // Diagnostic reports by alert id, and which alerts have their report open.
-  const [diagnoses, setDiagnoses] = useState({});
-  const [openDiagnoses, setOpenDiagnoses] = useState({});
   const selectedIdRef = useRef(null);
 
-  // Fixes: this PC's history (the Fixes tab), which alerts have their fix
-  // options open, and the fix being undone or cancelled.
+  // Fixes: this PC's history (the Fixes tab), and the fix being undone or
+  // cancelled. Alerts themselves are handled in the alerts window.
   const [view, setView] = useState("readings");
   const [fixes, setFixes] = useState([]);
   const [fixesLoading, setFixesLoading] = useState(false);
   const [fixesError, setFixesError] = useState(null);
-  const [openFixes, setOpenFixes] = useState({});
   const [busyFixId, setBusyFixId] = useState(null);
   const [fixActionError, setFixActionError] = useState(null);
 
-  // Closing alerts by hand, and removing a device (asked first in a dialog).
-  const [closingId, setClosingId] = useState(null);
-  const [alertError, setAlertError] = useState(null);
+  // Removing a device (asked first in a dialog).
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   const wsRef = useRef(null);
@@ -265,10 +261,7 @@ export function DevicesView() {
     setSnapshot(null);
     setHistory([]);
     setAlerts([]);
-    setDiagnoses({});
-    setOpenDiagnoses({});
     setFixes([]);
-    setOpenFixes({});
     setFixesError(null);
     setFixActionError(null);
     selectedIdRef.current = selectedId;
@@ -361,20 +354,6 @@ export function DevicesView() {
     };
   }, [selectedId, pushPoint, upsertFix]);
 
-  const loadDiagnosis = useCallback(async (alertId, deviceId) => {
-    setDiagnoses((prev) => ({ ...prev, [alertId]: { status: "loading" } }));
-    let next;
-    try {
-      next = { status: "ready", report: await requestDiagnosis(alertId, deviceId) };
-    } catch (err) {
-      next = { status: "error", error: err };
-    }
-    // Drop the answer if the user has switched to another device meanwhile.
-    if (selectedIdRef.current === deviceId) {
-      setDiagnoses((prev) => ({ ...prev, [alertId]: next }));
-    }
-  }, []);
-
   // While a fix is on its way, check every few seconds in case a live update is missed.
   const pendingFix = fixes.some((f) => f.status === "queued" || f.status === "running");
   useEffect(() => {
@@ -382,13 +361,6 @@ export function DevicesView() {
     const timer = setInterval(() => loadFixes(selectedId), 5000);
     return () => clearInterval(timer);
   }, [pendingFix, selectedId, loadFixes]);
-
-  const sendFix = async (alert, { fixId }) => {
-    setFixActionError(null);
-    const fix = await requestFix(selectedId, { fixId, alertId: alert.id });
-    upsertFix(fix);
-    setOpenFixes((prev) => ({ ...prev, [alert.id]: false }));
-  };
 
   const fixAction = async (fix, action) => {
     setBusyFixId(fix.id);
@@ -403,29 +375,6 @@ export function DevicesView() {
   };
   const undo = (fix) => fixAction(fix, "undo");
   const cancel = (fix) => fixAction(fix, "cancel");
-
-  const toggleDiagnosis = (alertId) => {
-    const opening = !openDiagnoses[alertId];
-    setOpenDiagnoses((prev) => ({ ...prev, [alertId]: opening }));
-    // Reports are kept once fetched; only ask again after a failure.
-    const existing = diagnoses[alertId];
-    if (opening && (!existing || existing.status === "error")) {
-      loadDiagnosis(alertId, selectedId);
-    }
-  };
-
-  const close = async (alertId) => {
-    setClosingId(alertId);
-    setAlertError(null);
-    try {
-      await closeAlert(alertId);
-      setAlerts((prev) => prev.filter((a) => a.id !== alertId));
-    } catch (err) {
-      setAlertError(err.message);
-    } finally {
-      setClosingId(null);
-    }
-  };
 
   // Runs from the dialog; a failure shows there and the PC stays.
   const removeSelected = async () => {
@@ -492,7 +441,7 @@ export function DevicesView() {
           })}
           <button type="button" className="dash" aria-expanded={showAdd} onClick={() => setShowAdd((v) => !v)}>
             <Plus strokeWidth={2} aria-hidden="true" />
-            Add a device
+            Add a PC
           </button>
         </div>
 
@@ -563,17 +512,17 @@ export function DevicesView() {
           <>
           {!snapshot ? (
             <Card className="pad col">
-              <Empty title="No telemetry yet">
-                <span>Start the agent on this machine and its readings will appear here.</span>
+              <Empty title="No readings yet">
+                <span>Start the Lectio agent on this PC and its readings appear here within a minute.</span>
               </Empty>
             </Card>
           ) : (
             <>
               <div className="g4" style={{ gap: "calc(6 * var(--u))" }}>
-                <div className="card mini dk"><span>CPU</span><b>{fmt(cpu.utilization_percent, 0, "%")}</b><small>{fmt(cpu.package_temperature_c ?? cpu.core_temperature_c, 0, "°C")} · {fmt(cpu.clock_speed_ghz, 2, " GHz")}</small></div>
-                <div className="card mini gy"><span>GPU</span><b>{fmt(gpu.utilization_percent, 0, "%")}</b><small className="cut">{fmt(gpu.core_temperature_c, 0, "°C")}{gpu.gpu_name ? ` · ${gpu.gpu_name}` : ""}</small></div>
-                <div className="card mini gd"><span>Memory</span><b>{fmt(ram.usage_percent, 0, "%")}</b><small>{fmt(ram.used_gb, 1)} / {fmt(ram.total_gb, 1, " GB")}</small></div>
-                <div className="card mini"><span>PSU 12V</span><b>{fmt(power.psu_12v_voltage, 2, " V")}</b><small>VRM {fmt(power.vrm_temperature_c, 0, "°C")}</small></div>
+                <div className="card mini dk"><span>Processor busy</span><b>{fmt(cpu.utilization_percent, 0, "%")}</b><small>{fmt(cpu.package_temperature_c ?? cpu.core_temperature_c, 0, "°C")} · {fmt(cpu.clock_speed_ghz, 2, " GHz")}</small></div>
+                <div className="card mini gy"><span>Graphics busy</span><b>{fmt(gpu.utilization_percent, 0, "%")}</b><small className="cut">{fmt(gpu.core_temperature_c, 0, "°C")}{gpu.gpu_name ? ` · ${gpu.gpu_name}` : ""}</small></div>
+                <div className="card mini gd"><span>Memory in use</span><b>{fmt(ram.usage_percent, 0, "%")}</b><small>{fmt(ram.used_gb, 1)} / {fmt(ram.total_gb, 1, " GB")}</small></div>
+                <div className="card mini"><span>Power supply</span><b>{fmt(power.psu_12v_voltage, 2, " V")}</b><small>Should stay near 12 V</small></div>
               </div>
 
               <Card className="chart" style={{ flex: 1, minHeight: "calc(104 * var(--u))" }}>
@@ -632,60 +581,33 @@ export function DevicesView() {
               </Card>
             )}
 
-            <Card className="pad" style={{ flex: 1.5, minWidth: 0 }}>
-              <Head icon={Bell} title="Active alerts">
+            <Card className="pad col" style={{ flex: 1.5, minWidth: 0, gap: "calc(5 * var(--u))" }}>
+              <Head icon={Bell} title="Alerts">
                 {alerts.length > 0 && <Chip tone="w">{alerts.length} open</Chip>}
               </Head>
-              {alertError && <p className="note w" role="alert" style={{ marginTop: "calc(3 * var(--u))" }}>{alertError}</p>}
               {alerts.length === 0 ? (
-                <p className="txt" style={{ marginTop: "calc(5 * var(--u))" }}>No active alerts for this device.</p>
+                <p className="txt">Nothing on {selected?.device_name || "this PC"} needs a look right now.</p>
               ) : (
-                <ul style={{ listStyle: "none", marginTop: "calc(3 * var(--u))" }}>
-                  {alerts.map((a) => {
-                    const open = !!openDiagnoses[a.id];
-                    const fixOpen = !!openFixes[a.id];
-                    const latestFix = fixes.find((f) => f.alert_id === a.id && !f.is_undo);
-                    const calm = a.severity === "INFO";
-                    return (
-                      <li key={a.id} className="alert">
-                        <div className="row ac wrap">
-                          <Ico icon={calm ? Info : TriangleAlert} tone={calm ? "g" : "w"} />
-                          <span className="f1" style={{ fontWeight: 500 }}>
-                            {a.message}
-                            <span className="sub" style={{ display: "block", marginTop: "calc(1.5 * var(--u))" }}>
-                              {a.severity} · {a.rule_name} · <time dateTime={a.created_at} title={new Date(a.created_at).toLocaleString()}>{timeAgo(a.created_at)}</time>
-                            </span>
-                          </span>
-                          <span className="row ac" style={{ gap: "calc(4 * var(--u))" }}>
-                            <button type="button" className={cx("bk", fixOpen ? "ol" : "gr")} onClick={() => setOpenFixes((prev) => ({ ...prev, [a.id]: !prev[a.id] }))} aria-expanded={fixOpen}>
-                              {fixOpen ? <ChevronUp strokeWidth={2} aria-hidden="true" /> : <Wrench strokeWidth={1.9} aria-hidden="true" />}
-                              {fixOpen ? "Hide fixes" : "Fix it"}
-                            </button>
-                            <button type="button" className={cx("bk", open && "ol")} onClick={() => toggleDiagnosis(a.id)} aria-expanded={open}>
-                              {open ? <ChevronUp strokeWidth={2} aria-hidden="true" /> : <Sparkles strokeWidth={1.9} aria-hidden="true" />}
-                              {open ? "Hide diagnosis" : "Diagnose"}
-                            </button>
-                            <button
-                              type="button"
-                              className="bk ol"
-                              onClick={() => close(a.id)}
-                              disabled={closingId === a.id}
-                              title="Mark this alert as dealt with. If the reading is still over its limit, Lectio raises it again."
-                            >
-                              <Check strokeWidth={2} aria-hidden="true" />
-                              {closingId === a.id ? "Closing…" : "Close"}
-                            </button>
-                          </span>
-                        </div>
-                        {latestFix && !fixOpen && (
-                          <FixStatusLine fix={latestFix} pc={selected?.device_name} onUndo={undo} onCancel={cancel} busy={busyFixId === latestFix.id} />
-                        )}
-                        {fixOpen && selected && <FixOptions device={selected} alert={a} onFix={(choice) => sendFix(a, choice)} />}
-                        {open && <DiagnosisPanel state={diagnoses[a.id]} onRetry={() => loadDiagnosis(a.id, selectedId)} />}
-                      </li>
-                    );
-                  })}
-                </ul>
+                <>
+                  <ul className="am-list">
+                    {sortAlerts(alerts).slice(0, 3).map((a) => {
+                      const words = alertWords(a, selected?.device_name);
+                      return (
+                        <li key={a.id} className="am-row">
+                          <span className={cx("am-dot", a.severity === "INFO" && "info")} aria-hidden="true" />
+                          <div className="am-text">
+                            <b>{words.title}</b>
+                            <span className="sub">{words.detail} · {timeAgo(a.created_at)}</span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {alerts.length > 3 && <p className="sub">and {alerts.length - 3} more</p>}
+                  <button type="button" className="bk" style={{ alignSelf: "flex-start" }} onClick={() => onOpenAlerts?.()}>
+                    <Wrench strokeWidth={1.9} aria-hidden="true" /> See and fix
+                  </button>
+                </>
               )}
             </Card>
           </div>

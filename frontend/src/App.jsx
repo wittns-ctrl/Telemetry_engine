@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
-import { MAIN_ITEMS, OTHER_ITEMS } from './components/navItems';
+import { MAIN_ITEMS, ALL_PAGES, PAGE_INTROS } from './components/navItems';
 import { PageHeader } from './components/ui';
 import './components/app.css';
 
@@ -55,7 +55,13 @@ function App() {
   // Settings reports unsaved edits here, so leaving the page asks first.
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [pendingNav, setPendingNav] = useState(null);
+  const [alertsOpen, setAlertsOpen] = useState(false);  // the alerts window (bell, menu, pop-up)
   const goTo = useCallback((id) => {
+    // "Alerts" isn't a page: it opens the alerts window over the current one.
+    if (id === 'alerts') {
+      setAlertsOpen(true);
+      return;
+    }
     if (settingsDirty && activeNav === 'settings' && id !== 'settings') {
       setPendingNav(id);
       return;
@@ -70,7 +76,6 @@ function App() {
 
   // Open alerts across all the user's PCs, for the bell in the header.
   const [openAlerts, setOpenAlerts] = useState(0);
-  const [alertsOpen, setAlertsOpen] = useState(false);  // the bell's window
   useEffect(() => {
     if (!isAuthenticated) return undefined;
     let cancelled = false;
@@ -136,7 +141,7 @@ function App() {
     navigate("/signin");
   };
 
-  const activeItem = [...MAIN_ITEMS, ...OTHER_ITEMS].find((item) => item.id === activeNav) || MAIN_ITEMS[0];
+  const activeItem = ALL_PAGES.find((item) => item.id === activeNav) || MAIN_ITEMS[0];
 
   if (!sessionChecked) return null;
 
@@ -159,16 +164,24 @@ function App() {
             user={user}
             expanded={sidebarExpanded}
             onToggle={toggleSidebar}
+            alertsCount={openAlerts}
           />
 
           <div className="panel">
-            <PageHeader title={activeItem.label} alertsCount={openAlerts} onNavigate={goTo} onBell={() => setAlertsOpen(true)} />
+            <PageHeader
+              title={activeItem.label}
+              intro={PAGE_INTROS[activeNav]}
+              alertsCount={openAlerts}
+              onNavigate={goTo}
+              onBell={() => setAlertsOpen(true)}
+              onDashboardTab={(tab) => { setDashboardTab(tab); goTo('dashboard'); }}
+            />
 
             <main className="page" aria-label={activeItem.label}>
               <Suspense fallback={<div className="empty" role="status">Loading…</div>}>
                 {activeNav === 'dashboard' && <Dashboard onNavigate={goTo} tab={dashboardTab} onTabChange={setDashboardTab} />}
 
-                {activeNav === 'devices' && <DevicesView />}
+                {activeNav === 'devices' && <DevicesView onOpenAlerts={() => setAlertsOpen(true)} />}
 
                 {activeNav === 'metrics' && <MetricsStudioView onNavigate={goTo} />}
 
@@ -193,7 +206,7 @@ function App() {
           </div>
 
 
-          <AlertPopup onSeeAll={() => { setDashboardTab('alerts'); goTo('dashboard'); }} />
+          <AlertPopup onSeeAll={() => setAlertsOpen(true)} />
 
           {alertsOpen && <AlertsModal onClose={() => setAlertsOpen(false)} />}
 

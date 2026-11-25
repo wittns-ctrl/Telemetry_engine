@@ -5,11 +5,11 @@ import { answersFor } from "./healthAnswers";
 /**
  * The dashboard's first view (approved option B): four plain questions about
  * the PC, each answered in a sentence with a coloured dot. A problem gets a
- * button: to the open alerts (where the fixes are) when there are any,
+ * button: to the alerts window (where the fixes are) when alerts are open,
  * otherwise to the tab with the details. The full readings sit behind
  * "Show advanced details".
  */
-export function HealthSummary({ snapshot, alerts, onOpenTab }) {
+export function HealthSummary({ snapshot, alerts, onOpenTab, onOpenAlerts }) {
   const answers = useMemo(() => answersFor(snapshot), [snapshot]);
   const hasAlerts = alerts.length > 0;
   return (
@@ -26,7 +26,7 @@ export function HealthSummary({ snapshot, alerts, onOpenTab }) {
               </span>
             </div>
             {a.state === "warn" && (
-              <button type="button" className="bk" onClick={() => onOpenTab(hasAlerts ? "alerts" : a.tab)}>
+              <button type="button" className="bk" onClick={() => (hasAlerts ? onOpenAlerts() : onOpenTab(a.tab))}>
                 {hasAlerts ? "See what to do" : "See details"}
               </button>
             )}

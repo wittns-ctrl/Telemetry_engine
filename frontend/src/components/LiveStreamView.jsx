@@ -1,10 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { Bell, TriangleAlert, Info } from "lucide-react";
+import { Bell } from "lucide-react";
 import { useDeviceStream } from "../hooks/useDeviceStream";
 import { GROUPS, valueOf, maxOf, statusOf, show } from "./readings";
-import { Card, Head, Chip, Ico, LineGraph, Modal } from "./ui";
+import { Card, Head, Chip, LineGraph, Modal } from "./ui";
 import { DeviceBar, StreamStatus } from "./live";
-import { timeAgo } from "./format";
 
 // Live Monitor: the PC's key readings as live graphs, filled by each snapshot
 // the agent sends (every 2 seconds), and the PC's open alerts underneath.
@@ -21,7 +20,6 @@ const BY_ID = Object.fromEntries(GROUPS.flatMap((g) => g.readings.map((r) => [r.
 export function LiveStreamView({ onNavigate }) {
   const stream = useDeviceStream();
   const { snapshot, history, alerts, connection } = stream;
-  const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState(null);
 
   const watched = useMemo(() => {
@@ -39,8 +37,6 @@ export function LiveStreamView({ onNavigate }) {
     return { values, breaches: values.filter((v) => statusOf(reading, v).warn).length };
   };
 
-  const q = query.trim().toLowerCase();
-  const shownAlerts = alerts.filter((a) => !q || [a.message, a.rule_name, a.metric_name, a.severity].some((t) => t && t.toLowerCase().includes(q)));
   const open = openId ? BY_ID[openId] : null;
   const openSeries = open ? seriesOf(open) : null;
 
@@ -91,35 +87,17 @@ export function LiveStreamView({ onNavigate }) {
       </div>
 
       <Card className="pad col f1">
-        <Head icon={Bell} title="Open alerts">
+        <Head icon={Bell} title="Alerts">
           {alerts.length > 0 && <Chip tone="w">{alerts.length} open</Chip>}
-          {alerts.length > 0 && <button type="button" className="vd" onClick={() => onNavigate?.("devices")}>Diagnose and fix</button>}
         </Head>
-        {alerts.length > 3 && (
-          <input
-            className="inp" type="search" placeholder="Search alerts" aria-label="Search alerts"
-            value={query} onChange={(e) => setQuery(e.target.value)}
-          />
-        )}
-        {shownAlerts.length === 0 ? (
-          <p className="txt">{alerts.length ? "No alerts match your search." : "No open alerts. Every reading is within its limit."}</p>
-        ) : (
-          <ul className="alert-list">
-            {shownAlerts.map((a) => {
-              const calm = a.severity === "INFO";
-              return (
-                <li key={a.id} className="li">
-                  <Ico icon={calm ? Info : TriangleAlert} tone={calm ? "g" : "w"} />
-                  <span className="f1">
-                    {a.message}
-                    <small>{a.severity} · {a.rule_name}</small>
-                  </span>
-                  <time className="sub" dateTime={a.created_at} title={new Date(a.created_at).toLocaleString()}>{timeAgo(a.created_at)}</time>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        <div className="row ac wrap">
+          <p className="txt f1">
+            {alerts.length
+              ? `${alerts.length === 1 ? "1 problem needs" : `${alerts.length} problems need`} a look. See what's wrong and how to fix it in the alerts window.`
+              : "No open alerts. Every reading is within its limit."}
+          </p>
+          {alerts.length > 0 && <button type="button" className="bk" onClick={() => onNavigate?.("alerts")}>See and fix</button>}
+        </div>
       </Card>
 
       {open && (
