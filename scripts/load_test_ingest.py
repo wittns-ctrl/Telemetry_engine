@@ -136,7 +136,8 @@ def pct(values, p):
 
 async def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--api", default="http://127.0.0.1:8000", help="API base URL")
+    ap.add_argument("--api", default="http://127.0.0.1:8000",
+                    help="API base URL, or several separated by commas: each PC then sticks to one, as behind a load balancer")
     ap.add_argument("--db", default=settings.MONGO_DB, help="database the API under test uses (name must contain 'load' or 'test')")
     ap.add_argument("--devices", type=int, default=200, help="simulated PCs")
     ap.add_argument("--minutes", type=float, default=2.0, help="how long to send for")
@@ -153,9 +154,11 @@ async def main():
 
     mongo = AsyncMongoClient(settings.MONGODB_URI, tz_aware=True)
     db = mongo[args.db]
-    async with httpx.AsyncClient(base_url=args.api, timeout=30) as probe:
-        health = (await probe.get("/api/v1/health")).json()
-    print(f"API {args.api}: {health.get('status')}, shared state: {health.get('shared_state')}")
+    apis = [a.strip() for a in args.api.split(",") if a.strip()]
+    for api in apis:
+        async with httpx.AsyncClient(base_url=api, timeout=30) as probe:
+            health = (await probe.get("/api/v1/health")).json()
+        print(f"API {api}: {health.get('status')}, shared state: {health.get('shared_state')}")
 
     user_id, device_ids, keys = await seed(db, args.devices)
     period = AGENT_INTERVAL / args.speedup
@@ -163,17 +166,20 @@ async def main():
           f"(the load of {args.devices * args.speedup:,.0f} real PCs) for {args.minutes:g} min.")
 
     stats = {"latency": [], "status": Counter(), "sent": 0, "stored": 0}
-    limits = httpx.Limits(max_connections=args.connections, max_keepalive_connections=args.connections)
+    per_server = max(1, args.connections // len(apis))
+    limits = httpx.Limits(max_connections=per_server, max_keepalive_connections=per_server)
+    clients = [httpx.AsyncClient(base_url=api, timeout=30, limits=limits) for api in apis]
     try:
-        async with httpx.AsyncClient(base_url=args.api, timeout=30, limits=limits) as client:
-            started = time.monotonic()
-            stop_at = started + args.minutes * 60
-            rng = random.Random(1)
-            await asyncio.gather(*(
-                pc(client, key, stats, stop_at, period, args.batch, random.Random(rng.random()), rng.uniform(0, period))
-                for key in keys
-            ))
-            elapsed = time.monotonic() - started
+        started = time.monotonic()
+        stop_at = started + args.minutes * 60
+        rng = random.Random(1)
+        await asyncio.gather(*(
+            pc(clients[i % len(clients)], key, stats, stop_at, period, args.batch, random.Random(rng.random()), rng.uniform(0, period))
+            for i, key in enumerate(keys)
+        ))
+        elapsed = time.monotonic() - started
+        for client in clients:
+            await client.aclose()
 
         # Give background alert checks a moment, then compare with the database.
         await asyncio.sleep(3)

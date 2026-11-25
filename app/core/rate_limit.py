@@ -219,9 +219,11 @@ def classify(scope) -> tuple[str, int] | None:
     if path in AUTH_PATHS:
         return f"auth:{_client_ip(scope)}", settings.RATE_LIMIT_AUTH_PER_MINUTE
 
-    if path == INGEST_PATH or path.startswith(AGENT_PREFIX):
+    is_upload = path == INGEST_PATH or path.startswith(INGEST_PATH + "/")  # /ingest and /ingest/batch
+    if is_upload or path.startswith(AGENT_PREFIX):
         # Agent traffic: telemetry uploads and fix check-ins, each budget per device key.
-        kind = "ingest" if path == INGEST_PATH else "agent"
+        # (Not per IP: many PCs can share one office or school connection.)
+        kind = "ingest" if is_upload else "agent"
         device_key = _header(scope, b"x-device-key")
         if device_key:
             digest = hashlib.sha256(device_key.encode()).hexdigest()

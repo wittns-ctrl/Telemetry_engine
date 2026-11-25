@@ -92,13 +92,13 @@ async def ingest_snapshot(
     snapshot.timestamp = ts
 
     stored = await store_readings(device, [(None, snapshot)])
-    doc, _ = stored.stored[0]
+    record, _ = stored.stored[0]
 
     # This endpoint's reply includes the alert count, so it checks right away.
     alerts = await ingest_processor.process(
         Job(str(device.user_id), str(device.id), device.device_name, [snapshot], 0.0)
     )
-    return TelemetryIngestResponse(snapshot_id=str(doc.id), alerts_triggered=len(alerts))
+    return TelemetryIngestResponse(snapshot_id=str(record["_id"]), alerts_triggered=len(alerts))
 
 
 # ------------------------------------------------------------------ batches

@@ -89,15 +89,27 @@ def bucket_start(ts: datetime, granularity: str) -> datetime:
     return ts.replace(hour=0, minute=0, second=0, microsecond=0)
 
 
-def _values(snapshot: dict) -> Iterable[tuple[str, float]]:
+# Fields per group, so each reading is read group by group (not field by field).
+_BY_GROUP: dict[str, list[tuple[str, str]]] = {}
+for _group, _name, _key in ROLLUP_FIELDS:
+    _BY_GROUP.setdefault(_group, []).append((_name, _key))
+
+
+def _values(snapshot: dict) -> list[tuple[str, float]]:
     """(key, value) for every numeric reading in a snapshot dict."""
+    out = []
     drives = snapshot.get("storage") or []
-    for group, name, key in ROLLUP_FIELDS:
+    for group, fields in _BY_GROUP.items():
         part = (drives[0] if drives else None) if group == "storage0" else snapshot.get(group)
-        value = part.get(name) if isinstance(part, dict) else None
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
+        if not isinstance(part, dict):
             continue
-        yield key, float(value)
+        for name, key in fields:
+            value = part.get(name)
+            if value is None or value is True or value is False:
+                continue
+            if isinstance(value, (int, float)):
+                out.append((key, float(value)))
+    return out
 
 
 @dataclass
@@ -108,22 +120,32 @@ class Bucket:
     min: dict = field(default_factory=dict)
     max: dict = field(default_factory=dict)
 
-    def add(self, snapshot: dict) -> None:
+    def add_values(self, values: list[tuple[str, float]]) -> None:
         self.count += 1
-        for key, value in _values(snapshot):
-            self.sums[key] = self.sums.get(key, 0.0) + value
-            self.n[key] = self.n.get(key, 0) + 1
-            self.min[key] = value if key not in self.min else min(self.min[key], value)
-            self.max[key] = value if key not in self.max else max(self.max[key], value)
+        sums, n, lo, hi = self.sums, self.n, self.min, self.max
+        for key, value in values:
+            if key in sums:
+                sums[key] += value
+                n[key] += 1
+                if value < lo[key]:
+                    lo[key] = value
+                if value > hi[key]:
+                    hi[key] = value
+            else:
+                sums[key], n[key], lo[key], hi[key] = value, 1, value, value
+
+    def add(self, snapshot: dict) -> None:
+        self.add_values(_values(snapshot))
 
 
 def summarise(snapshots: Iterable[dict]) -> dict[tuple[str, datetime], Bucket]:
     """Readings (as stored dicts, with a timestamp) grouped into hour and day buckets."""
     buckets: dict[tuple[str, datetime], Bucket] = {}
     for snap in snapshots:
+        values = _values(snap)  # once per reading, shared by both granularities
         for granularity in GRANULARITIES:
             key = (granularity, bucket_start(snap["timestamp"], granularity))
-            buckets.setdefault(key, Bucket()).add(snap)
+            buckets.setdefault(key, Bucket()).add_values(values)
     return buckets
 
 

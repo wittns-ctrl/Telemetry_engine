@@ -92,6 +92,16 @@ class TestClassify:
     def test_auth_endpoints_are_limited_per_ip(self, limits):
         assert classify(_scope("/api/v1/auth/login", "POST")) == ("auth:1.2.3.4", 3)
 
+    def test_batch_uploads_are_limited_per_device_key_not_per_ip(self, limits):
+        # The agent uploads to /ingest/batch; PCs sharing one office IP must not share a budget.
+        a = classify(_scope("/api/v1/telemetry/ingest/batch", "POST", {"X-Device-Key": "key-a" * 5}))
+        b = classify(_scope("/api/v1/telemetry/ingest/batch", "POST", {"X-Device-Key": "key-b" * 5}))
+        single = classify(_scope("/api/v1/telemetry/ingest", "POST", {"X-Device-Key": "key-a" * 5}))
+        assert a[0].startswith("ingest:") and a[1] == 4
+        assert a[0] != b[0]
+        assert a[0] == single[0]  # one upload budget per PC, whichever endpoint
+        assert not classify(_scope("/api/v1/telemetry/ingestion-report", "GET"))[0].startswith("ingest:")
+
     def test_ingest_is_limited_per_device_key(self, limits):
         a = classify(_scope("/api/v1/telemetry/ingest", "POST", {"X-Device-Key": "key-a" * 5}))
         b = classify(_scope("/api/v1/telemetry/ingest", "POST", {"X-Device-Key": "key-b" * 5}))
