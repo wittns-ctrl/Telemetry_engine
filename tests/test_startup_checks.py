@@ -107,3 +107,11 @@ def test_a_gmail_sender_is_allowed():
     # SendLiberty sends from a connected Gmail account, so gmail.com is fine.
     errors, _ = review(prod(EMAIL_FROM="Lectio <lectio.alerts@gmail.com>"), email_configured=True)
     assert errors == []
+
+
+@pytest.mark.parametrize("value", ["https://getlectio.vercel.app/", "https://getlectio.vercel.app", " https://getlectio.vercel.app// "])
+def test_frontend_url_trailing_slash_is_ignored(value, monkeypatch):
+    from app.core.config import Settings
+
+    monkeypatch.setenv("FRONTEND_URL", value)
+    assert Settings().FRONTEND_URL == "https://getlectio.vercel.app"
