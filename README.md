@@ -107,7 +107,7 @@ The ones that matter in production:
 | `SECRET_KEY` | Signs sign-in tokens. Long and random; never reuse the example. |
 | `MONGODB_URI`, `MONGO_DB` | The database. |
 | `FRONTEND_URL` | The site's address; the API rejects browser requests from anywhere else. |
-| `RESEND_API_KEY`, `EMAIL_FROM` | Verification, password-reset and alert emails, sent through [Resend](https://resend.com). Without them, none are sent. |
+| `SENDLIBERTY_API_KEY`, `EMAIL_FROM` | Verification, password-reset and alert emails, sent through [SendLiberty](https://sendliberty.com) from a connected Gmail account. Without them, none are sent. |
 | `GEMINI_API_KEY` | Optional. Google Gemini for diagnoses and fix advice; without it, both use the built-in rules. |
 | `TELEMETRY_RETENTION_DAYS` | How long readings are kept (default 30). MongoDB deletes older ones itself. |
 | `RATE_LIMIT_*` | Requests per minute for sign-in, agent uploads, fixes and everything else. |

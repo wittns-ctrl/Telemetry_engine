@@ -8,6 +8,13 @@ Author: Lectio Backend Team
 Version: 7.0.0
 """
 
+import os
+
+# Run the tests in development mode whatever the local .env says: a server's
+# .env with APP_ENV=production turns on secure-only cookies, which the plain
+# http test client never sends back. Environment variables beat .env values.
+os.environ["APP_ENV"] = "development"
+
 import pytest
 import asyncio
 from datetime import datetime, timezone, timedelta

@@ -21,11 +21,6 @@ logger = logging.getLogger(__name__)
 KNOWN_ENVIRONMENTS = {"development", "production", "test", "testing"}
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"}
 MIN_SECRET_LENGTH = 32
-# Resend only sends from a domain you own and verified; it refuses these.
-FREE_MAIL_DOMAINS = {
-    "gmail.com", "googlemail.com", "yahoo.com", "outlook.com", "hotmail.com", "live.com",
-    "icloud.com", "me.com", "aol.com", "proton.me", "protonmail.com", "gmx.com", "yandex.com",
-}
 PLACEHOLDER_SECRETS = {
     "", "secret", "changeme", "change-me", "change_me", "your-secret-key", "your_secret_key",
     "supersecret", "super-secret", "secret-key", "secretkey", "password", "test", "development",
@@ -42,12 +37,6 @@ def _public_https(url: str | None) -> bool:
     parsed = urlparse(url.strip())
     host = (parsed.hostname or "").lower()
     return parsed.scheme == "https" and bool(host) and host not in LOCAL_HOSTS and not host.endswith(".localhost")
-
-
-def sender_domain(email_from: str | None) -> str:
-    """'Lectio <alerts@example.com>' -> 'example.com'."""
-    address = (email_from or "").strip().rsplit("<", 1)[-1].rstrip(">").strip()
-    return address.rsplit("@", 1)[-1].lower() if "@" in address else ""
 
 
 def review(settings, email_configured: bool) -> tuple[list[str], list[str]]:
@@ -96,14 +85,8 @@ def review(settings, email_configured: bool) -> tuple[list[str], list[str]]:
 
     if not email_configured:
         errors.append(
-            "Email isn't configured (RESEND_API_KEY and EMAIL_FROM): "
+            "Email isn't configured (SENDLIBERTY_API_KEY and EMAIL_FROM): "
             "new accounts couldn't receive their verification code."
-        )
-
-    if sender_domain(getattr(settings, "EMAIL_FROM", None)) in FREE_MAIL_DOMAINS:
-        errors.append(
-            f"EMAIL_FROM={settings.EMAIL_FROM!r} uses a free mailbox domain, which Resend refuses to send from. "
-            "Use an address on your own domain, verified at resend.com/domains."
         )
 
     if not settings.RATE_LIMIT_ENABLED:
