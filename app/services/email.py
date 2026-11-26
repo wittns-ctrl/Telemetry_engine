@@ -9,19 +9,20 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-RESEND_URL = "https://api.resend.com/emails"
+SENDLIBERTY_URL = "https://sendliberty.com/api/send"
 SEND_TIMEOUT_SECONDS = 15
 
 
 class EmailService:
-    """Sends Lectio's emails through Resend (https://resend.com)."""
+    """Sends Lectio's emails through SendLiberty (https://sendliberty.com), which
+    delivers them from a Gmail or Google Workspace account connected there."""
 
     def __init__(self):
-        self.api_key = settings.RESEND_API_KEY
+        self.api_key = settings.SENDLIBERTY_API_KEY
         self.from_email = settings.EMAIL_FROM
 
     def is_configured(self) -> bool:
-        """True when a Resend API key and a sender address are set."""
+        """True when a SendLiberty API key and a sender address are set."""
         return bool(self.api_key and self.from_email)
 
     async def send_email(
@@ -33,25 +34,25 @@ class EmailService:
     ) -> bool:
         """Send one email. Returns False (and logs why) instead of raising."""
         if not self.is_configured():
-            logger.warning("Email not sent to %s: RESEND_API_KEY or EMAIL_FROM is missing", to_email)
+            logger.warning("Email not sent to %s: SENDLIBERTY_API_KEY or EMAIL_FROM is missing", to_email)
             return False
 
-        payload = {"from": self.from_email, "to": [to_email], "subject": subject, "html": html_content}
+        payload = {"from": self.from_email, "to": to_email, "subject": subject, "html": html_content}
         if text_content:
             payload["text"] = text_content
         try:
             async with httpx.AsyncClient(timeout=SEND_TIMEOUT_SECONDS) as client:
                 response = await client.post(
-                    RESEND_URL, json=payload, headers={"Authorization": f"Bearer {self.api_key}"}
+                    SENDLIBERTY_URL, json=payload, headers={"Authorization": f"Bearer {self.api_key}"}
                 )
         except httpx.HTTPError as e:
-            logger.error("Email not sent to %s: couldn't reach Resend (%s: %s)", to_email, type(e).__name__, e)
+            logger.error("Email not sent to %s: couldn't reach SendLiberty (%s: %s)", to_email, type(e).__name__, e)
             return False
 
         if response.is_success:
             return True
-        logger.error("Email not sent to %s: Resend answered %s: %s%s", to_email, response.status_code,
-                     _resend_error(response), _hint(response.status_code))
+        logger.error("Email not sent to %s: SendLiberty answered %s: %s%s", to_email, response.status_code,
+                     _service_error(response), _hint(response))
         return False
 
     async def send_verification_email(
@@ -266,19 +267,28 @@ def send_in_background(coro) -> None:
     task.add_done_callback(_sending.discard)
 
 
-def _resend_error(response: httpx.Response) -> str:
-    """Resend's own explanation, e.g. 'The example.com domain is not verified'."""
+def _service_error(response: httpx.Response) -> str:
+    """SendLiberty's own explanation of a refusal, whatever shape it comes in."""
     try:
         body = response.json()
-        return str(body.get("message") or body.get("name") or body)
     except ValueError:
-        return response.text[:200]
+        return response.text[:200] or "(no details)"
+    if isinstance(body, dict):
+        error = body.get("error")
+        if isinstance(error, dict):
+            error = error.get("message") or error
+        return str(body.get("message") or error or body)
+    return str(body)
 
 
-def _hint(status: int) -> str:
-    if status in (401, 403):
-        return (" (check RESEND_API_KEY, and that EMAIL_FROM uses a domain verified at "
-                "resend.com/domains; without one, Resend only delivers to your own address)")
+def _hint(response: httpx.Response) -> str:
+    status = response.status_code
+    if status == 401:
+        return " (check SENDLIBERTY_API_KEY)"
+    if status == 403:
+        return (" (EMAIL_FROM must be a Gmail or Workspace address connected in SendLiberty, "
+                "and the API key must be allowed to send from it)")
     if status == 429:
-        return " (Resend's sending limit was reached)"
+        wait = response.headers.get("Retry-After")
+        return f" (SendLiberty's sending limit was reached{'; retry after ' + wait + ' s' if wait else ''})"
     return ""

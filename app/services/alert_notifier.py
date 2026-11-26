@@ -6,7 +6,7 @@ alert (not for updates to an active one). The notifier then, in the background:
 
   * posts the alert to ALERT_WEBHOOK_URL, if one is set, and
   * emails the device owner, if all of these hold:
-      - ALERT_EMAILS_ENABLED is on and email (Resend) is configured,
+      - ALERT_EMAILS_ENABLED is on and email (SendLiberty) is configured,
       - the account is active, its email is verified and the user has not
         turned alert emails off (User.email_alerts),
       - the alert is at least ALERT_EMAIL_MIN_SEVERITY,
@@ -106,7 +106,7 @@ class AlertNotifier:
         if SEVERITY_ORDER[alert.severity] < SEVERITY_ORDER[_min_severity()]:
             return False
         if not email_service.is_configured():
-            logger.debug("Alert email skipped: email (Resend) is not configured")
+            logger.debug("Alert email skipped: email (SendLiberty) is not configured")
             return False
 
         now = datetime.now(timezone.utc)

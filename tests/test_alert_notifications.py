@@ -315,8 +315,8 @@ async def test_the_alert_email_escapes_user_controlled_text():
     assert "https://lectio.example/app?x=1&y=2" in sent["text"]
 
 
-def _resend(handler):
-    """email_service configured for Resend, with its HTTP calls answered by handler."""
+def _sendliberty(handler):
+    """email_service configured for SendLiberty, with its HTTP calls answered by handler."""
     import httpx
 
     real_client = httpx.AsyncClient
@@ -324,10 +324,10 @@ def _resend(handler):
     def client(**kwargs):
         return real_client(transport=httpx.MockTransport(handler), **kwargs)
 
-    return patch.multiple(email_service, api_key="re_test_key", from_email="Lectio <alerts@example.test>"),         patch("app.services.email.httpx.AsyncClient", client)
+    return patch.multiple(email_service, api_key="sl_test_key", from_email="Lectio <lectio.alerts@gmail.com>"),         patch("app.services.email.httpx.AsyncClient", client)
 
 
-async def test_email_is_sent_through_resend():
+async def test_email_is_sent_through_sendliberty():
     import json
     import httpx
 
@@ -337,43 +337,55 @@ async def test_email_is_sent_through_resend():
         seen.update(url=str(request.url), auth=request.headers["Authorization"], body=json.loads(request.content))
         return httpx.Response(200, json={"id": "email-1"})
 
-    settings_patch, client_patch = _resend(handler)
+    settings_patch, client_patch = _sendliberty(handler)
     with settings_patch, client_patch:
         ok = await email_service.send_email("a@example.com", "Subject", "<p>Hi</p>", "Hi")
 
     assert ok is True
-    assert seen["url"] == "https://api.resend.com/emails"
-    assert seen["auth"] == "Bearer re_test_key"
-    assert seen["body"] == {"from": "Lectio <alerts@example.test>", "to": ["a@example.com"],
+    assert seen["url"] == "https://sendliberty.com/api/send"
+    assert seen["auth"] == "Bearer sl_test_key"
+    assert seen["body"] == {"from": "Lectio <lectio.alerts@gmail.com>", "to": "a@example.com",
                             "subject": "Subject", "html": "<p>Hi</p>", "text": "Hi"}
 
 
-async def test_a_resend_refusal_is_logged_not_raised(caplog):
+async def test_a_refusal_is_logged_not_raised(caplog):
     import httpx
 
     def handler(request):
-        return httpx.Response(403, json={"name": "validation_error", "message": "The example.test domain is not verified."})
+        return httpx.Response(403, json={"error": "This API key can't send from that address."})
 
-    settings_patch, client_patch = _resend(handler)
+    settings_patch, client_patch = _sendliberty(handler)
     with settings_patch, client_patch:
         ok = await email_service.send_email("a@example.com", "Subject", "<p>Hi</p>")
 
     assert ok is False
-    assert "domain is not verified" in caplog.text and "EMAIL_FROM" in caplog.text
+    assert "can't send from that address" in caplog.text and "EMAIL_FROM" in caplog.text
 
 
-async def test_resend_unreachable_returns_false():
+async def test_rate_limit_is_logged_with_retry_after(caplog):
+    import httpx
+
+    def handler(request):
+        return httpx.Response(429, json={"message": "Too many requests"}, headers={"Retry-After": "1"})
+
+    settings_patch, client_patch = _sendliberty(handler)
+    with settings_patch, client_patch:
+        assert await email_service.send_email("a@example.com", "Subject", "<p>Hi</p>") is False
+    assert "Too many requests" in caplog.text and "retry after 1 s" in caplog.text
+
+
+async def test_service_unreachable_returns_false():
     import httpx
 
     def handler(request):
         raise httpx.ConnectTimeout("timed out")
 
-    settings_patch, client_patch = _resend(handler)
+    settings_patch, client_patch = _sendliberty(handler)
     with settings_patch, client_patch:
         assert await email_service.send_email("a@example.com", "Subject", "<p>Hi</p>") is False
 
 
-async def test_no_resend_key_means_not_configured():
+async def test_no_api_key_means_not_configured():
     with patch.multiple(email_service, api_key=None, from_email="alerts@example.test"):
         assert email_service.is_configured() is False
         assert await email_service.send_email("a@example.com", "Subject", "<p>Hi</p>") is False

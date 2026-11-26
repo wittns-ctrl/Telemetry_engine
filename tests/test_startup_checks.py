@@ -102,7 +102,8 @@ async def test_the_api_refuses_to_start_in_unsafe_production(monkeypatch):
             pass
 
 
-@pytest.mark.parametrize("sender", ["me@gmail.com", "Lectio <Someone@Outlook.com>"])
-def test_free_mailbox_sender_is_refused(sender):
-    errors, _ = review(prod(EMAIL_FROM=sender), email_configured=True)
-    assert any("EMAIL_FROM" in e for e in errors)
+
+def test_a_gmail_sender_is_allowed():
+    # SendLiberty sends from a connected Gmail account, so gmail.com is fine.
+    errors, _ = review(prod(EMAIL_FROM="Lectio <lectio.alerts@gmail.com>"), email_configured=True)
+    assert errors == []
