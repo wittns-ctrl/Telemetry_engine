@@ -115,3 +115,12 @@ def test_frontend_url_trailing_slash_is_ignored(value, monkeypatch):
 
     monkeypatch.setenv("FRONTEND_URL", value)
     assert Settings().FRONTEND_URL == "https://getlectio.vercel.app"
+
+
+@pytest.mark.parametrize("value", ["Production", " PRODUCTION ", "production"])
+def test_app_env_spelling_is_normalised(monkeypatch, value):
+    # Secure cookies compare APP_ENV == "production"; "Production" on a host
+    # must not quietly run with development cookies.
+    from app.core.config import Settings
+    monkeypatch.setenv("APP_ENV", value)
+    assert Settings().APP_ENV == "production"

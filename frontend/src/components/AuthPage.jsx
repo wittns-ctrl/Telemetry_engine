@@ -10,7 +10,7 @@ import {
   completeGoogleSignIn,
   GOOGLE_ERROR_MESSAGES,
 } from "../services/api";
-import { AuthPageLayout, AuthHeading, Field, PasswordField, ErrorBanner, SuccessBanner, GoogleIcon, AppleIcon, u } from "./AuthLayout";
+import { AuthPageLayout, AuthHeading, Field, PasswordField, ErrorBanner, SuccessBanner, GoogleIcon, u } from "./AuthLayout";
 
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 60;
@@ -61,16 +61,13 @@ function CodeInput({ value, onChange, disabled, onComplete }) {
   );
 }
 
-// "Or continue with" and the two provider buttons. gaps = space above each of the three rows.
-function SocialButtons({ lines = false, gaps, onGoogle, onApple, disabled }) {
+// "Or continue with" and the Google button. gaps = space above each of the two rows.
+function SocialButtons({ lines = false, gaps, onGoogle, disabled }) {
   return (
     <div className="au-form">
       <div className={`au-or${lines ? " au-or-lines" : ""}`} style={{ marginTop: u(gaps[0]) }}>Or continue with</div>
       <button type="button" className="au-social" onClick={onGoogle} disabled={disabled} style={{ marginTop: u(gaps[1]) }}>
         <GoogleIcon />Continue with Google
-      </button>
-      <button type="button" className="au-social" onClick={onApple} disabled={disabled} style={{ marginTop: u(gaps[2]) }}>
-        <AppleIcon />Continue with Apple
       </button>
     </div>
   );
@@ -200,7 +197,6 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
   };
 
   // The button is part of the design, but the backend only has Google sign-in so far.
-  const handleAppleSignIn = () => setErrorMsg("Apple sign-in isn't available yet. Use Google or your email instead.");
 
   // ─── CHECK YOUR EMAIL (6-digit code) ────────────────────────────────────────
   if (screen === "code") return (
@@ -253,7 +249,7 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
           {loading ? "Creating account…" : "Create Account"} <ArrowRight aria-hidden="true" />
         </button>
       </form>
-      <SocialButtons gaps={[15.5, 12, 9]} onGoogle={handleGoogleSignIn} onApple={handleAppleSignIn} disabled={loading} />
+      <SocialButtons gaps={[15.5, 12]} onGoogle={handleGoogleSignIn} disabled={loading} />
       <p className="au-foot" style={{ marginTop: u(30) }}>
         Already have an account?{" "}
         <button type="button" onClick={() => navigateScreen("signin")} className="au-link">Sign in</button>
@@ -277,7 +273,7 @@ export function AuthPage({ onAuthSuccess, initialScreen = "signin" }) {
           {loading ? "Signing in…" : "Sign In"} <ArrowRight aria-hidden="true" />
         </button>
       </form>
-      <SocialButtons lines gaps={[18, 16, 11.5]} onGoogle={handleGoogleSignIn} onApple={handleAppleSignIn} disabled={loading} />
+      <SocialButtons lines gaps={[18, 16]} onGoogle={handleGoogleSignIn} disabled={loading} />
       <p className="au-foot" style={{ marginTop: u(28) }}>
         Don't have an account?{" "}
         <button type="button" onClick={() => navigateScreen("signup")} className="au-link">Sign up</button>

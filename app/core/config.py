@@ -4,7 +4,15 @@ from pydantic_settings import BaseSettings , SettingsConfigDict
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Lectio"
     APP_ENV: str = "development"
-    MONGODB_URI: str 
+
+    @field_validator("APP_ENV")
+    @classmethod
+    def _normalise_env(cls, value: str) -> str:
+        # The startup check already accepted "Production"; code elsewhere
+        # compares with == "production", so store one spelling.
+        return value.strip().lower()
+
+    MONGODB_URI: str
     MONGO_DB: str 
     FRONTEND_URL: str = "http://localhost:5173"
 
