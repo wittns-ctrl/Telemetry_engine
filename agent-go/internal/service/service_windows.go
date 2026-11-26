@@ -90,16 +90,27 @@ func Install() error {
 		return err
 	}
 	dst := InstalledExe()
-	if !strings.EqualFold(filepath.Clean(src), filepath.Clean(dst)) {
-		if err := copyFile(src, dst); err != nil {
-			return fmt.Errorf("copying the agent to %s: %w", InstallDir(), err)
-		}
-	}
 	m, err := mgr.Connect()
 	if err != nil {
 		return fmt.Errorf("opening the service manager (run as administrator): %w", err)
 	}
 	defer m.Disconnect()
+
+	if !strings.EqualFold(filepath.Clean(src), filepath.Clean(dst)) {
+		// A running service holds its program file open, and Windows refuses
+		// to replace it ("Access is denied"); stop it first. The caller starts
+		// it again once the service points at the new copy.
+		if s, err := m.OpenService(Name); err == nil {
+			err = stopService(s)
+			s.Close()
+			if err != nil {
+				return err
+			}
+		}
+		if err := copyFile(src, dst); err != nil {
+			return fmt.Errorf("copying the agent to %s: %w", InstallDir(), err)
+		}
+	}
 
 	if s, err := m.OpenService(Name); err == nil {
 		// Already installed (an update): point it at the new copy.
