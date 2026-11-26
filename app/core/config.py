@@ -1,4 +1,4 @@
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings , SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -7,6 +7,13 @@ class Settings(BaseSettings):
     MONGODB_URI: str 
     MONGO_DB: str 
     FRONTEND_URL: str = "http://localhost:5173"
+
+    @field_validator("FRONTEND_URL")
+    @classmethod
+    def _no_trailing_slash(cls, value: str) -> str:
+        # Browsers send the site's origin without a trailing slash, and the API
+        # compares it letter for letter (CORS); links also append "/path".
+        return value.strip().rstrip("/")
 
     # JWT settings
     SECRET_KEY: str
