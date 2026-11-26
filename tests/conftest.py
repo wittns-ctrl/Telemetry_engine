@@ -14,6 +14,10 @@ import os
 # .env with APP_ENV=production turns on secure-only cookies, which the plain
 # http test client never sends back. Environment variables beat .env values.
 os.environ["APP_ENV"] = "development"
+# Likewise keep shared state in memory: a REDIS_URL in .env would point the
+# tests at a real Redis, mixing their data into it and stalling on the network.
+# (tests/test_shared_redis.py uses its own LECTIO_TEST_REDIS_URL.)
+os.environ["REDIS_URL"] = ""
 
 import pytest
 import asyncio
