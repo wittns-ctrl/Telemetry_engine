@@ -105,3 +105,28 @@ func TestUnlinkedHasNoKey(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 }
+
+func TestUseServerDropsTheOldLink(t *testing.T) {
+	c := Defaults()
+	c.APIURL = "http://localhost:8000"
+	c.DeviceName, c.DeviceID, c.SystemUUID, c.DeviceKeyProtected = "PC", "dev1", "uuid", "key"
+
+	if !c.UseServer("https://api.example.com/") {
+		t.Fatal("a different server should count as a change")
+	}
+	if c.APIURL != "https://api.example.com" || c.Linked() || c.DeviceID != "" {
+		t.Fatalf("expected new address and no link, got %+v", c)
+	}
+	if c.DeviceName != "PC" || c.SystemUUID != "uuid" {
+		t.Fatal("the name and machine id should stay for linking again")
+	}
+}
+
+func TestUseServerKeepsTheLinkOnTheSameServer(t *testing.T) {
+	c := Defaults()
+	c.APIURL = "https://api.example.com"
+	c.DeviceKeyProtected = "key"
+	if c.UseServer("https://API.example.com/") || !c.Linked() {
+		t.Fatal("the same server must not drop the link")
+	}
+}

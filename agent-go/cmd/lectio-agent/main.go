@@ -149,6 +149,15 @@ func setup(rest []string) error {
 	if err != nil {
 		return err
 	}
+	// Running setup from a downloaded agent means "use the server this agent
+	// was built for", also on a PC an older build had linked elsewhere (such
+	// as a test server). LECTIO_API still wins when it is set.
+	if old := cfg.APIURL; os.Getenv("LECTIO_API") == "" && cfg.UseServer(config.DefaultAPI) {
+		fmt.Fprintf(out, "This PC was set up for %s; switching it to %s.\n", old, cfg.APIURL)
+		if err := cfg.Save(dir); err != nil {
+			return err
+		}
+	}
 	if !cfg.Linked() {
 		if err := link(rest); err != nil {
 			return err

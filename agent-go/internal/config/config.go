@@ -179,6 +179,20 @@ func (c Config) Dir() string { return c.dir }
 // Linked reports whether this PC has a device key.
 func (c Config) Linked() bool { return c.DeviceKeyProtected != "" }
 
+// UseServer points the agent at api. A link belongs to the server that
+// issued it, so moving to a different server drops it and the PC links again.
+// Reports whether anything changed.
+func (c *Config) UseServer(api string) bool {
+	api = strings.TrimRight(api, "/")
+	if strings.EqualFold(c.APIURL, api) {
+		return false
+	}
+	c.APIURL = api
+	c.DeviceID = ""
+	c.DeviceKeyProtected = ""
+	return true
+}
+
 // DeviceKey decrypts the stored device key.
 func (c Config) DeviceKey() (string, error) {
 	if c.DeviceKeyProtected == "" {
