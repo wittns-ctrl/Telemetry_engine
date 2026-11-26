@@ -134,7 +134,7 @@ async def test_sign_up_does_not_wait_for_the_mail_server(async_client, mock_mong
     import asyncio
 
     async def slow_mail(*args, **kwargs):
-        await asyncio.sleep(30)  # a blocked SMTP server
+        await asyncio.sleep(30)  # a mail service that hangs
 
     monkeypatch.setattr("app.api.v1.auth.email_service.send_verification_code", slow_mail)
     started = asyncio.get_running_loop().time()

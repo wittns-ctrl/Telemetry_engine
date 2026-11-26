@@ -1,57 +1,28 @@
 import asyncio
 import html
 import logging
-import smtplib
-import ssl
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from typing import Optional
+
+import httpx
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-class EmailService:
-    def __init__(self):
-        self.smtp_host = settings.SMTP_HOST
-        self.smtp_port = settings.SMTP_PORT
-        self.smtp_username = settings.SMTP_USERNAME
-        self.smtp_password = settings.SMTP_PASSWORD
-        self.smtp_from_email = settings.SMTP_FROM_EMAIL
-        self.use_tls = settings.SMTP_USE_TLS
-    
-    def is_configured(self) -> bool:
-        """Check if email service is properly configured."""
-        return all([
-            self.smtp_host,
-            self.smtp_username,
-            self.smtp_password,
-            self.smtp_from_email
-        ])
-    
-    def _deliver(self, message: MIMEMultipart) -> None:
-        """Send one message over SMTP. Blocking: call it through a thread."""
-        with smtplib.SMTP(self.smtp_host, self.smtp_port, timeout=15) as server:
-            if self.use_tls:
-                # Check the server's certificate, so the password only goes to the real host.
-                server.starttls(context=ssl.create_default_context())
-                server.ehlo()
-            self._log_in(server)
-            server.send_message(message)
+RESEND_URL = "https://api.resend.com/emails"
+SEND_TIMEOUT_SECONDS = 15
 
-    def _log_in(self, server: smtplib.SMTP) -> None:
-        """
-        Log in with PLAIN when the server offers it. smtplib's login() would try
-        another method after a rejected password, and Gmail hangs up on that
-        second try, so the real "wrong password" error is lost behind
-        "Connection unexpectedly closed".
-        """
-        if "plain" not in server.esmtp_features.get("auth", "").lower().split():
-            server.login(self.smtp_username, self.smtp_password)
-            return
-        server.user, server.password = self.smtp_username, self.smtp_password
-        code, reply = server.auth("PLAIN", server.auth_plain)
-        if code not in (235, 503):  # 503: already signed in
-            raise smtplib.SMTPAuthenticationError(code, reply)
+
+class EmailService:
+    """Sends Lectio's emails through Resend (https://resend.com)."""
+
+    def __init__(self):
+        self.api_key = settings.RESEND_API_KEY
+        self.from_email = settings.EMAIL_FROM
+
+    def is_configured(self) -> bool:
+        """True when a Resend API key and a sender address are set."""
+        return bool(self.api_key and self.from_email)
 
     async def send_email(
         self,
@@ -60,37 +31,29 @@ class EmailService:
         html_content: str,
         text_content: Optional[str] = None
     ) -> bool:
-        """Send an email."""
+        """Send one email. Returns False (and logs why) instead of raising."""
         if not self.is_configured():
-            logger.warning("Email not sent to %s: SMTP settings are missing", to_email)
+            logger.warning("Email not sent to %s: RESEND_API_KEY or EMAIL_FROM is missing", to_email)
             return False
-        
-        try:
-            message = MIMEMultipart("alternative")
-            message["From"] = self.smtp_from_email
-            message["To"] = to_email
-            message["Subject"] = subject
-            
-            if text_content:
-                message.attach(MIMEText(text_content, "plain"))
-            message.attach(MIMEText(html_content, "html"))
-            
-            # smtplib blocks, so it runs in a thread instead of stalling the API.
-            await asyncio.to_thread(self._deliver, message)
 
+        payload = {"from": self.from_email, "to": [to_email], "subject": subject, "html": html_content}
+        if text_content:
+            payload["text"] = text_content
+        try:
+            async with httpx.AsyncClient(timeout=SEND_TIMEOUT_SECONDS) as client:
+                response = await client.post(
+                    RESEND_URL, json=payload, headers={"Authorization": f"Bearer {self.api_key}"}
+                )
+        except httpx.HTTPError as e:
+            logger.error("Email not sent to %s: couldn't reach Resend (%s: %s)", to_email, type(e).__name__, e)
+            return False
+
+        if response.is_success:
             return True
-        except smtplib.SMTPAuthenticationError as e:
-            reply = e.smtp_error.decode(errors="replace") if isinstance(e.smtp_error, bytes) else str(e.smtp_error)
-            logger.error(
-                "Email not sent to %s: %s rejected the SMTP username or password (%s %s). "
-                "For Gmail, SMTP_PASSWORD must be a 16-letter App Password.",
-                to_email, self.smtp_host, e.smtp_code, " ".join(reply.split()),
-            )
-            return False
-        except Exception as e:
-            logger.error("Email not sent to %s: %s: %s", to_email, type(e).__name__, e)
-            return False
-    
+        logger.error("Email not sent to %s: Resend answered %s: %s%s", to_email, response.status_code,
+                     _resend_error(response), _hint(response.status_code))
+        return False
+
     async def send_verification_email(
         self,
         to_email: str,
@@ -296,8 +259,26 @@ _sending: set[asyncio.Task] = set()
 def send_in_background(coro) -> None:
     """
     Send an email without making the request wait for the mail server (which
-    can take seconds, or time out when SMTP is blocked). Failures are logged.
+    can take seconds, or time out when the network is slow). Failures are logged.
     """
     task = asyncio.get_running_loop().create_task(coro)
     _sending.add(task)
     task.add_done_callback(_sending.discard)
+
+
+def _resend_error(response: httpx.Response) -> str:
+    """Resend's own explanation, e.g. 'The example.com domain is not verified'."""
+    try:
+        body = response.json()
+        return str(body.get("message") or body.get("name") or body)
+    except ValueError:
+        return response.text[:200]
+
+
+def _hint(status: int) -> str:
+    if status in (401, 403):
+        return (" (check RESEND_API_KEY, and that EMAIL_FROM uses a domain verified at "
+                "resend.com/domains; without one, Resend only delivers to your own address)")
+    if status == 429:
+        return " (Resend's sending limit was reached)"
+    return ""
