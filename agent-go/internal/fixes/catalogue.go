@@ -144,6 +144,24 @@ var Catalogue = map[string]Fix{
 		ID: "check_disk", Title: "Check the drive for errors", Size: Big,
 		Summary: "Run Windows' own drive check. It only looks, it doesn't change anything.",
 	},
+	// Microsoft Defender. The agent only asks Defender to act; it never
+	// deletes or moves files itself.
+	"defender_quick_scan": {
+		ID: "defender_quick_scan", Title: "Run a quick virus scan", Size: Small,
+		Summary: "Microsoft Defender checks the places malware usually hides. Takes 5 to 15 minutes.",
+	},
+	"defender_full_scan": {
+		ID: "defender_full_scan", Title: "Run a full virus scan", Size: Big,
+		Summary: "Microsoft Defender checks every file on the PC. Can take an hour or more and slows the PC meanwhile.",
+	},
+	"defender_update": {
+		ID: "defender_update", Title: "Update virus definitions", Size: Small,
+		Summary: "Get Microsoft Defender's latest list of threats.",
+	},
+	"defender_remove_threats": {
+		ID: "defender_remove_threats", Title: "Remove the threats Defender found", Size: Big,
+		Summary: "Ask Microsoft Defender to quarantine or remove the threats it found and couldn't deal with on its own.",
+	},
 }
 
 // CleanParams validates parameters against the fix's rules (unknown names are refused).

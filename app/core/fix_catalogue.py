@@ -149,6 +149,11 @@ FANS = (
 ERRORS = ("WHEA_ERROR_SPIKE_WARNING", "WHEA_ERRORS_CRITICAL")
 POWER = ("PSU_12V_UNDERVOLTAGE_CRITICAL", "PSU_12V_UNDERVOLTAGE_WARNING", "PSU_12V_OVERVOLTAGE_CRITICAL")
 UPTIME = ("UPTIME_LONG_WARNING", "UPTIME_LONG_INFO")
+# Security (Microsoft Defender).
+MALWARE = ("SECURITY_THREAT_ACTIVE_CRITICAL", "SECURITY_THREAT_STOPPED_WARNING", "SECURITY_DISGUISED_PROGRAM_CRITICAL")
+PROTECTION_OFF = ("SECURITY_PROTECTION_OFF_CRITICAL",)
+OLD_DEFINITIONS = ("SECURITY_DEFINITIONS_OLD_CRITICAL", "SECURITY_DEFINITIONS_OLD_WARNING")
+OLD_SCAN = ("SECURITY_SCAN_OLD_CRITICAL", "SECURITY_SCAN_OLD_WARNING")
 
 FIXES: dict[str, Fix] = {f.id: f for f in [
     Fix(
@@ -217,6 +222,46 @@ FIXES: dict[str, Fix] = {f.id: f for f in [
         "check_power_supply", "Have the power supply checked",
         "The power the PC gets is outside the safe range. A technician should check the power supply.",
         SMALL, undoable=False, helps_with=POWER, manual=True,
+    ),
+    # Microsoft Defender: the agent only asks Defender to act; it never deletes files itself.
+    Fix(
+        "defender_quick_scan", "Run a quick virus scan",
+        "Microsoft Defender checks the places malware usually hides. Takes 5 to 15 minutes.",
+        SMALL, undoable=False, helps_with=MALWARE + OLD_SCAN + OLD_DEFINITIONS,
+        how_to='Open Windows Security, then Virus & threat protection, and click Quick scan.'
+    ),
+    Fix(
+        "defender_full_scan", "Run a full virus scan",
+        "Microsoft Defender checks every file on the PC. Can take an hour or more and slows the PC meanwhile.",
+        BIG, undoable=False, helps_with=MALWARE + OLD_SCAN,
+        how_to='Open Windows Security, then Virus & threat protection, Scan options, choose Full scan and click Scan now.'
+    ),
+    Fix(
+        "defender_update", "Update virus definitions",
+        "Get Microsoft Defender's latest list of threats.",
+        SMALL, undoable=False, helps_with=OLD_DEFINITIONS + MALWARE,
+        how_to='Open Windows Security, then Virus & threat protection, Protection updates, and click Check for updates.'
+    ),
+    Fix(
+        "defender_remove_threats", "Remove the threats Defender found",
+        "Ask Microsoft Defender to quarantine or remove the threats it found and couldn't deal with on its own.",
+        BIG, undoable=False, helps_with=("SECURITY_THREAT_ACTIVE_CRITICAL",),
+        how_to='Open Windows Security, then Virus & threat protection, Current threats, and click Start actions.'
+    ),
+    Fix(
+        "turn_protection_on", "Turn virus protection back on",
+        "Open Windows Security on the PC, go to Virus & threat protection, Manage settings, and switch Real-time protection on. Windows doesn't let programs do this for you, to stop malware switching it off.",
+        SMALL, undoable=False, helps_with=PROTECTION_OFF, manual=True,
+    ),
+    Fix(
+        "disconnect_internet", "Disconnect the PC from the internet",
+        "If files are being encrypted or something is sending your data out, unplug the network cable or turn off Wi-Fi until the PC is clean. Lectio loses contact meanwhile.",
+        SMALL, undoable=False, helps_with=("SECURITY_THREAT_ACTIVE_CRITICAL", "SECURITY_DISGUISED_PROGRAM_CRITICAL"), manual=True,
+    ),
+    Fix(
+        "change_passwords", "Change your important passwords",
+        "Malware that ran on the PC may have seen your passwords. Change your email, bank and other important passwords from another, clean device.",
+        SMALL, undoable=False, helps_with=MALWARE, manual=True,
     ),
     Fix(
         "restart_pc", "Restart the PC",

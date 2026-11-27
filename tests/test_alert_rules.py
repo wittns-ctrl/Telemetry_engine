@@ -29,7 +29,7 @@ def test_rule_names_are_unique_and_messages_format():
     names = [r.name for r in BASELINE_RULES]
     assert len(names) == len(set(names))
     for rule in BASELINE_RULES:
-        rule.message_template.format(value=1.0, threshold=rule.threshold)
+        rule.message(1.0)
 
 
 def test_every_rule_ignores_an_empty_reading():
@@ -121,3 +121,69 @@ def test_a_hot_pc_with_a_stopped_case_fan():
     assert fires("CHASSIS_FAN_STOPPED_CRITICAL", s)
     cool = snap(cpu=CPUMetrics(core_temperature_c=50), power_vrm=PowerAndVRMMetrics(chassis_fan_speed_rpm=0))
     assert not fires("CHASSIS_FAN_STOPPED_CRITICAL", cool)
+
+
+# --------------------------------------------------------------- security
+
+from datetime import timedelta  # noqa: E402
+
+from app.models.telemetry import SecurityMetrics, SuspiciousProcessInfo, ThreatInfo  # noqa: E402
+
+
+def sec(**kw):
+    base = dict(checked_at=datetime.now(timezone.utc), antivirus="Microsoft Defender", defender_active=True,
+                realtime_protection=True, definitions_age_days=0, quick_scan_age_days=1)
+    base.update(kw)
+    return SecurityMetrics(**base)
+
+
+def threat(name="Trojan:Win32/Agent", active=False, hours_ago=1):
+    return ThreatInfo(name=name, status="detected" if active else "quarantined", active=active,
+                      path=r"D:\sysvolume\x.vbs", detected_at=datetime.now(timezone.utc) - timedelta(hours=hours_ago))
+
+
+def test_a_clean_pc_raises_nothing():
+    s = snap(security=sec())
+    for name in ("SECURITY_THREAT_ACTIVE_CRITICAL", "SECURITY_THREAT_STOPPED_WARNING", "SECURITY_PROTECTION_OFF_CRITICAL",
+                 "SECURITY_DISGUISED_PROGRAM_CRITICAL", "SECURITY_DEFINITIONS_OLD_WARNING", "SECURITY_SCAN_OLD_WARNING"):
+        assert not fires(name, s), name
+
+
+def test_an_active_threat_is_critical_and_named():
+    s = snap(security=sec(threats=[threat(active=True), threat("Trojan:BAT/Runner", active=True, hours_ago=2)]))
+    assert fires("SECURITY_THREAT_ACTIVE_CRITICAL", s)
+    rule = get_rule_by_name("SECURITY_THREAT_ACTIVE_CRITICAL")
+    assert rule.message(2, s) == "Malware found: Trojan:Win32/Agent and 1 more"
+
+
+def test_a_threat_defender_stopped_is_a_warning_for_a_day():
+    recent = snap(security=sec(threats=[threat(), threat()]))
+    old = snap(security=sec(threats=[threat(hours_ago=30)]))
+    assert fires("SECURITY_THREAT_STOPPED_WARNING", recent)
+    assert not fires("SECURITY_THREAT_ACTIVE_CRITICAL", recent)
+    assert not fires("SECURITY_THREAT_STOPPED_WARNING", old)
+    # The same threat caught twice is named once.
+    assert get_rule_by_name("SECURITY_THREAT_STOPPED_WARNING").message(2, recent) == \
+        "Defender stopped malware: Trojan:Win32/Agent"
+
+
+def test_protection_off_only_counts_without_another_antivirus():
+    assert fires("SECURITY_PROTECTION_OFF_CRITICAL", snap(security=sec(realtime_protection=False)))
+    other = sec(realtime_protection=False, defender_active=False, antivirus="Norton 360")
+    assert not fires("SECURITY_PROTECTION_OFF_CRITICAL", snap(security=other))
+    # Defender's definitions and scans don't matter when another antivirus is in charge.
+    assert get_rule_by_name("SECURITY_DEFINITIONS_OLD_WARNING").metric_extractor(snap(security=other)) is None
+
+
+def test_old_definitions_and_scans():
+    s = snap(security=sec(definitions_age_days=4, quick_scan_age_days=20))
+    assert fires("SECURITY_DEFINITIONS_OLD_WARNING", s) and not fires("SECURITY_DEFINITIONS_OLD_CRITICAL", s)
+    assert fires("SECURITY_SCAN_OLD_WARNING", s) and not fires("SECURITY_SCAN_OLD_CRITICAL", s)
+
+
+def test_a_disguised_program_is_critical():
+    s = snap(security=sec(suspicious_processes=[SuspiciousProcessInfo(
+        name="svchost.exe", path=r"C:\Users\HP\AppData\Roaming\svchost.exe", pid=4242)]))
+    assert fires("SECURITY_DISGUISED_PROGRAM_CRITICAL", s)
+    assert r"svchost.exe running from C:\Users\HP\AppData\Roaming\svchost.exe" in \
+        get_rule_by_name("SECURITY_DISGUISED_PROGRAM_CRITICAL").message(1, s)

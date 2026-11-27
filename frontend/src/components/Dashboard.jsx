@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Flame, HeartPulse, ListTree, WifiOff } from "lucide-react";
+import { Check, Flame, HeartPulse, ListTree, ShieldCheck, WifiOff } from "lucide-react";
 import {
   fetchDeviceAlerts,
   fetchDevices,
@@ -9,6 +9,7 @@ import {
   telemetrySocketUrl,
 } from "../services/api";
 import { HealthSummary } from "./HealthSummary";
+import { SecurityCard } from "./SecurityCard";
 import { AddDevice } from "./DevicesView";
 import { GROUPS, READING_COUNT, valueOf, maxOf, statusOf, display, show, isCharted, healthOf } from "./readings";
 import { Card, Chip, Stat, Pill, Ring, Gauge, Tabs, Seg, LineGraph, Modal, Promo, Empty } from "./ui";
@@ -445,11 +446,15 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
 
   // The first view: four plain questions; the tabs are the advanced details.
   // (An old "alerts" tab, or any unknown one, lands here too.)
-  if (tab === "summary" || !group) {
+  // The live reading carries the security report; until the first one
+  // arrives, the device's latest stored report stands in.
+  const security = snapshot.security || device.security || null;
+
+  if (tab === "summary" || (!group && tab !== "security")) {
     return (
       <div className="page">
         <div className="row ac wrap">{status}</div>
-        <HealthSummary snapshot={snapshot} alerts={alerts} onOpenTab={setTab} onOpenAlerts={() => onNavigate?.("alerts")} />
+        <HealthSummary snapshot={snapshot} security={security} alerts={alerts} onOpenTab={setTab} onOpenAlerts={() => onNavigate?.("alerts")} />
         {notice}
       </div>
     );
@@ -464,11 +469,22 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
         items={[
           { id: "summary", label: "Summary", icon: HeartPulse },
           ...GROUPS.map((g) => ({ id: g.id, label: g.label, icon: g.icon })),
+          { id: "security", label: "Security", icon: ShieldCheck },
         ]}
       />
       {status}
     </div>
   );
+
+  if (tab === "security") {
+    return (
+      <div className="page">
+        {tabs}
+        <SecurityCard security={security} device={device} onOpenAlerts={() => onNavigate?.("alerts")} />
+        {notice}
+      </div>
+    );
+  }
 
   const read = (reading) => {
     const value = valueOf(reading, snapshot);

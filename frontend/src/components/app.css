@@ -612,6 +612,27 @@
   /* Health summary (option B): four plain questions, answered in a sentence. */
   .hs { display: flex; flex-direction: column; gap: calc(6 * var(--u)); }
   .hs-list { margin: 0; padding: calc(2 * var(--u)) calc(10 * var(--u)); list-style: none; }
+  /* Security tab (approved design D): status, then what happened, newest first. */
+  .sec { display: flex; flex-direction: column; gap: calc(9 * var(--u)); }
+  .sec-head { gap: calc(6 * var(--u)); }
+  .sec-icon { display: inline-flex; color: var(--ink-400); }
+  .sec-icon svg { width: calc(12 * var(--u)); height: calc(12 * var(--u)); min-width: 22px; min-height: 22px; }
+  .sec-icon.bad { color: var(--rose); }
+  .sec-icon.warn { color: #c2410c; }
+  .sec-icon.good { color: var(--green-dark); }
+  .sec-title { margin: 0; font-size: var(--fs-5); font-weight: 600; color: var(--ink); }
+  .sec-title.bad { color: var(--rose-text); }
+  .sec-tl { display: flex; flex-direction: column; gap: calc(6 * var(--u)); margin: 0; padding: 0 0 0 calc(7 * var(--u)); border-left: 2px solid var(--ink-100); list-style: none; }
+  .sec-tl li { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .sec-tl b { font-size: var(--fs-2); font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+  .sec-tl span { font-size: var(--fs-1); color: var(--ink-500); overflow-wrap: anywhere; }
+  .sec-tl li.bad b { color: var(--rose-text); }
+  .sec-more { align-self: flex-start; padding: 0; border: 0; background: none; font: inherit; font-size: var(--fs-1); font-weight: 600; color: var(--ink-600); cursor: pointer; text-decoration: underline; }
+  .sec .ap-sent, .sec .note { margin: 0; }
+  .dev-shield { display: inline-flex; color: var(--green-dark); }
+  .dev-shield svg { width: 16px; height: 16px; }
+  .dev-shield.warn { color: #c2410c; }
+  .dev-shield.bad { color: var(--rose); }
   .hs-row { display: flex; align-items: center; gap: calc(7 * var(--u)); padding: calc(9 * var(--u)) 0; border-top: 1px solid var(--ink-100); }
   .hs-row:first-child { border-top: 0; }
   .hs-dot { flex: none; align-self: flex-start; width: 10px; height: 10px; margin-top: 5px; border-radius: 50%; background: var(--ink-300); }

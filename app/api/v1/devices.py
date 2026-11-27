@@ -49,6 +49,7 @@ def _to_response(device: Device) -> DeviceResponse:
         last_seen=device.last_seen,
         agent_version=device.agent_version,
         agent_last_seen=device.agent_last_seen,
+        security=device.security,
         is_active=device.is_active,
         created_at=device.created_at,
     )

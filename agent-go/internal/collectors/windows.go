@@ -23,7 +23,7 @@ import (
 )
 
 func platformSources() []Source {
-	return []Source{&GPUSource{}, &ThermalSource{}, &WHEASource{}}
+	return []Source{&GPUSource{}, &ThermalSource{}, &WHEASource{}, &SecuritySource{}}
 }
 
 // ------------------------------------------------------------------ WMI

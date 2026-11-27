@@ -108,6 +108,47 @@ class ProcessMetrics(BaseModel):
     disk_bytes_per_s: Optional[float] = Field(None, ge=0.0, description="Disk read + write, bytes per second")
 
 
+class ThreatInfo(BaseModel):
+    """One detection in Microsoft Defender's history (the last 30 days)."""
+    name: str = Field(..., max_length=128)
+    severity: str = Field("unknown", max_length=16)
+    status: str = Field("unknown", max_length=16)  # quarantined, removed, blocked, allowed, detected, failed...
+    active: bool = Field(False, description="Still on the PC and needing action")
+    executed: bool = Field(False, description="It ran before Defender stopped it")
+    path: str = Field("", max_length=300)
+    detected_at: datetime
+
+
+class SuspiciousProcessInfo(BaseModel):
+    """A Windows program name running from outside Windows' own folders."""
+    name: str = Field(..., max_length=64)
+    path: str = Field(..., max_length=300)
+    pid: int = Field(..., ge=0)
+
+
+class SecurityMetrics(BaseModel):
+    """What the PC's antivirus reports; refreshed by the agent every 2 minutes."""
+    checked_at: datetime
+    antivirus: Optional[str] = Field(None, max_length=128, description="The active antivirus product")
+    defender_active: Optional[bool] = None
+    realtime_protection: Optional[bool] = None
+    tamper_protected: Optional[bool] = None
+    definitions_age_days: Optional[int] = Field(None, ge=0)
+    definitions_version: Optional[str] = Field(None, max_length=32)
+    definitions_updated_at: Optional[datetime] = None
+    quick_scan_age_days: Optional[int] = Field(None, ge=0)
+    last_quick_scan_at: Optional[datetime] = None
+    full_scan_age_days: Optional[int] = Field(None, ge=0)
+    last_full_scan_at: Optional[datetime] = None
+    threats: list[ThreatInfo] = Field(default_factory=list, max_length=20)
+    suspicious_processes: list[SuspiciousProcessInfo] = Field(default_factory=list, max_length=10)
+
+    @property
+    def other_antivirus(self) -> bool:
+        """Another product than Defender is the active antivirus."""
+        return bool(self.antivirus) and "defender" not in (self.antivirus or "").lower()
+
+
 class TelemetrySnapshot(BaseModel):
     """Complete hardware telemetry snapshot."""
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Snapshot timestamp")
@@ -121,6 +162,8 @@ class TelemetrySnapshot(BaseModel):
     network: NetworkMetrics = Field(default_factory=NetworkMetrics, description="Network activity")
     processes: list[ProcessMetrics] = Field(default_factory=list, max_length=20, description="Busiest programs")
     collection_duration_ms: Optional[float] = Field(None, ge=0.0, description="Collection duration in milliseconds")
+    # Not stored with every reading (it changes rarely); the latest is kept on the Device.
+    security: Optional[SecurityMetrics] = Field(None, description="Antivirus status and threats")
 
 
 # ============================================================================
@@ -147,6 +190,8 @@ class Device(Document):
     # Updated each time the agent checks for fixes (GET /agent/fixes/next).
     agent_version: Optional[str] = Field(None, max_length=32, description="Version of the Lectio agent on this PC")
     agent_last_seen: Optional[datetime] = Field(None, description="When the agent last checked in")
+    # The latest antivirus report (the agent refreshes it every 2 minutes).
+    security: Optional[SecurityMetrics] = Field(None, description="Latest antivirus status and threats")
     # SHA-256 of the agent's device key. The plaintext key is shown once at registration.
     ingest_key_hash: Optional[str] = Field(None, description="Hash of the device ingest key")
     _loaded_key_hash: Optional[str] = PrivateAttr(default=None)

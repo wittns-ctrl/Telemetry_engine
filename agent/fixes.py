@@ -345,6 +345,41 @@ def check_disk(params: dict) -> tuple[str, None]:
     raise FixError("The drive check didn't finish. Try again later.")
 
 
+# ------------------------------------------------------------------ Microsoft Defender
+# The agent only asks Defender to act; it never deletes or moves files itself.
+
+def _mpcmdrun() -> str:
+    return os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), "Windows Defender", "MpCmdRun.exe")
+
+
+def defender_quick_scan(params: dict) -> tuple[str, None]:
+    _require_windows()
+    _run([_mpcmdrun(), "-Scan", "-ScanType", "1"], timeout=3600)
+    return "Quick scan finished. Microsoft Defender found no threats.", None
+
+
+def defender_full_scan(params: dict) -> tuple[str, None]:
+    _require_windows()
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        subprocess.Popen([_mpcmdrun(), "-Scan", "-ScanType", "2"], creationflags=flags)
+    except OSError:
+        raise FixError("Windows couldn't start Microsoft Defender's full scan.")
+    return "Full scan started. It runs in the background and can take an hour or more; the result shows on the Security tab.", None
+
+
+def defender_update(params: dict) -> tuple[str, None]:
+    _require_windows()
+    _run([_mpcmdrun(), "-SignatureUpdate"], timeout=900)
+    return "Virus definitions are up to date.", None
+
+
+def defender_remove_threats(params: dict) -> tuple[str, None]:
+    _require_windows()
+    _run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", "Remove-MpThreat"], timeout=1800)
+    return "Microsoft Defender dealt with the threats it found. Run a quick scan to make sure the PC is clean.", None
+
+
 # ------------------------------------------------------------------ dispatch
 
 RUNNERS: dict[str, Callable[[dict], tuple[str, Any]]] = {
@@ -356,6 +391,10 @@ RUNNERS: dict[str, Callable[[dict], tuple[str, Any]]] = {
     "restart_service": restart_service,
     "repair_system_files": repair_system_files,
     "check_disk": check_disk,
+    "defender_quick_scan": defender_quick_scan,
+    "defender_full_scan": defender_full_scan,
+    "defender_update": defender_update,
+    "defender_remove_threats": defender_remove_threats,
 }
 UNDOERS: dict[str, Callable[[dict], str]] = {
     "cool_down": undo_cool_down,

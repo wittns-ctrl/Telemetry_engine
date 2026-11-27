@@ -4,6 +4,7 @@
 // sentence and the dashboard tab that holds the details.
 
 import { GROUPS, valueOf, statusOf, show } from "./readings";
+import { safeAnswer } from "./security";
 
 const READINGS = Object.fromEntries(GROUPS.flatMap((g) => g.readings.map((r) => [r.id, r])));
 
@@ -119,9 +120,11 @@ export const QUESTIONS = [
   { id: "load", question: "Is it struggling?", answer: struggling },
   { id: "storage", question: "Is my storage OK?", answer: storage },
   { id: "broken", question: "Is anything broken?", answer: broken },
+  // The security report can come from the device until a live reading has it.
+  { id: "safe", question: "Is it safe?", answer: (s, security) => ({ ...safeAnswer(s.security || security), tab: "security" }) },
 ];
 
 /** Every question with its answer for this snapshot. */
-export function answersFor(snapshot) {
-  return QUESTIONS.map((q) => ({ ...q, ...q.answer(snapshot) }));
+export function answersFor(snapshot, security = null) {
+  return QUESTIONS.map((q) => ({ ...q, ...q.answer(snapshot, security) }));
 }

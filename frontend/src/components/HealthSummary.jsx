@@ -9,8 +9,8 @@ import { answersFor } from "./healthAnswers";
  * otherwise to the tab with the details. The full readings sit behind
  * "Show advanced details".
  */
-export function HealthSummary({ snapshot, alerts, onOpenTab, onOpenAlerts }) {
-  const answers = useMemo(() => answersFor(snapshot), [snapshot]);
+export function HealthSummary({ snapshot, security, alerts, onOpenTab, onOpenAlerts }) {
+  const answers = useMemo(() => answersFor(snapshot, security), [snapshot, security]);
   const hasAlerts = alerts.length > 0;
   return (
     <section className="hs" aria-label="PC health summary">
@@ -26,8 +26,13 @@ export function HealthSummary({ snapshot, alerts, onOpenTab, onOpenAlerts }) {
               </span>
             </div>
             {a.state === "warn" && (
-              <button type="button" className="bk" onClick={() => (hasAlerts ? onOpenAlerts() : onOpenTab(a.tab))}>
-                {hasAlerts ? "See what to do" : "See details"}
+              // "Is it safe?" goes to the Security tab, where its actions are.
+              <button
+                type="button"
+                className="bk"
+                onClick={() => (a.id === "safe" ? onOpenTab("security") : hasAlerts ? onOpenAlerts() : onOpenTab(a.tab))}
+              >
+                {hasAlerts || a.id === "safe" ? "See what to do" : "See details"}
               </button>
             )}
           </li>

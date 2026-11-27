@@ -63,6 +63,18 @@ func (WindowsRunner) Run(fixID string, p map[string]any) (string, map[string]any
 	case "check_disk":
 		msg, err := checkDisk()
 		return msg, nil, err
+	case "defender_quick_scan":
+		msg, err := defenderQuickScan()
+		return msg, nil, err
+	case "defender_full_scan":
+		msg, err := defenderFullScan()
+		return msg, nil, err
+	case "defender_update":
+		msg, err := defenderUpdate()
+		return msg, nil, err
+	case "defender_remove_threats":
+		msg, err := defenderRemoveThreats()
+		return msg, nil, err
 	}
 	return "", nil, fail("This PC's Lectio doesn't know that fix.")
 }

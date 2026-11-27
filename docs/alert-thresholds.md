@@ -53,6 +53,12 @@ stay past the limit before an alert opens; "clears" is how long it must stay bac
 | System | Processes | > 400 | > 800 | 2 min | 60 s |
 | System | Days since restart | INFO ≥ 30, WARNING ≥ 60 | – | 60 s | 5 s |
 | Network | Busier direction / link speed | INFO ≥ 95 % | – | 60 s | 30 s |
+| Security | Threat Defender hasn't dealt with | – | ≥ 1 | 5 s | 60 s |
+| Security | Threat Defender stopped, last 24 h | ≥ 1 | – | 5 s | 60 s |
+| Security | Real-time protection off, no other antivirus | – | on | 15 s | 15 s |
+| Security | Windows program name running outside Windows' folders | – | ≥ 1 | 5 s | 60 s |
+| Security | Virus definitions age (Defender in charge) | ≥ 3 days | ≥ 7 days | 60 s | 5 s |
+| Security | Days since the last quick scan (Defender in charge) | > 14 | > 30 | 60 s | 5 s |
 
 ## Where these differ from the survey, and why
 

@@ -46,7 +46,9 @@ def to_record(device: Device, snapshot: TelemetrySnapshot, event_id: Optional[st
     Beanie validated and converted every reading twice; with uploads that was
     about a third of the API's CPU time.
     """
-    record = snapshot.model_dump(exclude={"processes"})
+    # Security changes rarely and its threat list is long, so it isn't stored
+    # with every reading; the latest goes on the Device (store_readings).
+    record = snapshot.model_dump(exclude={"processes", "security"})
     record["_id"] = PydanticObjectId()
     record["device_id"] = device.id
     record["user_id"] = device.user_id
@@ -92,11 +94,18 @@ async def store_readings(device: Device, readings: list[tuple[Optional[str], Tel
                     raise
                 rejected.add(error["index"])
 
+    latest_security = next(
+        (snapshot.security for _, snapshot in reversed(pairs) if snapshot.security is not None), None)
+
     async def touch_device():
-        # Only forwards: a late batch of buffered readings never moves last_seen back.
+        # Only forwards: a late batch of buffered readings never moves last_seen
+        # (or the security report) back.
+        changes = {"last_seen": newest}
+        if latest_security is not None:
+            changes["security"] = latest_security.model_dump()
         await Device.get_pymongo_collection().update_one(
             {"_id": device.id, "$or": [{"last_seen": None}, {"last_seen": {"$lt": newest}}]},
-            {"$set": {"last_seen": newest}},
+            {"$set": changes},
         )
 
     await asyncio.gather(insert(), touch_device())

@@ -3,6 +3,8 @@
 
 const n = (v, digits = 0) => Number(v).toLocaleString("en-US", { maximumFractionDigits: digits });
 const own = (pc) => (pc.endsWith("s") ? `${pc}'` : `${pc}'s`);
+// The part of the rule's message after the colon: a threat's or program's name.
+const detailOf = (a) => (a.message || "").split(":").slice(1).join(":").trim() || a.message;
 
 const KINDS = [
   { rules: ["CPU_OVERHEATING_CRITICAL", "CPU_OVERHEATING_WARNING", "CPU_PACKAGE_OVERHEATING_CRITICAL", "CPU_PACKAGE_OVERHEATING_WARNING"],
@@ -52,6 +54,18 @@ const KINDS = [
     title: (pc) => `${pc} is working very hard`, detail: (a) => `Processor ${n(a.trigger_value)}% busy` },
   { rules: ["GPU_HIGH_UTILIZATION_INFO"],
     title: (pc) => `${own(pc)} graphics card is working very hard`, detail: (a) => `${n(a.trigger_value)}% busy` },
+  { rules: ["SECURITY_THREAT_ACTIVE_CRITICAL"],
+    title: (pc) => `Malware found on ${pc}`, detail: (a) => `${detailOf(a)}: it still needs removing` },
+  { rules: ["SECURITY_THREAT_STOPPED_WARNING"],
+    title: (pc) => `Defender stopped malware on ${pc}`, detail: (a) => `${detailOf(a)}: check where it came from` },
+  { rules: ["SECURITY_DISGUISED_PROGRAM_CRITICAL"],
+    title: (pc) => `A program on ${pc} is disguised as Windows`, detail: (a) => detailOf(a) },
+  { rules: ["SECURITY_PROTECTION_OFF_CRITICAL"],
+    title: (pc) => `${own(pc)} virus protection is off`, detail: () => "New malware won't be stopped until it's back on" },
+  { rules: ["SECURITY_DEFINITIONS_OLD_CRITICAL", "SECURITY_DEFINITIONS_OLD_WARNING"],
+    title: (pc) => `${own(pc)} virus protection is out of date`, detail: (a) => `Definitions are ${n(a.trigger_value)} days old` },
+  { rules: ["SECURITY_SCAN_OLD_CRITICAL", "SECURITY_SCAN_OLD_WARNING"],
+    title: (pc) => `${pc} hasn't been scanned for viruses`, detail: (a) => `No scan for ${n(a.trigger_value)} days` },
   { rules: ["NETWORK_SATURATED_INFO"],
     title: (pc) => `${own(pc)} internet connection is full`, detail: (a) => `${n(a.trigger_value)}% of the link in use` },
 ];

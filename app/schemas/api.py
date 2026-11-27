@@ -22,6 +22,7 @@ from app.models.telemetry import (
     NetworkMetrics,
     ProcessMetrics,
     RAMMetrics,
+    SecurityMetrics,
     StorageMetrics,
     TelemetrySnapshotDocument,
 )
@@ -40,6 +41,7 @@ class DeviceResponse(BaseModel):
     last_seen: Optional[datetime] = Field(None, description="Last telemetry timestamp")
     agent_version: Optional[str] = Field(None, description="Version of the Lectio agent on this PC")
     agent_last_seen: Optional[datetime] = Field(None, description="When the agent last checked in for fixes")
+    security: Optional[SecurityMetrics] = Field(None, description="Latest antivirus status and threats")
     is_active: bool = Field(True, description="Whether device is actively reporting")
     created_at: datetime = Field(..., description="Device registration timestamp")
     

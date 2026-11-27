@@ -86,6 +86,14 @@ RULE_ALIASES = {
     "UPTIME_LONG_WARNING": "UPTIME_LONG",
     "UPTIME_LONG_INFO": "UPTIME_LONG",
     "NETWORK_SATURATED_INFO": "NETWORK_SATURATED",
+    "SECURITY_THREAT_ACTIVE_CRITICAL": "MALWARE_ACTIVE",
+    "SECURITY_THREAT_STOPPED_WARNING": "MALWARE_STOPPED",
+    "SECURITY_PROTECTION_OFF_CRITICAL": "PROTECTION_OFF",
+    "SECURITY_DISGUISED_PROGRAM_CRITICAL": "DISGUISED_PROGRAM",
+    "SECURITY_DEFINITIONS_OLD_CRITICAL": "DEFINITIONS_OLD",
+    "SECURITY_DEFINITIONS_OLD_WARNING": "DEFINITIONS_OLD",
+    "SECURITY_SCAN_OLD_CRITICAL": "SCAN_OLD",
+    "SECURITY_SCAN_OLD_WARNING": "SCAN_OLD",
 }
 
 # The urgency a severity calls for; the AI may not go below this.
@@ -983,6 +991,186 @@ message: {_clip(alert.message, 300)}
                     "likely_failure_mode": "disk_contention",
                     "preventive_measures": [
                         "ssd_upgrade",
+                        "scheduled_scans"
+                    ]
+                }
+            },
+            "MALWARE_ACTIVE": {
+                "root_cause_analysis": "Microsoft Defender found malware on the PC that it hasn't been able to remove yet. Until it's dealt with, it may be stealing data, damaging files or spreading to other drives.",
+                "urgency_level": "IMMEDIATE_ACTION_REQUIRED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Use \"Remove the threats Defender found\", or open Windows Security, Virus & threat protection, and click Start actions",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Run a full virus scan afterwards to find anything else it left behind",
+                        "category": "software",
+                        "estimated_time_minutes": 60
+                    },
+                    {
+                        "instruction": "If files are being encrypted or the PC behaves strangely, disconnect it from the internet until it's clean",
+                        "category": "software",
+                        "estimated_time_minutes": 1
+                    },
+                    {
+                        "instruction": "Change important passwords from another, clean device",
+                        "category": "software",
+                        "estimated_time_minutes": 15
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Software"
+                    ],
+                    "likely_failure_mode": "malware_infection",
+                    "preventive_measures": [
+                        "keep_defender_on",
+                        "avoid_unknown_downloads",
+                        "scan_usb_drives"
+                    ]
+                }
+            },
+            "MALWARE_STOPPED": {
+                "root_cause_analysis": "Microsoft Defender caught malware and dealt with it (quarantined, removed or blocked it). The PC is likely safe, but the malware came from somewhere: often a USB drive, an email attachment or a download, and it may come back from the same place.",
+                "urgency_level": "ATTENTION_NEEDED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Check where the file was (shown on the Security tab): if it was on a USB drive, scan that drive before opening anything on it",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Run a quick virus scan to make sure nothing else is left",
+                        "category": "software",
+                        "estimated_time_minutes": 10
+                    },
+                    {
+                        "instruction": "If the malware ran before it was caught, change important passwords from another device",
+                        "category": "software",
+                        "estimated_time_minutes": 15
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Software"
+                    ],
+                    "likely_failure_mode": "malware_blocked",
+                    "preventive_measures": [
+                        "scan_usb_drives",
+                        "avoid_unknown_downloads"
+                    ]
+                }
+            },
+            "PROTECTION_OFF": {
+                "root_cause_analysis": "Real-time virus protection is switched off and no other antivirus is running, so new malware won't be stopped as it arrives. Malware often switches protection off to hide.",
+                "urgency_level": "IMMEDIATE_ACTION_REQUIRED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Open Windows Security, Virus & threat protection, Manage settings, and switch Real-time protection on",
+                        "category": "software",
+                        "estimated_time_minutes": 2
+                    },
+                    {
+                        "instruction": "Run a quick virus scan straight after",
+                        "category": "software",
+                        "estimated_time_minutes": 10
+                    },
+                    {
+                        "instruction": "If it keeps switching off by itself, run a full scan: something may be turning it off",
+                        "category": "software",
+                        "estimated_time_minutes": 60
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Software"
+                    ],
+                    "likely_failure_mode": "protection_disabled",
+                    "preventive_measures": [
+                        "keep_defender_on",
+                        "tamper_protection"
+                    ]
+                }
+            },
+            "DISGUISED_PROGRAM": {
+                "root_cause_analysis": "A program with the name of a Windows system program is running from outside Windows' own folders. Malware uses this disguise to blend in with real Windows programs in Task Manager.",
+                "urgency_level": "IMMEDIATE_ACTION_REQUIRED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Run a full virus scan",
+                        "category": "software",
+                        "estimated_time_minutes": 60
+                    },
+                    {
+                        "instruction": "Check the program's location shown on the Security tab; real Windows programs live in C:\\Windows\\System32",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Disconnect the PC from the internet if you can't stop it, and change important passwords from another device",
+                        "category": "software",
+                        "estimated_time_minutes": 15
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Software"
+                    ],
+                    "likely_failure_mode": "malware_disguise",
+                    "preventive_measures": [
+                        "keep_defender_on",
+                        "avoid_unknown_downloads"
+                    ]
+                }
+            },
+            "DEFINITIONS_OLD": {
+                "root_cause_analysis": "Microsoft Defender's list of known threats hasn't updated for days, so it can miss recent malware. Usually the PC has been offline or Windows Update is stuck.",
+                "urgency_level": "ATTENTION_NEEDED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Use \"Update virus definitions\", or open Windows Security, Protection updates, Check for updates",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Check the PC's internet connection and that Windows Update works",
+                        "category": "software",
+                        "estimated_time_minutes": 10
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Software"
+                    ],
+                    "likely_failure_mode": "outdated_definitions",
+                    "preventive_measures": [
+                        "automatic_updates"
+                    ]
+                }
+            },
+            "SCAN_OLD": {
+                "root_cause_analysis": "Microsoft Defender hasn't run a scan on this PC for weeks. Real-time protection still checks files as they're opened, but a scan finds malware already sitting on the PC.",
+                "urgency_level": "ATTENTION_NEEDED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Run a quick virus scan now",
+                        "category": "software",
+                        "estimated_time_minutes": 10
+                    },
+                    {
+                        "instruction": "Leave the PC on and idle sometimes: Defender runs its scheduled scans when the PC isn't busy",
+                        "category": "software",
+                        "estimated_time_minutes": 1
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Software"
+                    ],
+                    "likely_failure_mode": "missed_scans",
+                    "preventive_measures": [
                         "scheduled_scans"
                     ]
                 }

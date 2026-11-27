@@ -168,6 +168,9 @@ class StorageService:
             )
             
             await telemetry_doc.insert()
+            if snapshot.security is not None:
+                await Device.get_pymongo_collection().update_one(
+                    {"_id": device_oid}, {"$set": {"security": snapshot.security.model_dump()}})
             
             # Update device last_seen timestamp
             device = await Device.get(device_oid)

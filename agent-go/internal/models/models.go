@@ -96,6 +96,45 @@ type Snapshot struct {
 	Network              Network      `json:"network"`
 	Processes            []Process    `json:"processes"`
 	CollectionDurationMS *float64     `json:"collection_duration_ms"`
+	Security             *Security    `json:"security,omitempty"`
+}
+
+// Security is what Microsoft Defender (or another antivirus) reports, plus
+// Windows program names running from outside Windows' own folders.
+type Security struct {
+	CheckedAt            time.Time           `json:"checked_at"`
+	Antivirus            string              `json:"antivirus,omitempty"` // the active product, e.g. "Microsoft Defender"
+	DefenderActive       *bool               `json:"defender_active"`
+	RealtimeProtection   *bool               `json:"realtime_protection"`
+	TamperProtected      *bool               `json:"tamper_protected"`
+	DefinitionsAgeDays   *int                `json:"definitions_age_days"`
+	DefinitionsVersion   string              `json:"definitions_version,omitempty"`
+	DefinitionsUpdatedAt *time.Time          `json:"definitions_updated_at"`
+	QuickScanAgeDays     *int                `json:"quick_scan_age_days"`
+	LastQuickScanAt      *time.Time          `json:"last_quick_scan_at"`
+	FullScanAgeDays      *int                `json:"full_scan_age_days"`
+	LastFullScanAt       *time.Time          `json:"last_full_scan_at"`
+	Threats              []Threat            `json:"threats"`
+	SuspiciousProcesses  []SuspiciousProcess `json:"suspicious_processes"`
+}
+
+// Threat is one detection in Defender's history (the last 30 days).
+type Threat struct {
+	Name       string    `json:"name"`
+	Severity   string    `json:"severity"` // low, moderate, high, severe
+	Status     string    `json:"status"`   // quarantined, removed, blocked, allowed, detected, failed...
+	Active     bool      `json:"active"`   // still on the PC and needing action
+	Executed   bool      `json:"executed"` // it ran before Defender stopped it
+	Path       string    `json:"path"`
+	DetectedAt time.Time `json:"detected_at"`
+}
+
+// SuspiciousProcess is a Windows program name running from the wrong folder,
+// a common disguise for malware.
+type SuspiciousProcess struct {
+	Name string `json:"name"`
+	Path string `json:"path"`
+	PID  int32  `json:"pid"`
 }
 
 // Reading is a snapshot plus the agent's unique id for it, as sent in a batch.

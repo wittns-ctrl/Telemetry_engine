@@ -20,6 +20,7 @@ Version: 5.0.0
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Callable
 from enum import Enum
 
@@ -61,6 +62,18 @@ class AnomalyRule:
     resolution_duration: float  # seconds
     message_template: str
     metric_extractor: Callable[[TelemetrySnapshot], Optional[float]]
+    # Optional: the message's detail from the reading itself (a threat's name,
+    # say), used as {detail} in the template.
+    detail: Optional[Callable[[TelemetrySnapshot], str]] = None
+
+    def message(self, value: float, snapshot: Optional[TelemetrySnapshot] = None) -> str:
+        detail = ""
+        if self.detail is not None and snapshot is not None:
+            try:
+                detail = self.detail(snapshot)
+            except Exception:  # a message is never worth failing an alert over
+                detail = ""
+        return self.message_template.format(value=value, threshold=self.threshold, detail=detail)[:512]
 
 
 GT = ComparisonOperator.GREATER_THAN
@@ -236,11 +249,86 @@ def extract_uptime_days(snapshot: TelemetrySnapshot) -> Optional[float]:
     return None if up is None else up / DAY
 
 
-def _rule(name, severity, metric, op, threshold, last, clears, message, extractor) -> AnomalyRule:
+# --------------------------------------------------------------- security
+
+def _antivirus_is_defender(snapshot: TelemetrySnapshot) -> bool:
+    sec = snapshot.security
+    return sec is not None and bool(sec.defender_active) and not sec.other_antivirus
+
+
+def extract_active_threats(snapshot: TelemetrySnapshot) -> Optional[float]:
+    """Threats still on the PC that Defender hasn't dealt with."""
+    sec = snapshot.security
+    return None if sec is None else float(sum(1 for t in sec.threats if t.active))
+
+
+def _recently_stopped(snapshot: TelemetrySnapshot):
+    since = snapshot.timestamp - timedelta(days=1)
+    return [t for t in snapshot.security.threats
+            if not t.active and _aware(t.detected_at) >= _aware(since)]
+
+
+def extract_recently_stopped_threats(snapshot: TelemetrySnapshot) -> Optional[float]:
+    """Threats Defender caught and dealt with in the last 24 hours."""
+    return None if snapshot.security is None else float(len(_recently_stopped(snapshot)))
+
+
+def extract_protection_off(snapshot: TelemetrySnapshot) -> Optional[float]:
+    """1 when real-time protection is off and no other antivirus is on."""
+    sec = snapshot.security
+    if sec is None or sec.realtime_protection is None:
+        return None
+    return 0.0 if sec.realtime_protection or sec.other_antivirus else 1.0
+
+
+def extract_definitions_age(snapshot: TelemetrySnapshot) -> Optional[float]:
+    if not _antivirus_is_defender(snapshot) or snapshot.security.definitions_age_days is None:
+        return None
+    return float(snapshot.security.definitions_age_days)
+
+
+def extract_quick_scan_age(snapshot: TelemetrySnapshot) -> Optional[float]:
+    if not _antivirus_is_defender(snapshot) or snapshot.security.quick_scan_age_days is None:
+        return None
+    return float(snapshot.security.quick_scan_age_days)
+
+
+def extract_disguised_programs(snapshot: TelemetrySnapshot) -> Optional[float]:
+    sec = snapshot.security
+    return None if sec is None else float(len(sec.suspicious_processes))
+
+
+def _and_more(names: list[str]) -> str:
+    if not names:
+        return ""
+    return names[0] + (f" and {len(names) - 1} more" if len(names) > 1 else "")
+
+
+def detail_active_threats(snapshot: TelemetrySnapshot) -> str:
+    return _and_more([t.name for t in sorted(snapshot.security.threats, key=lambda t: t.detected_at, reverse=True)
+                      if t.active])
+
+
+def detail_recently_stopped(snapshot: TelemetrySnapshot) -> str:
+    stopped = sorted(_recently_stopped(snapshot), key=lambda t: t.detected_at, reverse=True)
+    return _and_more(list(dict.fromkeys(t.name for t in stopped)))  # each name once
+
+
+def detail_disguised(snapshot: TelemetrySnapshot) -> str:
+    p = snapshot.security.suspicious_processes[0]
+    more = len(snapshot.security.suspicious_processes) - 1
+    return f"{p.name} running from {p.path}" + (f" and {more} more" if more > 0 else "")
+
+
+def _aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _rule(name, severity, metric, op, threshold, last, clears, message, extractor, detail=None) -> AnomalyRule:
     return AnomalyRule(
         name=name, severity=severity, metric_name=metric, threshold=threshold, operator=op,
         duration_threshold=float(last), resolution_duration=float(clears),
-        message_template=message, metric_extractor=extractor,
+        message_template=message, metric_extractor=extractor, detail=detail,
     )
 
 
@@ -367,6 +455,24 @@ BASELINE_RULES = [
           "Not restarted for {value:.0f} days: restart to finish updates", extract_uptime_days),
     _rule("UPTIME_LONG_INFO", INFO, "uptime_days", GE, 30, 60, 5,
           "Not restarted for {value:.0f} days", extract_uptime_days),
+
+    # Security (Microsoft Defender, or the other antivirus that replaced it).
+    _rule("SECURITY_THREAT_ACTIVE_CRITICAL", CRITICAL, "security_active_threats", GE, 1, 5, 60,
+          "Malware found: {detail}", extract_active_threats, detail_active_threats),
+    _rule("SECURITY_THREAT_STOPPED_WARNING", WARNING, "security_recent_threats", GE, 1, 5, 60,
+          "Defender stopped malware: {detail}", extract_recently_stopped_threats, detail_recently_stopped),
+    _rule("SECURITY_PROTECTION_OFF_CRITICAL", CRITICAL, "security_protection_off", GE, 1, 15, 15,
+          "Real-time virus protection is off", extract_protection_off),
+    _rule("SECURITY_DISGUISED_PROGRAM_CRITICAL", CRITICAL, "security_disguised_programs", GE, 1, 5, 60,
+          "Program disguised as part of Windows: {detail}", extract_disguised_programs, detail_disguised),
+    _rule("SECURITY_DEFINITIONS_OLD_CRITICAL", CRITICAL, "security_definitions_age_days", GE, 7, 60, 5,
+          "Virus definitions are {value:.0f} days old", extract_definitions_age),
+    _rule("SECURITY_DEFINITIONS_OLD_WARNING", WARNING, "security_definitions_age_days", GE, 3, 60, 5,
+          "Virus definitions are {value:.0f} days old", extract_definitions_age),
+    _rule("SECURITY_SCAN_OLD_CRITICAL", CRITICAL, "security_quick_scan_age_days", GT, 30, 60, 5,
+          "No virus scan for {value:.0f} days", extract_quick_scan_age),
+    _rule("SECURITY_SCAN_OLD_WARNING", WARNING, "security_quick_scan_age_days", GT, 14, 60, 5,
+          "No virus scan for {value:.0f} days", extract_quick_scan_age),
 
     # Network: a big download fills the link on purpose, so INFO only.
     _rule("NETWORK_SATURATED_INFO", INFO, "network_link_percent", GE, 95, 60, 30,

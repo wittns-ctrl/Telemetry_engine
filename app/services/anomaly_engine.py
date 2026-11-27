@@ -401,10 +401,7 @@ class AnomalyEngine:
                 if alert and alert.is_active:
                     alert.trigger_value = metric_value
                     alert.last_breach_at = current_time
-                    alert.message = rule.message_template.format(
-                        value=metric_value,
-                        threshold=rule.threshold
-                    )
+                    alert.message = rule.message(metric_value, snapshot)
                     await alert.save()
                     logger.debug(f"Updated existing alert: {rule.name}")
                     return alert
@@ -424,10 +421,7 @@ class AnomalyEngine:
                 metric_name=rule.metric_name,
                 trigger_value=metric_value,
                 threshold_limit=rule.threshold,
-                message=rule.message_template.format(
-                    value=metric_value,
-                    threshold=rule.threshold
-                ),
+                message=rule.message(metric_value, snapshot),
                 is_active=True,
                 created_at=current_time,
                 last_breach_at=current_time,

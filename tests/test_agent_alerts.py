@@ -88,7 +88,7 @@ def test_every_critical_rule_has_plain_words():
     assert critical <= set(WORDS), f"no notification words for {sorted(critical - set(WORDS))}"
     for title, risk in WORDS.values():
         assert len(title) <= 30, title  # fits one line of a notification
-        assert len(risk.format(v=123.45)) <= 70, risk
+        assert len(risk.format(v=123.45, detail="Trojan:Win32/Agent")) <= 70, risk
 
 
 async def test_a_rule_without_words_still_reads_sensibly(async_client, keyed_device):

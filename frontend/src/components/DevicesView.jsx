@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Monitor, Plus, RefreshCw, HardDrive, ChartLine, Bell, Download, MapPin, Wrench, Trash2 } from "lucide-react";
+import { Monitor, Plus, RefreshCw, HardDrive, ChartLine, Bell, Download, MapPin, Wrench, Trash2, ShieldAlert, ShieldCheck, ShieldX } from "lucide-react";
 import {
   AGENT_DOWNLOAD_URL,
   fetchAgentDownloadInfo,
@@ -20,6 +20,21 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { FixHistory } from "./fixes";
 import { alertWords, sortAlerts } from "./alertWords";
 import { cx, fmt, timeAgo } from "./format";
+import { TITLES, securityLevel, toneOf } from "./security";
+
+// A PC's virus protection at a glance: green shield, or orange/red with the reason.
+function SecurityShield({ security }) {
+  const level = securityLevel(security);
+  if (level === "unknown") return null;
+  const tone = toneOf(level);
+  const Icon = tone === "bad" ? ShieldX : tone === "warn" ? ShieldAlert : ShieldCheck;
+  return (
+    <span className={`dev-shield ${tone}`} title={TITLES[level]}>
+      <Icon strokeWidth={2} aria-hidden="true" />
+      <span className="sr-only">{TITLES[level]}</span>
+    </span>
+  );
+}
 
 const MAX_POINTS = 60;
 // Three colours far apart in lightness, so the lines stay distinct. The reading
@@ -434,6 +449,7 @@ export function DevicesView({ onOpenAlerts }) {
                 </span>
                 <span className="row ac" style={{ marginTop: "calc(8 * var(--u))" }}>
                   <Chip tone={online ? undefined : "n"}>{online ? "Online" : "Offline"}</Chip>
+                  <SecurityShield security={(on && snapshot?.security) || d.security} />
                   <span className="sub r">{timeAgo(on && snapshot ? snapshot.timestamp : d.last_seen)}</span>
                 </span>
               </button>

@@ -42,7 +42,8 @@ class PendingNotifications(BaseModel):
 
 # The notification's words (approved option D): the part and the problem as
 # the title; then the value, what it can do to the PC, and where to go.
-# {v} is the reading that raised the alert.
+# {v} is the reading that raised the alert; {detail} the part of the alert's
+# message after the colon (a threat's name, say).
 ACTION = "See why and how to fix it."
 _HEAT_CPU = ("Processor overheating", "{v:.0f}°C can slow or shut down your PC.")
 _HEAT_GPU = ("Graphics card overheating", "{v:.0f}°C can make games and apps freeze or crash.")
@@ -73,14 +74,20 @@ WORDS: dict[str, tuple[str, str]] = {
     "HANDLE_COUNT_CRITICAL": _LEAK,
     "THREAD_COUNT_CRITICAL": _LEAK,
     "PROCESS_COUNT_CRITICAL": _LEAK,
+    "SECURITY_THREAT_ACTIVE_CRITICAL": ("Malware found", "{detail} can steal or damage your data."),
+    "SECURITY_DISGUISED_PROGRAM_CRITICAL": ("Disguised program found", "A fake Windows program is running and may be malware."),
+    "SECURITY_PROTECTION_OFF_CRITICAL": ("Virus protection is off", "New malware won't be stopped until it's back on."),
+    "SECURITY_DEFINITIONS_OLD_CRITICAL": ("Virus protection out of date", "{v:.0f}-day-old definitions miss new threats."),
+    "SECURITY_SCAN_OLD_CRITICAL": ("No virus scan for weeks", "{v:.0f} days without a scan can let malware hide."),
 }
 
 
 def _words(alert: AnomalyAlertDocument) -> tuple[str, str]:
     known = WORDS.get(alert.rule_name)
+    detail = alert.message.partition(":")[2].strip()
     if known:
         title, risk = known
-        risk = risk.format(v=alert.trigger_value)
+        risk = risk.format(v=alert.trigger_value, detail=detail or "It")
     else:
         # A rule added later without words: "Its title: detail" message.
         head, _, tail = alert.message.partition(":")
