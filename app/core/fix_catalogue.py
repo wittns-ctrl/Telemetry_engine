@@ -121,13 +121,34 @@ class Fix:
 
 HEAT = (
     "CPU_OVERHEATING_CRITICAL", "CPU_OVERHEATING_WARNING", "CPU_PACKAGE_OVERHEATING_CRITICAL",
+    "CPU_PACKAGE_OVERHEATING_WARNING", "CPU_THERMAL_THROTTLING_WARNING",
     "VRM_OVERHEATING_CRITICAL", "VRM_OVERHEATING_WARNING",
+    "CHIPSET_OVERHEATING_CRITICAL", "CHIPSET_OVERHEATING_WARNING",
 )
-GPU_HEAT = ("GPU_HOTSPOT_CRITICAL", "GPU_CORE_OVERHEATING_WARNING")
+GPU_HEAT = (
+    "GPU_HOTSPOT_CRITICAL", "GPU_HOTSPOT_WARNING",
+    "GPU_CORE_OVERHEATING_CRITICAL", "GPU_CORE_OVERHEATING_WARNING",
+)
 LOAD = ("CPU_HIGH_UTILIZATION_INFO", "GPU_HIGH_UTILIZATION_INFO")
-DISK = ("NVME_HEALTH_LOW_WARNING", "NVME_HEALTH_CRITICAL")
-ERRORS = ("WHEA_ERROR_SPIKE_WARNING",)
-POWER = ("PSU_12V_UNDERVOLTAGE_CRITICAL", "PSU_12V_OVERVOLTAGE_CRITICAL")
+# A program holding too much memory, disk, network or handles: closing it helps.
+HOG = (
+    "RAM_USAGE_CRITICAL", "RAM_USAGE_WARNING", "COMMIT_CHARGE_CRITICAL", "COMMIT_CHARGE_WARNING",
+    "PAGEFILE_USAGE_CRITICAL", "PAGEFILE_USAGE_WARNING", "GPU_VRAM_FULL_WARNING",
+    "HANDLE_COUNT_CRITICAL", "HANDLE_COUNT_WARNING", "THREAD_COUNT_CRITICAL", "THREAD_COUNT_WARNING",
+    "PROCESS_COUNT_CRITICAL", "PROCESS_COUNT_WARNING", "DISK_BUSY_INFO", "NETWORK_SATURATED_INFO",
+)
+DISK = (
+    "NVME_HEALTH_LOW_WARNING", "NVME_HEALTH_CRITICAL",
+    "DRIVE_BAD_SECTORS_CRITICAL", "DRIVE_BAD_SECTORS_WARNING",
+)
+SPACE = ("DISK_FULL_CRITICAL", "DISK_FULL_WARNING", "SYSTEM_DRIVE_SPACE_CRITICAL", "SYSTEM_DRIVE_SPACE_WARNING")
+FANS = (
+    "GPU_FAN_STOPPED_CRITICAL", "GPU_FAN_STOPPED_WARNING", "CHASSIS_FAN_STOPPED_CRITICAL",
+    "DRIVE_OVERHEATING_CRITICAL", "DRIVE_OVERHEATING_WARNING",
+)
+ERRORS = ("WHEA_ERROR_SPIKE_WARNING", "WHEA_ERRORS_CRITICAL")
+POWER = ("PSU_12V_UNDERVOLTAGE_CRITICAL", "PSU_12V_UNDERVOLTAGE_WARNING", "PSU_12V_OVERVOLTAGE_CRITICAL")
+UPTIME = ("UPTIME_LONG_WARNING", "UPTIME_LONG_INFO")
 
 FIXES: dict[str, Fix] = {f.id: f for f in [
     Fix(
@@ -148,13 +169,13 @@ FIXES: dict[str, Fix] = {f.id: f for f in [
     Fix(
         "clear_temp_files", "Clear temporary files",
         "Delete leftover temporary files more than a day old to free up disk space.",
-        SMALL, undoable=False, helps_with=DISK,
+        SMALL, undoable=False, helps_with=DISK + SPACE,
         how_to='Press Windows + R, type %temp% and press Enter. Select everything and delete it, skipping any files that are in use.'
     ),
     Fix(
         "close_app", "Close the app using the most power",
         "Close a program that's working the PC hard. Save your work in it first.",
-        BIG, undoable=False, params={"process": Param(_process)}, helps_with=HEAT + GPU_HEAT + LOAD,
+        BIG, undoable=False, params={"process": Param(_process)}, helps_with=HEAT + GPU_HEAT + LOAD + HOG,
         how_to='Save your work, press Ctrl + Shift + Esc, select the app using the most CPU, and click End task.'
     ),
     Fix(
@@ -185,7 +206,7 @@ FIXES: dict[str, Fix] = {f.id: f for f in [
     Fix(
         "clean_fans", "Clean the fans",
         "Dust may be blocking the air. Switch off, unplug, and blow out the vents and fans.",
-        SMALL, undoable=False, helps_with=HEAT + GPU_HEAT, manual=True,
+        SMALL, undoable=False, helps_with=HEAT + GPU_HEAT + FANS, manual=True,
     ),
     Fix(
         "back_up_now", "Back up your files now",
@@ -196,6 +217,11 @@ FIXES: dict[str, Fix] = {f.id: f for f in [
         "check_power_supply", "Have the power supply checked",
         "The power the PC gets is outside the safe range. A technician should check the power supply.",
         SMALL, undoable=False, helps_with=POWER, manual=True,
+    ),
+    Fix(
+        "restart_pc", "Restart the PC",
+        "Save your work and restart. It finishes pending Windows updates and clears out programs that have been running for weeks.",
+        SMALL, undoable=False, helps_with=UPTIME + HOG, manual=True,
     ),
 ]}
 

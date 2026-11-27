@@ -9,6 +9,7 @@ Version: 7.0.0
 """
 
 import pytest
+from app.core.anomaly_rules import get_rule_by_name
 import asyncio
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
@@ -162,7 +163,7 @@ class TestAnomalyEngine:
         critical_alert = next((a for a in alerts if a.severity == AlertSeverity.CRITICAL and "CPU_OVERHEATING_CRITICAL" in a.rule_name), None)
         assert critical_alert is not None
         assert critical_alert.trigger_value == 95.0
-        assert critical_alert.threshold_limit == settings.CPU_TEMP_CRITICAL_THRESHOLD
+        assert critical_alert.threshold_limit == get_rule_by_name("CPU_OVERHEATING_CRITICAL").threshold
     
     @pytest.mark.asyncio
     async def test_gpu_overheating_critical_trigger(self, test_device, synthetic_telemetry_snapshot):
@@ -171,7 +172,7 @@ class TestAnomalyEngine:
         engine._debounce_enabled = False  # Disable debouncing for immediate trigger
         
         # Modify snapshot to trigger GPU overheating
-        synthetic_telemetry_snapshot.gpu.hotspot_temperature_c = 98.0
+        synthetic_telemetry_snapshot.gpu.hotspot_temperature_c = 110.0  # critical at 108 °C
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),
@@ -184,7 +185,7 @@ class TestAnomalyEngine:
         # Verify the critical alert is present
         critical_alert = next((a for a in alerts if a.severity == AlertSeverity.CRITICAL and "GPU" in a.rule_name), None)
         assert critical_alert is not None
-        assert critical_alert.trigger_value == 98.0
+        assert critical_alert.trigger_value == 110.0
     
     @pytest.mark.asyncio
     async def test_psu_voltage_critical_trigger(self, test_device, synthetic_telemetry_snapshot):
@@ -193,7 +194,7 @@ class TestAnomalyEngine:
         engine._debounce_enabled = False  # Disable debouncing for immediate trigger
         
         # Modify snapshot to trigger PSU voltage issue
-        synthetic_telemetry_snapshot.power_vrm.psu_12v_voltage = 11.2  # Below 11.4V threshold
+        synthetic_telemetry_snapshot.power_vrm.psu_12v_voltage = 11.0  # below the 11.16 V critical limit
         
         alerts = await engine.evaluate_snapshot(
             user_id=str(test_device.user_id),

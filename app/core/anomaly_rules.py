@@ -1,12 +1,22 @@
 """
 Anomaly Detection Rules Configuration
 
-This module defines the baseline threshold rules for anomaly detection
-across various hardware metrics. Rules include CPU/GPU thermal limits,
-voltage rail tolerances, storage health thresholds, and WHEA error monitoring.
+The threshold rules every reading is checked against. Values follow published
+limits where they exist (Intel/AMD TjMax, NVIDIA/AMD GPU limits, ATX12V rail
+tolerances, NVMe health semantics, Microsoft guidance on commit charge and the
+page file); see docs/alert-thresholds.md for the reasoning and sources.
+
+Severity means what the user should do:
+  CRITICAL  risk of damage, data loss, a crash or a shutdown: act now
+  WARNING   worth a look soon: something is wearing, filling up or running hot
+  INFO      normal-but-notable load: no action needed
+
+Readings arrive every 5 seconds, so durations are multiples of 5 s. Where the
+real limit depends on the exact hardware (a CPU's TjMax, a GPU's maximum), the
+rules use a safe generic default until the agent reports the device's own.
 
 Author: Lectio Backend Team
-Version: 4.0.0
+Version: 5.0.0
 """
 
 from dataclasses import dataclass
@@ -29,7 +39,7 @@ class ComparisonOperator(str, Enum):
 class AnomalyRule:
     """
     Definition of an anomaly detection rule.
-    
+
     Attributes:
         name: Unique identifier for the rule
         severity: Severity level when triggered
@@ -37,9 +47,10 @@ class AnomalyRule:
         threshold: Threshold value for triggering
         operator: Comparison operator
         duration_threshold: Minimum duration (seconds) before triggering
-        resolution_duration: Minimum duration (seconds) before auto-resolution
+        resolution_duration: Minimum duration (seconds) back in range before auto-resolution
         message_template: Template for alert message
-        metric_extractor: Function to extract metric value from TelemetrySnapshot
+        metric_extractor: Function to extract metric value from TelemetrySnapshot;
+            None means "not measured, or the rule doesn't apply right now"
     """
     name: str
     severity: AlertSeverity
@@ -52,242 +63,319 @@ class AnomalyRule:
     metric_extractor: Callable[[TelemetrySnapshot], Optional[float]]
 
 
-# Metric extractor functions
+GT = ComparisonOperator.GREATER_THAN
+GE = ComparisonOperator.GREATER_THAN_OR_EQUAL
+LT = ComparisonOperator.LESS_THAN
+LE = ComparisonOperator.LESS_THAN_OR_EQUAL
+CRITICAL, WARNING, INFO = AlertSeverity.CRITICAL, AlertSeverity.WARNING, AlertSeverity.INFO
+
+DAY = 24 * 60 * 60
+
+# Generic limits used until the agent reports the hardware's own.
+CPU_TJMAX_C = 100.0          # Intel desktop/mobile Core; many AMD Ryzen parts are 95 °C
+GPU_FAN_STOP_WARN_C = 65.0   # 0-RPM fan stop is normal below about this
+GPU_FAN_STOP_CRIT_C = 75.0
+SYSTEM_DRIVE = "C:"
+
+
+# ---------------------------------------------------------------- extractors
+
 def extract_cpu_core_temp(snapshot: TelemetrySnapshot) -> Optional[float]:
-    """Extract CPU core temperature."""
     return snapshot.cpu.core_temperature_c
 
 
 def extract_cpu_package_temp(snapshot: TelemetrySnapshot) -> Optional[float]:
-    """Extract CPU package temperature."""
     return snapshot.cpu.package_temperature_c
 
 
+def extract_cpu_throttling(snapshot: TelemetrySnapshot) -> Optional[float]:
+    throttling = snapshot.cpu.thermal_throttling
+    return None if throttling is None else float(throttling)
+
+
 def extract_gpu_core_temp(snapshot: TelemetrySnapshot) -> Optional[float]:
-    """Extract GPU core temperature."""
     return snapshot.gpu.core_temperature_c
 
 
 def extract_gpu_hotspot_temp(snapshot: TelemetrySnapshot) -> Optional[float]:
-    """Extract GPU hotspot temperature."""
     return snapshot.gpu.hotspot_temperature_c
 
 
-def extract_psu_12v_voltage(snapshot: TelemetrySnapshot) -> Optional[float]:
-    """Extract PSU +12V voltage."""
-    return snapshot.power_vrm.psu_12v_voltage
+def _gpu_fan_when_hotter_than(limit_c: float) -> Callable[[TelemetrySnapshot], Optional[float]]:
+    """The GPU fan speed, but only while the GPU is hotter than limit_c: a
+    stopped fan on a cool GPU is the normal 0-RPM mode, not a fault."""
+    def extract(snapshot: TelemetrySnapshot) -> Optional[float]:
+        temp, fan = snapshot.gpu.core_temperature_c, snapshot.gpu.fan_speed_percent
+        if temp is None or fan is None or temp < limit_c:
+            return None
+        return fan
+    return extract
 
 
-def extract_nvme_health_percent(snapshot: TelemetrySnapshot) -> Optional[float]:
-    """Extract NVMe S.M.A.R.T. health percentage (minimum across all drives)."""
-    if not snapshot.storage:
+def extract_vram_percent(snapshot: TelemetrySnapshot) -> Optional[float]:
+    used, total = snapshot.gpu.vram_used_gb, snapshot.gpu.vram_total_gb
+    if used is None or not total:
         return None
-    health_values = [s.smart_health_percent for s in snapshot.storage if s.smart_health_percent is not None]
-    return min(health_values) if health_values else None
-
-
-def extract_whea_error_count(snapshot: TelemetrySnapshot) -> Optional[float]:
-    """Extract WHEA error count."""
-    return float(snapshot.ram.whea_error_count)
-
-
-def extract_vrm_temperature(snapshot: TelemetrySnapshot) -> Optional[float]:
-    """Extract VRM temperature."""
-    return snapshot.power_vrm.vrm_temperature_c
-
-
-def extract_cpu_utilization(snapshot: TelemetrySnapshot) -> Optional[float]:
-    """Extract CPU utilization percentage."""
-    return snapshot.cpu.utilization_percent
+    return used / total * 100
 
 
 def extract_gpu_utilization(snapshot: TelemetrySnapshot) -> Optional[float]:
-    """Extract GPU utilization percentage."""
     return snapshot.gpu.utilization_percent
 
 
-# Baseline anomaly detection rules
+def extract_cpu_utilization(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return snapshot.cpu.utilization_percent
+
+
+def extract_psu_12v_voltage(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return snapshot.power_vrm.psu_12v_voltage
+
+
+def extract_vrm_temperature(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return snapshot.power_vrm.vrm_temperature_c
+
+
+def extract_chipset_temperature(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return snapshot.power_vrm.chipset_temperature_c
+
+
+def extract_chassis_fan_when_hot(snapshot: TelemetrySnapshot) -> Optional[float]:
+    """Chassis fan speed while the CPU or GPU is at 75 °C or more."""
+    rpm = snapshot.power_vrm.chassis_fan_speed_rpm
+    temps = [t for t in (snapshot.cpu.core_temperature_c, snapshot.gpu.core_temperature_c) if t is not None]
+    if rpm is None or not temps or max(temps) < 75.0:
+        return None
+    return float(rpm)
+
+
+def extract_ram_percent(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return snapshot.ram.usage_percent
+
+
+def extract_commit_percent(snapshot: TelemetrySnapshot) -> Optional[float]:
+    committed, limit = snapshot.ram.committed_gb, snapshot.ram.commit_limit_gb
+    if committed is None or not limit:
+        return None
+    return committed / limit * 100
+
+
+def extract_pagefile_percent(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return snapshot.ram.pagefile_usage_percent
+
+
+def extract_whea_error_count(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return float(snapshot.ram.whea_error_count)
+
+
+def extract_nvme_health_percent(snapshot: TelemetrySnapshot) -> Optional[float]:
+    """Remaining drive life (100 = new), the worst drive."""
+    values = [s.smart_health_percent for s in snapshot.storage if s.smart_health_percent is not None]
+    return min(values) if values else None
+
+
+def extract_bad_sectors(snapshot: TelemetrySnapshot) -> Optional[float]:
+    """Reallocated plus bad sectors on the worst drive."""
+    counts = [
+        (s.reallocated_sector_count or 0) + (s.bad_sector_count or 0)
+        for s in snapshot.storage
+        if s.reallocated_sector_count is not None or s.bad_sector_count is not None
+    ]
+    return float(max(counts)) if counts else None
+
+
+def extract_drive_temperature(snapshot: TelemetrySnapshot) -> Optional[float]:
+    values = [s.temperature_c for s in snapshot.storage if s.temperature_c is not None]
+    return max(values) if values else None
+
+
+def extract_fullest_drive_percent(snapshot: TelemetrySnapshot) -> Optional[float]:
+    values = [
+        (1 - s.available_capacity_gb / s.total_capacity_gb) * 100
+        for s in snapshot.storage
+        if s.available_capacity_gb is not None and s.total_capacity_gb
+    ]
+    return max(values) if values else None
+
+
+def extract_system_drive_free_gb(snapshot: TelemetrySnapshot) -> Optional[float]:
+    for s in snapshot.storage:
+        if (s.device_name or "").rstrip("\\/").upper() == SYSTEM_DRIVE and s.available_capacity_gb is not None:
+            return s.available_capacity_gb
+    return None
+
+
+def extract_disk_active(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return snapshot.disk.active_percent
+
+
+def extract_network_link_percent(snapshot: TelemetrySnapshot) -> Optional[float]:
+    """The busier direction as a share of the adapter's link speed."""
+    net = snapshot.network
+    if not net.link_speed_mbps:
+        return None
+    rates = [r for r in (net.receive_bytes_per_s, net.send_bytes_per_s) if r is not None]
+    if not rates:
+        return None
+    return max(rates) * 8 / (net.link_speed_mbps * 1_000_000) * 100
+
+
+def extract_process_count(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return None if snapshot.cpu.process_count is None else float(snapshot.cpu.process_count)
+
+
+def extract_thread_count(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return None if snapshot.cpu.thread_count is None else float(snapshot.cpu.thread_count)
+
+
+def extract_handle_count(snapshot: TelemetrySnapshot) -> Optional[float]:
+    return None if snapshot.cpu.handle_count is None else float(snapshot.cpu.handle_count)
+
+
+def extract_uptime_days(snapshot: TelemetrySnapshot) -> Optional[float]:
+    up = snapshot.cpu.uptime_seconds
+    return None if up is None else up / DAY
+
+
+def _rule(name, severity, metric, op, threshold, last, clears, message, extractor) -> AnomalyRule:
+    return AnomalyRule(
+        name=name, severity=severity, metric_name=metric, threshold=threshold, operator=op,
+        duration_threshold=float(last), resolution_duration=float(clears),
+        message_template=message, metric_extractor=extractor,
+    )
+
+
+# ------------------------------------------------------------------- rules
+
 BASELINE_RULES = [
-    # CPU Thermal Rules
-    AnomalyRule(
-        name="CPU_OVERHEATING_CRITICAL",
-        severity=AlertSeverity.CRITICAL,
-        metric_name="cpu_core_temperature_c",
-        threshold=90.0,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=30.0,  # 30 seconds
-        resolution_duration=15.0,  # 15 seconds
-        message_template="CPU core temperature critical: {value:.1f}°C exceeds threshold {threshold:.1f}°C",
-        metric_extractor=extract_cpu_core_temp
-    ),
-    AnomalyRule(
-        name="CPU_OVERHEATING_WARNING",
-        severity=AlertSeverity.WARNING,
-        metric_name="cpu_core_temperature_c",
-        threshold=80.0,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=30.0,  # 30 seconds
-        resolution_duration=15.0,  # 15 seconds
-        message_template="CPU core temperature elevated: {value:.1f}°C exceeds threshold {threshold:.1f}°C",
-        metric_extractor=extract_cpu_core_temp
-    ),
-    AnomalyRule(
-        name="CPU_PACKAGE_OVERHEATING_CRITICAL",
-        severity=AlertSeverity.CRITICAL,
-        metric_name="cpu_package_temperature_c",
-        threshold=95.0,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=30.0,  # 30 seconds
-        resolution_duration=15.0,  # 15 seconds
-        message_template="CPU package temperature critical: {value:.1f}°C exceeds threshold {threshold:.1f}°C",
-        metric_extractor=extract_cpu_package_temp
-    ),
-    
-    # GPU Thermal Rules
-    AnomalyRule(
-        name="GPU_HOTSPOT_CRITICAL",
-        severity=AlertSeverity.CRITICAL,
-        metric_name="gpu_hotspot_temperature_c",
-        threshold=95.0,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=15.0,  # 15 seconds
-        resolution_duration=15.0,  # 15 seconds
-        message_template="GPU hotspot temperature critical: {value:.1f}°C exceeds threshold {threshold:.1f}°C",
-        metric_extractor=extract_gpu_hotspot_temp
-    ),
-    AnomalyRule(
-        name="GPU_CORE_OVERHEATING_WARNING",
-        severity=AlertSeverity.WARNING,
-        metric_name="gpu_core_temperature_c",
-        threshold=85.0,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=30.0,  # 30 seconds
-        resolution_duration=15.0,  # 15 seconds
-        message_template="GPU core temperature elevated: {value:.1f}°C exceeds threshold {threshold:.1f}°C",
-        metric_extractor=extract_gpu_core_temp
-    ),
-    
-    # PSU Voltage Rules
-    AnomalyRule(
-        name="PSU_12V_UNDERVOLTAGE_CRITICAL",
-        severity=AlertSeverity.CRITICAL,
-        metric_name="psu_12v_voltage",
-        threshold=11.4,
-        operator=ComparisonOperator.LESS_THAN,
-        duration_threshold=5.0,  # 5 seconds (voltage issues are critical)
-        resolution_duration=10.0,  # 10 seconds
-        message_template="PSU +12V rail undervoltage critical: {value:.2f}V below threshold {threshold:.2f}V",
-        metric_extractor=extract_psu_12v_voltage
-    ),
-    AnomalyRule(
-        name="PSU_12V_OVERVOLTAGE_CRITICAL",
-        severity=AlertSeverity.CRITICAL,
-        metric_name="psu_12v_voltage",
-        threshold=12.6,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=5.0,  # 5 seconds (voltage issues are critical)
-        resolution_duration=10.0,  # 10 seconds
-        message_template="PSU +12V rail overvoltage critical: {value:.2f}V exceeds threshold {threshold:.2f}V",
-        metric_extractor=extract_psu_12v_voltage
-    ),
-    
-    # Storage Health Rules
-    AnomalyRule(
-        name="NVME_HEALTH_LOW_WARNING",
-        severity=AlertSeverity.WARNING,
-        metric_name="nvme_smart_health_percent",
-        threshold=20.0,
-        operator=ComparisonOperator.LESS_THAN,
-        duration_threshold=60.0,  # 60 seconds (health changes slowly)
-        resolution_duration=300.0,  # 5 minutes (health recovery is slow)
-        message_template="NVMe S.M.A.R.T. health low: {value:.1f}% below threshold {threshold:.1f}%",
-        metric_extractor=extract_nvme_health_percent
-    ),
-    AnomalyRule(
-        name="NVME_HEALTH_CRITICAL",
-        severity=AlertSeverity.CRITICAL,
-        metric_name="nvme_smart_health_percent",
-        threshold=10.0,
-        operator=ComparisonOperator.LESS_THAN,
-        duration_threshold=60.0,  # 60 seconds
-        resolution_duration=300.0,  # 5 minutes
-        message_template="NVMe S.M.A.R.T. health critical: {value:.1f}% below threshold {threshold:.1f}%",
-        metric_extractor=extract_nvme_health_percent
-    ),
-    
-    # WHEA Error Rules
-    AnomalyRule(
-        name="WHEA_ERROR_SPIKE_WARNING",
-        severity=AlertSeverity.WARNING,
-        metric_name="whea_error_count",
-        threshold=1.0,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=60.0,  # 60 seconds window
-        resolution_duration=300.0,  # 5 minutes (errors take time to clear)
-        message_template="WHEA hardware errors detected: {value:.0f} errors in monitoring window",
-        metric_extractor=extract_whea_error_count
-    ),
-    
-    # VRM Thermal Rules
-    AnomalyRule(
-        name="VRM_OVERHEATING_CRITICAL",
-        severity=AlertSeverity.CRITICAL,
-        metric_name="vrm_temperature_c",
-        threshold=100.0,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=30.0,  # 30 seconds
-        resolution_duration=15.0,  # 15 seconds
-        message_template="VRM temperature critical: {value:.1f}°C exceeds threshold {threshold:.1f}°C",
-        metric_extractor=extract_vrm_temperature
-    ),
-    AnomalyRule(
-        name="VRM_OVERHEATING_WARNING",
-        severity=AlertSeverity.WARNING,
-        metric_name="vrm_temperature_c",
-        threshold=85.0,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=30.0,  # 30 seconds
-        resolution_duration=15.0,  # 15 seconds
-        message_template="VRM temperature elevated: {value:.1f}°C exceeds threshold {threshold:.1f}°C",
-        metric_extractor=extract_vrm_temperature
-    ),
-    
-    # High Utilization Rules (Info level)
-    AnomalyRule(
-        name="CPU_HIGH_UTILIZATION_INFO",
-        severity=AlertSeverity.INFO,
-        metric_name="cpu_utilization_percent",
-        threshold=90.0,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=60.0,  # 60 seconds
-        resolution_duration=30.0,  # 30 seconds
-        message_template="CPU utilization high: {value:.1f}% exceeds threshold {threshold:.1f}%",
-        metric_extractor=extract_cpu_utilization
-    ),
-    AnomalyRule(
-        name="GPU_HIGH_UTILIZATION_INFO",
-        severity=AlertSeverity.INFO,
-        metric_name="gpu_utilization_percent",
-        threshold=90.0,
-        operator=ComparisonOperator.GREATER_THAN,
-        duration_threshold=60.0,  # 60 seconds
-        resolution_duration=30.0,  # 30 seconds
-        message_template="GPU utilization high: {value:.1f}% exceeds threshold {threshold:.1f}%",
-        metric_extractor=extract_gpu_utilization
-    ),
+    # CPU: TjMax - 15 °C is high, TjMax - 5 °C is at the edge (default TjMax 100 °C).
+    _rule("CPU_OVERHEATING_CRITICAL", CRITICAL, "cpu_core_temperature_c", GE, CPU_TJMAX_C - 5, 30, 30,
+          "CPU core temperature critical: {value:.1f}°C at or above {threshold:.1f}°C", extract_cpu_core_temp),
+    _rule("CPU_OVERHEATING_WARNING", WARNING, "cpu_core_temperature_c", GE, CPU_TJMAX_C - 15, 30, 30,
+          "CPU core temperature elevated: {value:.1f}°C at or above {threshold:.1f}°C", extract_cpu_core_temp),
+    _rule("CPU_PACKAGE_OVERHEATING_CRITICAL", CRITICAL, "cpu_package_temperature_c", GE, CPU_TJMAX_C, 30, 30,
+          "CPU package at its limit: {value:.1f}°C at or above {threshold:.1f}°C", extract_cpu_package_temp),
+    _rule("CPU_PACKAGE_OVERHEATING_WARNING", WARNING, "cpu_package_temperature_c", GE, CPU_TJMAX_C - 10, 30, 30,
+          "CPU package temperature elevated: {value:.1f}°C at or above {threshold:.1f}°C", extract_cpu_package_temp),
+    _rule("CPU_THERMAL_THROTTLING_WARNING", WARNING, "cpu_thermal_throttling", GE, 1, 30, 30,
+          "CPU is slowing itself down to cool off (thermal throttling)", extract_cpu_throttling),
+    _rule("CPU_HIGH_UTILIZATION_INFO", INFO, "cpu_utilization_percent", GT, 90, 60, 30,
+          "CPU utilization high: {value:.1f}% exceeds threshold {threshold:.1f}%", extract_cpu_utilization),
+
+    # GPU
+    _rule("GPU_CORE_OVERHEATING_CRITICAL", CRITICAL, "gpu_core_temperature_c", GE, 93, 30, 30,
+          "GPU core temperature critical: {value:.1f}°C at or above {threshold:.1f}°C", extract_gpu_core_temp),
+    _rule("GPU_CORE_OVERHEATING_WARNING", WARNING, "gpu_core_temperature_c", GE, 85, 30, 30,
+          "GPU core temperature elevated: {value:.1f}°C at or above {threshold:.1f}°C", extract_gpu_core_temp),
+    _rule("GPU_HOTSPOT_CRITICAL", CRITICAL, "gpu_hotspot_temperature_c", GE, 108, 30, 30,
+          "GPU hotspot temperature critical: {value:.1f}°C at or above {threshold:.1f}°C", extract_gpu_hotspot_temp),
+    _rule("GPU_HOTSPOT_WARNING", WARNING, "gpu_hotspot_temperature_c", GE, 100, 30, 30,
+          "GPU hotspot temperature elevated: {value:.1f}°C at or above {threshold:.1f}°C", extract_gpu_hotspot_temp),
+    _rule("GPU_FAN_STOPPED_CRITICAL", CRITICAL, "gpu_fan_speed_percent", LE, 0, 20, 30,
+          f"GPU fan isn't spinning while the GPU is at {GPU_FAN_STOP_CRIT_C:.0f}°C or more",
+          _gpu_fan_when_hotter_than(GPU_FAN_STOP_CRIT_C)),
+    _rule("GPU_FAN_STOPPED_WARNING", WARNING, "gpu_fan_speed_percent", LE, 0, 20, 30,
+          f"GPU fan isn't spinning while the GPU is at {GPU_FAN_STOP_WARN_C:.0f}°C or more",
+          _gpu_fan_when_hotter_than(GPU_FAN_STOP_WARN_C)),
+    # Games and creative apps fill video memory on purpose, so only a nearly
+    # full card for a while is worth a warning (never critical).
+    _rule("GPU_VRAM_FULL_WARNING", WARNING, "gpu_vram_used_percent", GE, 95, 30, 30,
+          "GPU memory almost full: {value:.0f}% in use", extract_vram_percent),
+    _rule("GPU_HIGH_UTILIZATION_INFO", INFO, "gpu_utilization_percent", GT, 95, 60, 30,
+          "GPU utilization high: {value:.1f}% exceeds threshold {threshold:.1f}%", extract_gpu_utilization),
+
+    # Motherboard and power. ATX12V: +12 V within ±5 % (11.40-12.60 V); some
+    # load conditions are allowed down to -7 % (11.16 V).
+    _rule("PSU_12V_UNDERVOLTAGE_CRITICAL", CRITICAL, "psu_12v_voltage", LT, 11.16, 15, 30,
+          "PSU +12V rail undervoltage critical: {value:.2f}V below {threshold:.2f}V", extract_psu_12v_voltage),
+    _rule("PSU_12V_UNDERVOLTAGE_WARNING", WARNING, "psu_12v_voltage", LT, 11.40, 15, 30,
+          "PSU +12V rail low: {value:.2f}V below {threshold:.2f}V", extract_psu_12v_voltage),
+    _rule("PSU_12V_OVERVOLTAGE_CRITICAL", CRITICAL, "psu_12v_voltage", GT, 12.60, 15, 30,
+          "PSU +12V rail overvoltage critical: {value:.2f}V above {threshold:.2f}V", extract_psu_12v_voltage),
+    _rule("VRM_OVERHEATING_CRITICAL", CRITICAL, "vrm_temperature_c", GE, 100, 30, 30,
+          "VRM temperature critical: {value:.1f}°C at or above {threshold:.1f}°C", extract_vrm_temperature),
+    _rule("VRM_OVERHEATING_WARNING", WARNING, "vrm_temperature_c", GE, 85, 30, 30,
+          "VRM temperature elevated: {value:.1f}°C at or above {threshold:.1f}°C", extract_vrm_temperature),
+    _rule("CHIPSET_OVERHEATING_CRITICAL", CRITICAL, "chipset_temperature_c", GE, 85, 30, 30,
+          "Chipset temperature critical: {value:.1f}°C at or above {threshold:.1f}°C", extract_chipset_temperature),
+    _rule("CHIPSET_OVERHEATING_WARNING", WARNING, "chipset_temperature_c", GE, 75, 30, 30,
+          "Chipset temperature elevated: {value:.1f}°C at or above {threshold:.1f}°C", extract_chipset_temperature),
+    _rule("CHASSIS_FAN_STOPPED_CRITICAL", CRITICAL, "chassis_fan_speed_rpm", LT, 200, 20, 30,
+          "Case fan at {value:.0f} RPM while the PC is running hot", extract_chassis_fan_when_hot),
+
+    # Memory. Hitting the commit limit makes programs fail to get memory.
+    _rule("RAM_USAGE_CRITICAL", CRITICAL, "ram_usage_percent", GE, 95, 60, 30,
+          "Memory almost full: {value:.0f}% in use", extract_ram_percent),
+    _rule("RAM_USAGE_WARNING", WARNING, "ram_usage_percent", GE, 85, 60, 30,
+          "Memory use high: {value:.0f}% in use", extract_ram_percent),
+    _rule("COMMIT_CHARGE_CRITICAL", CRITICAL, "commit_charge_percent", GE, 95, 30, 30,
+          "Windows is about to run out of memory to hand out: {value:.0f}% of the commit limit", extract_commit_percent),
+    _rule("COMMIT_CHARGE_WARNING", WARNING, "commit_charge_percent", GE, 85, 30, 30,
+          "Committed memory high: {value:.0f}% of the commit limit", extract_commit_percent),
+    _rule("PAGEFILE_USAGE_CRITICAL", CRITICAL, "pagefile_usage_percent", GE, 90, 60, 30,
+          "Page file almost full: {value:.0f}% in use", extract_pagefile_percent),
+    _rule("PAGEFILE_USAGE_WARNING", WARNING, "pagefile_usage_percent", GE, 70, 60, 30,
+          "Page file use high: {value:.0f}% in use", extract_pagefile_percent),
+
+    # Storage. smart_health_percent is remaining life (100 = new), i.e.
+    # 100 minus NVMe "Percentage Used".
+    _rule("NVME_HEALTH_CRITICAL", CRITICAL, "nvme_smart_health_percent", LE, 5, 60, 60,
+          "Drive nearly worn out: {value:.0f}% life left", extract_nvme_health_percent),
+    _rule("NVME_HEALTH_LOW_WARNING", WARNING, "nvme_smart_health_percent", LE, 20, 60, 60,
+          "Drive wearing out: {value:.0f}% life left", extract_nvme_health_percent),
+    # Sector counts never go down, so these stay open until the drive is replaced.
+    _rule("DRIVE_BAD_SECTORS_CRITICAL", CRITICAL, "drive_bad_sectors", GE, 10, 60, 60,
+          "Drive has {value:.0f} bad or reallocated sectors: back up now", extract_bad_sectors),
+    _rule("DRIVE_BAD_SECTORS_WARNING", WARNING, "drive_bad_sectors", GE, 1, 60, 60,
+          "Drive has {value:.0f} bad or reallocated sector(s)", extract_bad_sectors),
+    # SSD/NVMe limits; hard drives are rated lower (about 55-60 °C) but the
+    # agent doesn't yet say which kind a drive is.
+    _rule("DRIVE_OVERHEATING_CRITICAL", CRITICAL, "drive_temperature_c", GE, 80, 60, 60,
+          "Drive temperature critical: {value:.0f}°C at or above {threshold:.0f}°C", extract_drive_temperature),
+    _rule("DRIVE_OVERHEATING_WARNING", WARNING, "drive_temperature_c", GE, 70, 60, 60,
+          "Drive running hot: {value:.0f}°C at or above {threshold:.0f}°C", extract_drive_temperature),
+    _rule("DISK_FULL_CRITICAL", CRITICAL, "drive_used_percent", GE, 95, 60, 60,
+          "A drive is almost full: {value:.0f}% used", extract_fullest_drive_percent),
+    _rule("DISK_FULL_WARNING", WARNING, "drive_used_percent", GE, 85, 60, 60,
+          "A drive is filling up: {value:.0f}% used", extract_fullest_drive_percent),
+    _rule("SYSTEM_DRIVE_SPACE_CRITICAL", CRITICAL, "system_drive_free_gb", LT, 5, 60, 60,
+          "Only {value:.1f} GB free on the Windows drive (C:)", extract_system_drive_free_gb),
+    _rule("SYSTEM_DRIVE_SPACE_WARNING", WARNING, "system_drive_free_gb", LT, 15, 60, 60,
+          "Only {value:.1f} GB free on the Windows drive (C:)", extract_system_drive_free_gb),
+    # Busy time alone doesn't prove a slow disk (that needs latency), so INFO only.
+    _rule("DISK_BUSY_INFO", INFO, "disk_active_percent", GE, 95, 180, 60,
+          "Disk busy {value:.0f}% of the time for several minutes", extract_disk_active),
+
+    # System. WHEA: Windows hardware error reports.
+    _rule("WHEA_ERRORS_CRITICAL", CRITICAL, "whea_error_count", GE, 10, 5, 300,
+          "Windows reported {value:.0f} hardware errors", extract_whea_error_count),
+    _rule("WHEA_ERROR_SPIKE_WARNING", WARNING, "whea_error_count", GE, 3, 5, 300,
+          "WHEA hardware errors detected: {value:.0f} errors in monitoring window", extract_whea_error_count),
+    _rule("HANDLE_COUNT_CRITICAL", CRITICAL, "handle_count", GT, 600_000, 120, 60,
+          "{value:,.0f} open handles: a program is probably leaking them", extract_handle_count),
+    _rule("HANDLE_COUNT_WARNING", WARNING, "handle_count", GT, 300_000, 120, 60,
+          "{value:,.0f} open handles, far more than usual", extract_handle_count),
+    _rule("THREAD_COUNT_CRITICAL", CRITICAL, "thread_count", GT, 15_000, 120, 60,
+          "{value:,.0f} threads running: a program is probably leaking them", extract_thread_count),
+    _rule("THREAD_COUNT_WARNING", WARNING, "thread_count", GT, 8_000, 120, 60,
+          "{value:,.0f} threads running, far more than usual", extract_thread_count),
+    _rule("PROCESS_COUNT_CRITICAL", CRITICAL, "process_count", GT, 800, 120, 60,
+          "{value:,.0f} processes running, far more than a PC normally has", extract_process_count),
+    _rule("PROCESS_COUNT_WARNING", WARNING, "process_count", GT, 400, 120, 60,
+          "{value:,.0f} processes running, more than usual", extract_process_count),
+    # Not restarting skips updates and lets leaks build up; not a hardware risk.
+    _rule("UPTIME_LONG_WARNING", WARNING, "uptime_days", GE, 60, 60, 5,
+          "Not restarted for {value:.0f} days: restart to finish updates", extract_uptime_days),
+    _rule("UPTIME_LONG_INFO", INFO, "uptime_days", GE, 30, 60, 5,
+          "Not restarted for {value:.0f} days", extract_uptime_days),
+
+    # Network: a big download fills the link on purpose, so INFO only.
+    _rule("NETWORK_SATURATED_INFO", INFO, "network_link_percent", GE, 95, 60, 30,
+          "Network connection full: {value:.0f}% of the link speed in use", extract_network_link_percent),
 ]
 
 
 def get_rule_by_name(rule_name: str) -> Optional[AnomalyRule]:
-    """
-    Retrieve a rule by its name.
-    
-    Args:
-        rule_name: The name of the rule to retrieve
-        
-    Returns:
-        The AnomalyRule if found, None otherwise
-    """
+    """Retrieve a rule by its name (None if there is no such rule)."""
     for rule in BASELINE_RULES:
         if rule.name == rule_name:
             return rule
@@ -295,16 +383,7 @@ def get_rule_by_name(rule_name: str) -> Optional[AnomalyRule]:
 
 
 def evaluate_rule(rule: AnomalyRule, value: float) -> bool:
-    """
-    Evaluate if a value breaches the rule threshold.
-    
-    Args:
-        rule: The anomaly rule to evaluate
-        value: The metric value to check
-        
-    Returns:
-        True if the threshold is breached, False otherwise
-    """
+    """True if value breaches the rule's threshold."""
     if rule.operator == ComparisonOperator.GREATER_THAN:
         return value > rule.threshold
     elif rule.operator == ComparisonOperator.LESS_THAN:

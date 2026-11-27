@@ -141,12 +141,12 @@ class TestAnomalyEngine:
         user_id = str(test_user.id)
         device_id = str(PydanticObjectId())
         
-        # Voltage issues have short duration threshold (5 seconds)
+        # Voltage rules need the reading to last 15 seconds
         alerts = await engine.evaluate_snapshot(user_id, device_id, snapshot)
         assert len(alerts) == 0  # Debouncing
         
-        # Simulate time passing
-        snapshot.timestamp = datetime.now(timezone.utc) + timedelta(seconds=6)
+        # Simulate time passing (voltage rules must last 15 s)
+        snapshot.timestamp = datetime.now(timezone.utc) + timedelta(seconds=16)
         
         alerts = await engine.evaluate_snapshot(user_id, device_id, snapshot)
         assert len(alerts) > 0
@@ -160,8 +160,14 @@ class TestAnomalyEngine:
             await alert.delete()
     
     @pytest.mark.asyncio
-    async def test_auto_resolution(self, test_user):
+    async def test_auto_resolution(self, test_user, monkeypatch):
         """Test auto-resolution of alerts when conditions normalize."""
+        # Resolution waits on the wall clock; shorten the CPU rules' 30 s
+        # clear-down so the test doesn't sleep that long.
+        from app.core.anomaly_rules import BASELINE_RULES
+        for rule in BASELINE_RULES:
+            if rule.metric_name == "cpu_core_temperature_c":
+                monkeypatch.setattr(rule, "resolution_duration", 15.0)
         # Disable debouncing for this test to simplify timing
         engine = AnomalyEngine()
         engine._debounce_enabled = False

@@ -270,7 +270,7 @@ func (ThermalSource) Collect(ctx context.Context, s *models.Snapshot) error {
 // ------------------------------------------------------------------ WHEA
 
 // WHEASource counts Windows hardware error (WHEA-Logger) events in the System
-// log. Reading the log is slow, so it runs at most every 10 minutes, in the
+// log over the last 24 hours. Reading the log is slow, so it runs at most every 10 minutes, in the
 // background, and the last count is reported in between.
 type WHEASource struct {
 	mu      sync.Mutex
@@ -296,7 +296,10 @@ func (w *WHEASource) refresh() {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	var rows []struct{ RecordNumber uint32 }
-	q := "SELECT RecordNumber FROM Win32_NTLogEvent WHERE Logfile = 'System' AND SourceName = 'Microsoft-Windows-WHEA-Logger'"
+	// The last 24 hours only: the alert rules count recent errors, and an old
+	// one fixed long ago mustn't keep an alert open for ever.
+	since := time.Now().UTC().Add(-24 * time.Hour).Format("20060102150405.000000+000")
+	q := "SELECT RecordNumber FROM Win32_NTLogEvent WHERE Logfile = 'System' AND SourceName = 'Microsoft-Windows-WHEA-Logger' AND TimeGenerated >= '" + since + "'"
 	err := wmiQuery2(ctx, q, &rows)
 	w.mu.Lock()
 	defer w.mu.Unlock()

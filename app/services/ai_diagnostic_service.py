@@ -51,6 +51,41 @@ RULE_ALIASES = {
     "WHEA_ERROR_SPIKE_WARNING": "WHEA_ERRORS_CRITICAL",
     "VRM_OVERHEATING_CRITICAL": "VRM_TEMPERATURE_CRITICAL",
     "VRM_OVERHEATING_WARNING": "VRM_TEMPERATURE_CRITICAL",
+    "CPU_PACKAGE_OVERHEATING_WARNING": "CPU_OVERHEATING_CRITICAL",
+    "CPU_THERMAL_THROTTLING_WARNING": "CPU_OVERHEATING_CRITICAL",
+    "GPU_CORE_OVERHEATING_CRITICAL": "GPU_OVERHEATING_CRITICAL",
+    "GPU_HOTSPOT_WARNING": "GPU_OVERHEATING_CRITICAL",
+    "PSU_12V_UNDERVOLTAGE_WARNING": "PSU_VOLTAGE_CRITICAL",
+    "DRIVE_BAD_SECTORS_CRITICAL": "NVME_HEALTH_CRITICAL",
+    "DRIVE_BAD_SECTORS_WARNING": "NVME_HEALTH_CRITICAL",
+    "CHIPSET_OVERHEATING_CRITICAL": "VRM_TEMPERATURE_CRITICAL",
+    "CHIPSET_OVERHEATING_WARNING": "VRM_TEMPERATURE_CRITICAL",
+    "GPU_FAN_STOPPED_CRITICAL": "FAN_STOPPED",
+    "GPU_FAN_STOPPED_WARNING": "FAN_STOPPED",
+    "CHASSIS_FAN_STOPPED_CRITICAL": "FAN_STOPPED",
+    "GPU_VRAM_FULL_WARNING": "GPU_VRAM_FULL",
+    "RAM_USAGE_CRITICAL": "MEMORY_PRESSURE",
+    "RAM_USAGE_WARNING": "MEMORY_PRESSURE",
+    "COMMIT_CHARGE_CRITICAL": "MEMORY_PRESSURE",
+    "COMMIT_CHARGE_WARNING": "MEMORY_PRESSURE",
+    "PAGEFILE_USAGE_CRITICAL": "MEMORY_PRESSURE",
+    "PAGEFILE_USAGE_WARNING": "MEMORY_PRESSURE",
+    "DRIVE_OVERHEATING_CRITICAL": "DRIVE_TEMPERATURE_HIGH",
+    "DRIVE_OVERHEATING_WARNING": "DRIVE_TEMPERATURE_HIGH",
+    "DISK_FULL_CRITICAL": "DISK_SPACE_LOW",
+    "DISK_FULL_WARNING": "DISK_SPACE_LOW",
+    "SYSTEM_DRIVE_SPACE_CRITICAL": "DISK_SPACE_LOW",
+    "SYSTEM_DRIVE_SPACE_WARNING": "DISK_SPACE_LOW",
+    "DISK_BUSY_INFO": "DISK_BUSY",
+    "HANDLE_COUNT_CRITICAL": "RESOURCE_LEAK",
+    "HANDLE_COUNT_WARNING": "RESOURCE_LEAK",
+    "THREAD_COUNT_CRITICAL": "RESOURCE_LEAK",
+    "THREAD_COUNT_WARNING": "RESOURCE_LEAK",
+    "PROCESS_COUNT_CRITICAL": "RESOURCE_LEAK",
+    "PROCESS_COUNT_WARNING": "RESOURCE_LEAK",
+    "UPTIME_LONG_WARNING": "UPTIME_LONG",
+    "UPTIME_LONG_INFO": "UPTIME_LONG",
+    "NETWORK_SATURATED_INFO": "NETWORK_SATURATED",
 }
 
 # The urgency a severity calls for; the AI may not go below this.
@@ -486,7 +521,7 @@ message: {_clip(alert.message, 300)}
         # Rule-based diagnostic matrix
         diagnostic_matrix = {
             "CPU_OVERHEATING_CRITICAL": {
-                "root_cause_analysis": "CPU core temperature exceeds critical threshold (90°C). Likely causes: inadequate cooling, thermal paste degradation, dust buildup, or high ambient temperature.",
+                "root_cause_analysis": "CPU core temperature is at or near its limit (95°C on most CPUs). Likely causes: inadequate cooling, thermal paste degradation, dust buildup, or high ambient temperature.",
                 "urgency_level": "IMMEDIATE_ACTION_REQUIRED",
                 "actionable_steps": [
                     {
@@ -689,6 +724,267 @@ message: {_clip(alert.message, 300)}
                     "hardware_components_affected": ["RAM", "CPU", "Motherboard"],
                     "likely_failure_mode": "hardware_instability",
                     "preventive_measures": ["firmware_updates", "stability_testing"]
+                }
+            },
+            "MEMORY_PRESSURE": {
+                "root_cause_analysis": "The PC is running out of memory: programs are holding more RAM (or committed memory / page file) than the PC has comfortably. Likely causes: too many programs or browser tabs open, one program leaking memory, or simply too little RAM for the workload.",
+                "urgency_level": "IMMEDIATE_ACTION_REQUIRED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Open Task Manager (Ctrl + Shift + Esc), sort by Memory and close programs you don't need",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Save your work and restart the PC to free memory held by long-running programs",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "If this happens often, add more RAM or let Windows manage the page file size",
+                        "category": "hardware",
+                        "estimated_time_minutes": 30
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "RAM"
+                    ],
+                    "likely_failure_mode": "memory_exhaustion",
+                    "preventive_measures": [
+                        "close_unused_programs",
+                        "adequate_ram"
+                    ]
+                }
+            },
+            "DISK_SPACE_LOW": {
+                "root_cause_analysis": "A drive is nearly full. Windows needs free space for updates, the page file and temporary files; when it runs out, updates fail and programs can crash or lose unsaved work.",
+                "urgency_level": "IMMEDIATE_ACTION_REQUIRED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Run Disk Cleanup (or Settings > System > Storage > Temporary files) and remove temporary files",
+                        "category": "software",
+                        "estimated_time_minutes": 10
+                    },
+                    {
+                        "instruction": "Empty the Recycle Bin and move large files (videos, downloads) to another drive or the cloud",
+                        "category": "software",
+                        "estimated_time_minutes": 15
+                    },
+                    {
+                        "instruction": "Uninstall programs and games you no longer use",
+                        "category": "software",
+                        "estimated_time_minutes": 10
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Storage"
+                    ],
+                    "likely_failure_mode": "disk_full",
+                    "preventive_measures": [
+                        "storage_sense",
+                        "regular_cleanup"
+                    ]
+                }
+            },
+            "DRIVE_TEMPERATURE_HIGH": {
+                "root_cause_analysis": "A drive is running hotter than its safe range. Heat shortens drive life and can make SSDs slow themselves down. Likely causes: poor case airflow, a drive with no heatsink next to the graphics card, or heavy sustained copying.",
+                "urgency_level": "IMMEDIATE_ACTION_REQUIRED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Pause large copies or downloads and let the drive cool",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Clean dust from the case fans and vents",
+                        "category": "hardware",
+                        "estimated_time_minutes": 20
+                    },
+                    {
+                        "instruction": "Fit a heatsink to an NVMe drive or move it away from the graphics card",
+                        "category": "hardware",
+                        "estimated_time_minutes": 30
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Storage"
+                    ],
+                    "likely_failure_mode": "thermal_wear",
+                    "preventive_measures": [
+                        "airflow_optimization",
+                        "drive_heatsink"
+                    ]
+                }
+            },
+            "FAN_STOPPED": {
+                "root_cause_analysis": "A fan has stopped (or nearly stopped) while the parts it cools are hot. Without it, temperatures will keep rising until the PC slows down or shuts off. Likely causes: a failed fan, a loose cable, or dust or a cable blocking the blades.",
+                "urgency_level": "IMMEDIATE_ACTION_REQUIRED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Save your work and reduce load (close games or heavy programs) right away",
+                        "category": "software",
+                        "estimated_time_minutes": 2
+                    },
+                    {
+                        "instruction": "Switch off, unplug and check that the fan turns freely and its cable is plugged in",
+                        "category": "hardware",
+                        "estimated_time_minutes": 15
+                    },
+                    {
+                        "instruction": "Replace the fan if it still doesn't spin",
+                        "category": "hardware",
+                        "estimated_time_minutes": 30
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Cooling"
+                    ],
+                    "likely_failure_mode": "fan_failure",
+                    "preventive_measures": [
+                        "regular_dust_cleaning",
+                        "fan_health_checks"
+                    ]
+                }
+            },
+            "GPU_VRAM_FULL": {
+                "root_cause_analysis": "The graphics card's own memory is almost full. Games and creative apps then move data through slower system memory, causing stutter or crashes. Likely causes: texture or resolution settings too high for the card, or several GPU-heavy programs open at once.",
+                "urgency_level": "ATTENTION_NEEDED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Lower texture quality or resolution in the game or app",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Close other programs that use the graphics card (browsers playing video, other games)",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Update the graphics driver",
+                        "category": "software",
+                        "estimated_time_minutes": 15
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "GPU"
+                    ],
+                    "likely_failure_mode": "vram_exhaustion",
+                    "preventive_measures": [
+                        "matched_graphics_settings"
+                    ]
+                }
+            },
+            "RESOURCE_LEAK": {
+                "root_cause_analysis": "Far more processes, threads or handles are open than a PC normally needs. Usually one program is leaking them (creating them and never closing them); left alone it slows the PC and can make programs fail.",
+                "urgency_level": "IMMEDIATE_ACTION_REQUIRED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Open Task Manager > Details, add the Handles and Threads columns, and find the program with the most",
+                        "category": "software",
+                        "estimated_time_minutes": 10
+                    },
+                    {
+                        "instruction": "Close or restart that program, and update it if a newer version exists",
+                        "category": "software",
+                        "estimated_time_minutes": 10
+                    },
+                    {
+                        "instruction": "Restart the PC if you can't find the cause",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Software"
+                    ],
+                    "likely_failure_mode": "resource_leak",
+                    "preventive_measures": [
+                        "software_updates",
+                        "regular_restarts"
+                    ]
+                }
+            },
+            "UPTIME_LONG": {
+                "root_cause_analysis": "The PC hasn't restarted in weeks. Windows only finishes many security updates on a restart, and programs that run for weeks can slowly use up memory and handles.",
+                "urgency_level": "ATTENTION_NEEDED",
+                "actionable_steps": [
+                    {
+                        "instruction": "Save your work and restart the PC",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Check Settings > Windows Update for updates waiting on a restart",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Software"
+                    ],
+                    "likely_failure_mode": "pending_updates",
+                    "preventive_measures": [
+                        "weekly_restart"
+                    ]
+                }
+            },
+            "NETWORK_SATURATED": {
+                "root_cause_analysis": "The network connection is running at its full speed. That's normal during a big download or upload, but if you aren't doing one, a program may be syncing or downloading in the background.",
+                "urgency_level": "MONITOR",
+                "actionable_steps": [
+                    {
+                        "instruction": "Check Task Manager's Processes tab, Network column, to see which program is using the connection",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Pause large downloads, cloud sync or updates if the connection feels slow",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Network"
+                    ],
+                    "likely_failure_mode": "bandwidth_saturation",
+                    "preventive_measures": [
+                        "scheduled_downloads"
+                    ]
+                }
+            },
+            "DISK_BUSY": {
+                "root_cause_analysis": "The disk has been busy nearly all the time for several minutes. That's expected while copying files, installing or updating, but if it persists on an idle PC, a program (or a failing drive) may be the cause.",
+                "urgency_level": "MONITOR",
+                "actionable_steps": [
+                    {
+                        "instruction": "Check Task Manager > Processes, sort by Disk, and see which program is using the drive",
+                        "category": "software",
+                        "estimated_time_minutes": 5
+                    },
+                    {
+                        "instruction": "Let Windows Update or antivirus scans finish, then check again",
+                        "category": "software",
+                        "estimated_time_minutes": 15
+                    }
+                ],
+                "additional_context": {
+                    "hardware_components_affected": [
+                        "Storage"
+                    ],
+                    "likely_failure_mode": "disk_contention",
+                    "preventive_measures": [
+                        "ssd_upgrade",
+                        "scheduled_scans"
+                    ]
                 }
             }
         }
