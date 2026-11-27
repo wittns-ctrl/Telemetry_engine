@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,10 +14,11 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
+
+	"lectio/agent/internal/usersession"
 )
 
 // ShowOnPC shows the note to whoever is signed in at the PC's screen. The
@@ -26,11 +26,11 @@ import (
 // itself ("lectio-agent notify ...") as the signed-in person; run in a
 // window ("lectio-agent run"), it shows the notification directly.
 func ShowOnPC(n Note) error {
-	var session uint32
-	if err := windows.ProcessIdToSessionId(windows.GetCurrentProcessId(), &session); err == nil && session != 0 {
+	if !usersession.InService() {
 		return Toast(n)
 	}
-	return launchForSignedInUser(n)
+	_, err := usersession.Start([]string{"notify", EncodeNote(n)}, 0)
+	return err
 }
 
 // EncodeNote and DecodeNote carry a note on the command line of the helper.
@@ -47,44 +47,6 @@ func DecodeNote(s string) (Note, error) {
 	}
 	err = json.Unmarshal(data, &n)
 	return n, err
-}
-
-func launchForSignedInUser(n Note) error {
-	session := windows.WTSGetActiveConsoleSessionId()
-	if session == 0xFFFFFFFF {
-		return errors.New("nobody is signed in at the PC")
-	}
-	var token windows.Token
-	if err := windows.WTSQueryUserToken(session, &token); err != nil {
-		return fmt.Errorf("nobody is signed in at the PC: %w", err)
-	}
-	defer token.Close()
-
-	exe, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	cmdline, err := windows.UTF16PtrFromString(`"` + exe + `" notify ` + EncodeNote(n))
-	if err != nil {
-		return err
-	}
-	var env *uint16
-	if err := windows.CreateEnvironmentBlock(&env, token, false); err != nil {
-		return err
-	}
-	defer windows.DestroyEnvironmentBlock(env)
-
-	desktop, _ := windows.UTF16PtrFromString(`winsta0\default`)
-	si := windows.StartupInfo{Cb: uint32(unsafe.Sizeof(windows.StartupInfo{})), Desktop: desktop}
-	var pi windows.ProcessInformation
-	const flags = windows.CREATE_NO_WINDOW | windows.CREATE_UNICODE_ENVIRONMENT
-	if err := windows.CreateProcessAsUser(token, nil, cmdline, nil, nil, false, flags,
-		env, nil, &si, &pi); err != nil {
-		return fmt.Errorf("starting the notification for the signed-in user: %w", err)
-	}
-	windows.CloseHandle(pi.Thread)
-	windows.CloseHandle(pi.Process)
-	return nil
 }
 
 // Toast shows the notification as the current user. Windows' notification

@@ -185,7 +185,68 @@ function LocationCard({ device, onSaved }) {
       )}
       {status.state === "done" && <p className="note" role="status">{status.text}</p>}
       {status.state === "error" && <p className="note w" role="alert">{status.text}</p>}
+      <ExactLocation device={device} onSaved={onSaved} />
     </Card>
+  );
+}
+
+/** Where things stand with the PC's exact position, in plain words. */
+function locationText(device) {
+  if (!device.location_enabled) {
+    return "Off. When on, the PC finds its own position with Windows Location and its pin moves with it. Only you can see it, and its history is kept for 30 days.";
+  }
+  const loc = device.location;
+  if (!loc) return "Waiting for the PC to report it. It needs Lectio agent 1.2.0 or later, running and signed in to Windows.";
+  switch (loc.status) {
+    case "ok":
+      return `Found ${timeAgo(loc.measured_at)}${loc.accuracy_m ? `, accurate to about ${Math.round(loc.accuracy_m)} m` : ""}. Only you can see it.`;
+    case "off":
+      return "Windows Location is off on this PC. On the PC, open Settings, Privacy & security, Location, and switch on Location services and \"Let desktop apps access your location\".";
+    case "no_user":
+      return "Waiting for someone to sign in to Windows on this PC.";
+    default:
+      return "Windows couldn't find this PC's position. Having Wi-Fi switched on helps; PCs on a cable only often can't be located.";
+  }
+}
+
+export function ExactLocation({ device, onSaved }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const on = Boolean(device.location_enabled);
+  const toggle = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      onSaved(await updateDevice(device.id, { location_enabled: !on }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const id = `exact-location-${device.id}`;
+  return (
+    <>
+      <div className="switch-row">
+        <span className="f1">
+          <b id={`${id}-label`} className="t7">Show its exact location</b>
+          <span id={`${id}-desc`} className="sub" style={{ display: "block" }}>{locationText(device)}</span>
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-labelledby={`${id}-label`}
+          aria-describedby={`${id}-desc`}
+          className={cx("switch", on && "on")}
+          onClick={toggle}
+          disabled={saving}
+        >
+          <i aria-hidden="true" />
+        </button>
+      </div>
+      {error && <p className="note w" role="alert">{error}</p>}
+    </>
   );
 }
 

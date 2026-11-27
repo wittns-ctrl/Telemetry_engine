@@ -214,6 +214,22 @@ type PendingNotifications struct {
 	PollSeconds   int              `json:"poll_seconds"`
 }
 
+// LocationWanted says whether the account owner switched this PC's location on.
+type LocationWanted struct {
+	Wanted      bool `json:"wanted"`
+	PollSeconds int  `json:"poll_seconds"`
+}
+
+// LocationReport is the PC's position from Windows Location, or why there isn't one.
+type LocationReport struct {
+	Status     string    `json:"status"` // ok, off (Windows location switched off/denied), unavailable, no_user
+	Latitude   *float64  `json:"latitude,omitempty"`
+	Longitude  *float64  `json:"longitude,omitempty"`
+	AccuracyM  *float64  `json:"accuracy_m,omitempty"`
+	Source     string    `json:"source"`
+	MeasuredAt time.Time `json:"measured_at"`
+}
+
 type FixResult struct {
 	Status   string         `json:"status"` // succeeded, failed or declined
 	Message  string         `json:"message"`

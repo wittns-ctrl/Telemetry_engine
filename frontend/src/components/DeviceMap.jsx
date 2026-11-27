@@ -65,6 +65,9 @@ function restyle(map) {
   set("boundary_disputed", "line-color", "#ffffff");
 }
 
+// A place's identity: the PC (exact position) or its country.
+const keyOf = (p) => p.key || p.country;
+
 function pinElement(colour, onEnter) {
   const el = document.createElement("div");
   el.className = "map-pin";
@@ -108,14 +111,20 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
       .map((p, i) => ({ ...p, colour: SHADES[i === 0 ? 0 : i < 3 ? 1 : 2] }))
   ), [places]);
 
-  // Each placed country's outline, pin position and bounds.
+  // Each place's outline, pin position and bounds. A place with lngLat (the
+  // PC's exact position, when its owner switched location on) is pinned
+  // there; the others at the middle of their country.
   const placed = useMemo(() => {
     if (!libs) return [];
     const byName = new Map(libs.countries.map((f) => [f.properties.name, f]));
     return ranked
-      .filter((p) => byName.has(p.country))
+      .filter((p) => p.lngLat || byName.has(p.country))
       .map((p) => {
-        const feature = byName.get(p.country);
+        const feature = p.country ? byName.get(p.country) || null : null;
+        if (p.lngLat) {
+          const [x, y] = p.lngLat;
+          return { ...p, feature, pin: p.lngLat, exact: true, bounds: [[x - 0.02, y - 0.02], [x + 0.02, y + 0.02]] };
+        }
         return { ...p, feature, pin: pinFor(libs.geo, feature), bounds: libs.geo.geoBounds(feature) };
       });
   }, [libs, ranked]);
@@ -127,8 +136,13 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
       map.jumpTo(WORLD_VIEW);
       return;
     }
-    const bounds = libs.geo.geoBounds({ type: "FeatureCollection", features: placed.map((p) => p.feature) });
-    map.fitBounds(bounds, { padding: 36, maxZoom: 4, duration: 600 });
+    const all = placed.map((p) => p.bounds);
+    const bounds = [
+      [Math.min(...all.map((b) => b[0][0])), Math.min(...all.map((b) => b[0][1]))],
+      [Math.max(...all.map((b) => b[1][0])), Math.max(...all.map((b) => b[1][1]))],
+    ];
+    const exactOnly = placed.every((p) => p.exact);
+    map.fitBounds(bounds, { padding: 36, maxZoom: exactOnly ? 13 : 4, duration: 600 });
   }, [libs, placed]);
 
   // Create the map once the library is in.
@@ -210,17 +224,18 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
     if (!ready || !map) return;
     map.getSource("lectio-places")?.setData({
       type: "FeatureCollection",
-      features: placed.map((p) => ({ ...p.feature, properties: { country: p.country, shade: p.colour } })),
+      features: placed.filter((p) => p.feature && !p.exact)
+        .map((p) => ({ ...p.feature, properties: { country: p.country, shade: p.colour } })),
     });
     pinsRef.current.forEach((m) => m.remove());
-    pinsRef.current = placed.map((p) => new libs.maplibregl.Marker({ element: pinElement(p.colour, () => setPicked(p.country)) })
+    pinsRef.current = placed.map((p) => new libs.maplibregl.Marker({ element: pinElement(p.colour, () => setPicked(keyOf(p))) })
       .setLngLat(p.pin)
       .addTo(map));
     fitAll();
   }, [ready, placed, libs, fitAll]);
 
-  const current = ranked.find((p) => p.country === picked) || ranked[0];
-  const currentPin = placed.find((p) => p.country === current?.country);
+  const current = ranked.find((p) => keyOf(p) === picked) || ranked[0];
+  const currentPin = placed.find((p) => keyOf(p) === keyOf(current || {}));
 
   // The dark tooltip beside the chosen country's pin, on whichever side has room.
   useEffect(() => {
@@ -235,11 +250,12 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
       tipRef.current = new libs.maplibregl.Marker({ element: tipElement(), anchor: "left", offset: [12, 0] });
     }
     const el = tipRef.current.getElement();
-    el.querySelector("b").textContent = currentPin.country;
-    el.querySelector("small").textContent = statusOf(currentPin.health);
+    el.querySelector("b").textContent = currentPin.label || currentPin.country;
+    el.querySelector("small").textContent = statusOf(currentPin.health)
+      + (currentPin.exact && currentPin.accuracy ? ` · ±${Math.round(currentPin.accuracy)} m` : "");
     el.querySelector("em").textContent = currentPin.health === null || currentPin.health === undefined ? "—" : `${currentPin.health}%`;
     tipRef.current.setLngLat(currentPin.pin).addTo(map);
-    pinsRef.current.forEach((m, i) => m.getElement().classList.toggle("on", placed[i]?.country === currentPin.country));
+    pinsRef.current.forEach((m, i) => m.getElement().classList.toggle("on", keyOf(placed[i] || {}) === keyOf(currentPin)));
     const tip = tipRef.current;
     const side = () => {
       const x = map.project(currentPin.pin).x;
@@ -252,30 +268,36 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
   }, [ready, currentPin, placed, libs]);
 
   const flyTo = (place) => {
-    setPicked(place.country);
-    const target = placed.find((p) => p.country === place.country);
-    if (mapRef.current && target) mapRef.current.fitBounds(target.bounds, { padding: 30, maxZoom: 5, duration: 900 });
+    setPicked(keyOf(place));
+    const target = placed.find((p) => keyOf(p) === keyOf(place));
+    if (mapRef.current && target) {
+      mapRef.current.fitBounds(target.bounds, { padding: 30, maxZoom: target.exact ? 15 : 5, duration: 900 });
+    }
   };
 
   return (
     <article className="card mapcard">
       <h3>Where your PCs are</h3>
-      <p>Countries shaded by the share of each PC's readings that are within their limits.</p>
+      <p>
+        {ranked.some((p) => p.lngLat)
+          ? "Each PC's exact position, coloured by the share of its readings that are within their limits."
+          : "Countries shaded by the share of each PC's readings that are within their limits."}
+      </p>
 
       {ranked.length > 0 ? (
         <ul className="places">
           {ranked.map((p) => (
-            <li key={p.country}>
+            <li key={keyOf(p)}>
               <button
                 type="button"
-                className={cx(p.country === current?.country && "on")}
-                onMouseEnter={() => setPicked(p.country)}
-                onFocus={() => setPicked(p.country)}
+                className={cx(keyOf(p) === keyOf(current || {}) && "on")}
+                onMouseEnter={() => setPicked(keyOf(p))}
+                onFocus={() => setPicked(keyOf(p))}
                 onClick={() => flyTo(p)}
-                aria-label={`${p.country}, ${p.health ?? "no"}% health. Zoom the map to it.`}
+                aria-label={`${p.label || p.country}, ${p.health ?? "no"}% health. Zoom the map to it.`}
               >
                 <i style={{ background: p.colour }} aria-hidden="true" />
-                {p.country}
+                {p.label || p.country}
                 <em>{p.health === null || p.health === undefined ? "—" : `${p.health}%`}</em>
               </button>
             </li>

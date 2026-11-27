@@ -21,6 +21,7 @@ from app.models.email_verification import EmailVerification
 from app.models.password_reset import PasswordReset
 from app.models.audit_log import AuditLog, AuditEventType
 from app.models.rollup import TelemetryRollupDocument
+from app.models.location import LocationHistory
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument
 from app.models.fix import FixRequest
@@ -572,6 +573,7 @@ async def delete_account(
 
     readings = await TelemetrySnapshotDocument.find(TelemetrySnapshotDocument.user_id == user_oid).delete()
     await TelemetryRollupDocument.find(TelemetryRollupDocument.user_id == user_oid).delete()
+    await LocationHistory.find(LocationHistory.user_id == user_oid).delete()
     alerts = await AnomalyAlertDocument.find(AnomalyAlertDocument.user_id == user_oid).delete()
     await FixRequest.find(FixRequest.user_id == user_oid).delete()
     metrics = await Metrics.find(Metrics.user_id == user_id).delete()

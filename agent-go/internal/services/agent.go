@@ -33,6 +33,8 @@ type Agent struct {
 	// Notifications shows the PC's critical alerts on its screen (package
 	// notify); nil or notifications_enabled=false: off.
 	Notifications func(*api.Client) FixRunner
+	// Location reports where the PC is, when the owner switched it on (package locate).
+	Location func(*api.Client) FixRunner
 
 	started time.Time
 }
@@ -127,6 +129,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 	if a.Notifications != nil && cfg.NotificationsEnabled {
 		start("notifications", a.Notifications(client).Run, ctx)
+	}
+	if a.Location != nil && cfg.LocationAllowed {
+		start("location", a.Location(client).Run, ctx)
 	}
 
 	a.Log.Info("agent started", "api", cfg.APIURL, "interval", cfg.Interval().String(), "version", a.Version)

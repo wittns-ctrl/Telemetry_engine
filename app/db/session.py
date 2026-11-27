@@ -22,6 +22,7 @@ from app.models.telemetry import (
 from app.models.alert import AnomalyAlertDocument
 from app.models.fix import FixRequest
 from app.models.rollup import TelemetryRollupDocument
+from app.models.location import LocationHistory
 
 
 # Every Beanie document the app uses. The test suite's in-memory database
@@ -38,6 +39,7 @@ DOCUMENT_MODELS = [
     TelemetryRollupDocument,
     AnomalyAlertDocument,
     FixRequest,
+    LocationHistory,
 ]
 
 

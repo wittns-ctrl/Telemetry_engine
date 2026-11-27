@@ -530,8 +530,12 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
   const big = group.layout.big ? byId[group.layout.big] : null;
   const bigNow = big ? read(big) : null;
 
-  // Where the PCs are: a device appears once it has a country (set on My Devices).
-  const places = device.country ? [{ country: device.country, health: healthOf(snapshot) }] : [];
+  // Where the PCs are: its exact position when the owner switched location on
+  // and the PC found it, otherwise its country (set on My Devices).
+  const spot = device.location_enabled && device.location?.status === "ok" ? device.location : null;
+  const places = spot
+    ? [{ key: device.id, label: device.device_name, country: device.country || null, lngLat: [spot.longitude, spot.latitude], accuracy: spot.accuracy_m, health: healthOf(snapshot) }]
+    : device.country ? [{ country: device.country, health: healthOf(snapshot) }] : [];
 
   const pill = (id, tone) => {
     const reading = byId[id];
@@ -589,7 +593,7 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
 
         <DeviceMap
           places={places}
-          emptyText="Set your PC's country on My Devices to place it on the map."
+          emptyText="On My Devices, switch on your PC's exact location, or set its country, to place it on the map."
           onOpen={() => onNavigate?.("devices")}
         />
       </div>

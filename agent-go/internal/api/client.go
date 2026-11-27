@@ -225,6 +225,18 @@ func (c *Client) NextFix(ctx context.Context) (models.AgentNext, error) {
 	return out, err
 }
 
+// LocationWanted asks whether this PC should report its location.
+func (c *Client) LocationWanted(ctx context.Context) (models.LocationWanted, error) {
+	var out models.LocationWanted
+	err := c.do(ctx, http.MethodGet, "/api/v1/agent/location", nil, nil, nil, "", http.StatusOK, &out)
+	return out, err
+}
+
+// ReportLocation sends the PC's position (or why there isn't one).
+func (c *Client) ReportLocation(ctx context.Context, r models.LocationReport) error {
+	return c.do(ctx, http.MethodPost, "/api/v1/agent/location", nil, r, nil, "", http.StatusOK, nil)
+}
+
 // PendingNotifications asks for new critical alerts to show on this PC.
 func (c *Client) PendingNotifications(ctx context.Context) (models.PendingNotifications, error) {
 	var out models.PendingNotifications

@@ -48,8 +48,11 @@ type Config struct {
 	TopProcesses    int    `json:"top_processes"`
 	// Windows notifications on this PC for its critical alerts, with a button
 	// that opens DashboardURL at that alert.
-	NotificationsEnabled bool   `json:"notifications_enabled"`
-	DashboardURL         string `json:"dashboard_url"`
+	NotificationsEnabled bool `json:"notifications_enabled"`
+	// The owner switches location on per PC on the website; false here
+	// blocks it on this PC whatever the website says.
+	LocationAllowed bool   `json:"location_allowed"`
+	DashboardURL    string `json:"dashboard_url"`
 
 	// Set when the PC is linked to an account (lectio-agent link).
 	DeviceName         string `json:"device_name,omitempty"`
@@ -64,6 +67,7 @@ func Defaults() Config {
 	return Config{
 		APIURL:               DefaultAPI,
 		NotificationsEnabled: true,
+		LocationAllowed:      true,
 		DashboardURL:         DefaultDashboard,
 		IntervalSeconds:      5,
 		BatchSize:            12,

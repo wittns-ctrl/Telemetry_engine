@@ -17,6 +17,7 @@ from beanie import PydanticObjectId
 from app.api.deps import get_current_user
 from app.models.user import User, UserRole
 from app.models.rollup import TelemetryRollupDocument
+from app.models.location import LocationHistory
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument
 from app.models.fix import FixRequest
@@ -50,6 +51,8 @@ def _to_response(device: Device) -> DeviceResponse:
         agent_version=device.agent_version,
         agent_last_seen=device.agent_last_seen,
         security=device.security,
+        location_enabled=device.location_enabled,
+        location=device.location,
         is_active=device.is_active,
         created_at=device.created_at,
     )
@@ -189,7 +192,15 @@ async def update_device(
         device.device_name = body.device_name
     if "country" in sent:
         device.country = body.country
+    turned_off = False
+    if "location_enabled" in sent and body.location_enabled is not None:
+        turned_off = device.location_enabled and not body.location_enabled
+        device.location_enabled = body.location_enabled
+        if not body.location_enabled:
+            device.location = None  # switching off forgets where it was
     await device.save()
+    if turned_off:
+        await LocationHistory.find(LocationHistory.device_id == device.id).delete()
     return _to_response(device)
 
 
@@ -316,6 +327,9 @@ async def delete_device(
         await TelemetryRollupDocument.find(
             TelemetryRollupDocument.device_id == device_oid,
             TelemetryRollupDocument.user_id == current_user.id,
+        ).delete()
+        await LocationHistory.find(
+            LocationHistory.device_id == device_oid, LocationHistory.user_id == current_user.id,
         ).delete()
         alerts = await AnomalyAlertDocument.find(
             AnomalyAlertDocument.device_id == device_oid,

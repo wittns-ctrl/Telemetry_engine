@@ -548,6 +548,8 @@
   .switch.on { background: var(--green-dark); }
   .switch.on i { left: calc(100% - max(16px, calc(7.2 * var(--u))) - max(3px, calc(1.4 * var(--u)))); }
   .switch:disabled { opacity: 0.6; }
+  .dk .switch-row { border-top-color: var(--ink-800); }
+  .dk .switch:not(.on) { background: var(--ink-600); }
   .scroll-y { overflow-y: auto; }
 
   /* Confirmation dialog (ConfirmDialog.jsx, approved design A): a centred card,

@@ -96,6 +96,17 @@ export function PrivacyPage() {
           throughput, power, fan speed, voltages, disk health and hardware error counts, each with the time it was taken.
         </li>
         <li>Alerts raised when a reading crosses a limit, and any diagnostic reports generated for them.</li>
+        <li>
+          The machine&apos;s antivirus status from Microsoft Defender (or the antivirus in its place): whether protection
+          is on, how up to date it is, when it last scanned, and the threats it found in the last 30 days with the
+          affected file&apos;s path.
+        </li>
+        <li>
+          <b>Exact location, only if you switch it on</b> for a machine on My Devices: its position as found by Windows
+          Location on that machine (from nearby Wi-Fi networks, or GPS if it has one), with how accurate it is and when it
+          was found. It is off until you switch it on, only you can see it, and switching it off deletes the position and
+          its history.
+        </li>
       </ul>
       <h3>Security records</h3>
       <p>
@@ -145,6 +156,7 @@ export function PrivacyPage() {
       <ul>
         <li>Your account details, machines, readings and alerts are kept while your account is open.</li>
         <li>Security records are kept for <Fill value={LEGAL.logRetention} label="retention period" />.</li>
+        <li>A machine&apos;s location history is kept for 30 days, then deleted automatically.</li>
         <li>
           You can delete your account at any time under Settings. This immediately and permanently erases your account,
           machines, readings, alerts and security records, and signs you out everywhere. Copies in our backups are

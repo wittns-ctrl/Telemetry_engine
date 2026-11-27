@@ -149,6 +149,17 @@ class SecurityMetrics(BaseModel):
         return bool(self.antivirus) and "defender" not in (self.antivirus or "").lower()
 
 
+class DeviceLocation(BaseModel):
+    """Where the PC is, from Windows Location on the PC (or why it isn't known)."""
+    status: str = Field(..., max_length=16)  # ok, off, unavailable, no_user
+    latitude: Optional[float] = Field(None, ge=-90, le=90)
+    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    accuracy_m: Optional[float] = Field(None, ge=0)
+    source: str = Field("windows", max_length=16)
+    measured_at: datetime
+    received_at: datetime
+
+
 class TelemetrySnapshot(BaseModel):
     """Complete hardware telemetry snapshot."""
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Snapshot timestamp")
@@ -192,6 +203,10 @@ class Device(Document):
     agent_last_seen: Optional[datetime] = Field(None, description="When the agent last checked in")
     # The latest antivirus report (the agent refreshes it every 2 minutes).
     security: Optional[SecurityMetrics] = Field(None, description="Latest antivirus status and threats")
+    # Exact location: off until the owner switches it on for this PC. Only
+    # the owner's own requests can read it (every device route checks that).
+    location_enabled: bool = Field(False, description="The owner lets this PC report its location")
+    location: Optional[DeviceLocation] = Field(None, description="The latest position, while location is on")
     # SHA-256 of the agent's device key. The plaintext key is shown once at registration.
     ingest_key_hash: Optional[str] = Field(None, description="Hash of the device ingest key")
     _loaded_key_hash: Optional[str] = PrivateAttr(default=None)

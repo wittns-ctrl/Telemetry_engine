@@ -26,6 +26,7 @@ import (
 	"lectio/agent/internal/collectors"
 	"lectio/agent/internal/config"
 	"lectio/agent/internal/fixes"
+	"lectio/agent/internal/locate"
 	"lectio/agent/internal/logging"
 	"lectio/agent/internal/notify"
 	"lectio/agent/internal/service"
@@ -111,6 +112,12 @@ func main() {
 		err = status()
 	case "run":
 		err = runConsole()
+	case "locate":
+		// Started by the service, as the signed-in person, to read the PC's
+		// position from Windows Location (see package locate).
+		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Second)
+		err = locate.WriteFix(ctx)
+		cancel()
 	case "notify":
 		// Started by the service, as the signed-in person, to show one
 		// alert notification (see package notify). Not for typing by hand.
@@ -309,6 +316,9 @@ func agentRun(ctx context.Context, console bool) error {
 		Config: cfg, Log: log, Version: version,
 		Fixes: func(c *api.Client) services.FixRunner {
 			return &fixes.Worker{Client: c, Runner: fixes.NewRunner(), Ask: fixes.AskOnPC, Dir: dir, Log: log.With("component", "fixes")}
+		},
+		Location: func(c *api.Client) services.FixRunner {
+			return &locate.Locator{Client: c, Find: locate.FindOnPC, Log: log.With("component", "location")}
 		},
 		Notifications: func(c *api.Client) services.FixRunner {
 			return &notify.Notifier{Client: c, Show: notify.ShowOnPC, Dashboard: cfg.DashboardURL,
