@@ -44,8 +44,8 @@ async def test_a_new_critical_alert_is_handed_out_once(async_client, keyed_devic
     assert first.status_code == 200
     notes = first.json()["notifications"]
     assert [n["alert_id"] for n in notes] == [str(alert.id)]
-    assert notes[0]["title"] == "CPU core temperature critical"
-    assert notes[0]["body"].startswith("96.0°C at or above 95.0°C.")
+    assert notes[0]["title"] == "Processor overheating"
+    assert notes[0]["body"] == "96°C can slow or shut down your PC. See why and how to fix it."
     assert "url" not in notes[0]  # the agent builds the link itself
 
     again = await async_client.get(URL, headers={"X-Device-Key": KEY})
@@ -79,3 +79,23 @@ async def test_a_burst_shows_a_few_at_a_time(async_client, keyed_device):
 async def test_needs_a_valid_device_key(async_client, keyed_device):
     r = await async_client.get(URL, headers={"X-Device-Key": "wrong-key-0123456789abcdefghij"})
     assert r.status_code == 401
+
+
+def test_every_critical_rule_has_plain_words():
+    from app.api.v1.agent_alerts import WORDS
+    from app.core.anomaly_rules import BASELINE_RULES
+    critical = {r.name for r in BASELINE_RULES if r.severity == AlertSeverity.CRITICAL}
+    assert critical <= set(WORDS), f"no notification words for {sorted(critical - set(WORDS))}"
+    for title, risk in WORDS.values():
+        assert len(title) <= 30, title  # fits one line of a notification
+        assert len(risk.format(v=123.45)) <= 70, risk
+
+
+async def test_a_rule_without_words_still_reads_sensibly(async_client, keyed_device):
+    alert = await _alert(keyed_device, message="Something new critical: 5 things")
+    alert.rule_name = "SOMETHING_NEW_CRITICAL"
+    await alert.save()
+    r = await async_client.get(URL, headers={"X-Device-Key": KEY})
+    note = r.json()["notifications"][0]
+    assert note["title"] == "Something new critical"
+    assert note["body"] == "5 things. See why and how to fix it."
