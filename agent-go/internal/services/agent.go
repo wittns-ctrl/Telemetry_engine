@@ -30,6 +30,9 @@ type Agent struct {
 	Collector Snapshotter                 // nil: the default collectors
 	Client    *api.Client                 // nil: a client for Config.APIURL
 	Fixes     func(*api.Client) FixRunner // nil: fixes off
+	// Notifications shows the PC's critical alerts on its screen (package
+	// notify); nil or notifications_enabled=false: off.
+	Notifications func(*api.Client) FixRunner
 
 	started time.Time
 }
@@ -121,6 +124,9 @@ func (a *Agent) Run(ctx context.Context) error {
 		start("fixes", a.Fixes(client).Run, ctx)
 	} else {
 		a.Log.Info("fixes from the website are turned off on this PC")
+	}
+	if a.Notifications != nil && cfg.NotificationsEnabled {
+		start("notifications", a.Notifications(client).Run, ctx)
 	}
 
 	a.Log.Info("agent started", "api", cfg.APIURL, "interval", cfg.Interval().String(), "version", a.Version)

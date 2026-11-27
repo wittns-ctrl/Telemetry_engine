@@ -51,7 +51,8 @@ class AnomalyAlertDocument(Document):
     # (the PC stopped reporting that reading) or "closed_by_user".
     resolved_reason: Optional[str] = Field(None, max_length=32, description="Why the alert closed")
     email_sent_at: Optional[datetime] = Field(None, description="When the alert email was sent, if one was")
-    
+    pc_notified_at: Optional[datetime] = Field(None, description="When the PC's agent took the alert to show as a notification")
+
     class Settings:
         name = "anomaly_alerts"
         indexes = [

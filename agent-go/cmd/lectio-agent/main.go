@@ -27,6 +27,7 @@ import (
 	"lectio/agent/internal/config"
 	"lectio/agent/internal/fixes"
 	"lectio/agent/internal/logging"
+	"lectio/agent/internal/notify"
 	"lectio/agent/internal/service"
 	"lectio/agent/internal/services"
 )
@@ -110,6 +111,10 @@ func main() {
 		err = status()
 	case "run":
 		err = runConsole()
+	case "notify":
+		// Started by the service, as the signed-in person, to show one
+		// alert notification (see package notify). Not for typing by hand.
+		err = showNote(rest)
 	case "version", "-v", "--version":
 		fmt.Fprintln(out, "lectio-agent", version)
 	case "help", "-h", "--help", "/?":
@@ -305,8 +310,23 @@ func agentRun(ctx context.Context, console bool) error {
 		Fixes: func(c *api.Client) services.FixRunner {
 			return &fixes.Worker{Client: c, Runner: fixes.NewRunner(), Ask: fixes.AskOnPC, Dir: dir, Log: log.With("component", "fixes")}
 		},
+		Notifications: func(c *api.Client) services.FixRunner {
+			return &notify.Notifier{Client: c, Show: notify.ShowOnPC, Dashboard: cfg.DashboardURL,
+				PCName: cfg.DeviceName, Log: log.With("component", "notifications")}
+		},
 	}
 	return agent.Run(ctx)
+}
+
+func showNote(rest []string) error {
+	if len(rest) != 1 {
+		return errors.New("notify takes one argument")
+	}
+	note, err := notify.DecodeNote(rest[0])
+	if err != nil {
+		return err
+	}
+	return notify.Toast(note)
 }
 
 func runService() int {

@@ -225,6 +225,13 @@ func (c *Client) NextFix(ctx context.Context) (models.AgentNext, error) {
 	return out, err
 }
 
+// PendingNotifications asks for new critical alerts to show on this PC.
+func (c *Client) PendingNotifications(ctx context.Context) (models.PendingNotifications, error) {
+	var out models.PendingNotifications
+	err := c.do(ctx, http.MethodGet, "/api/v1/agent/alerts/pending", nil, nil, nil, "", http.StatusOK, &out)
+	return out, err
+}
+
 func (c *Client) ReportFix(ctx context.Context, requestID string, result models.FixResult) error {
 	if !fixRequestID.MatchString(requestID) {
 		return fmt.Errorf("malformed fix id")

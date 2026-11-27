@@ -25,6 +25,10 @@ import (
 // DefaultAPI is replaced at build time: go build -ldflags "-X lectio/agent/internal/config.DefaultAPI=https://api.example.com"
 var DefaultAPI = "http://localhost:8000"
 
+// DefaultDashboard is the website the PC's notifications link to, replaced at
+// build time like DefaultAPI (-X lectio/agent/internal/config.DefaultDashboard=...).
+var DefaultDashboard = "http://localhost:5173"
+
 const (
 	fileName     = "agent.json"
 	MinInterval  = time.Second
@@ -42,6 +46,10 @@ type Config struct {
 	FixesEnabled    bool   `json:"fixes_enabled"`
 	LogLevel        string `json:"log_level"`
 	TopProcesses    int    `json:"top_processes"`
+	// Windows notifications on this PC for its critical alerts, with a button
+	// that opens DashboardURL at that alert.
+	NotificationsEnabled bool   `json:"notifications_enabled"`
+	DashboardURL         string `json:"dashboard_url"`
 
 	// Set when the PC is linked to an account (lectio-agent link).
 	DeviceName         string `json:"device_name,omitempty"`
@@ -54,14 +62,16 @@ type Config struct {
 
 func Defaults() Config {
 	return Config{
-		APIURL:          DefaultAPI,
-		IntervalSeconds: 5,
-		BatchSize:       12,
-		BufferMaxMB:     100,
-		BufferMaxDays:   7,
-		FixesEnabled:    true,
-		LogLevel:        "info",
-		TopProcesses:    10,
+		APIURL:               DefaultAPI,
+		NotificationsEnabled: true,
+		DashboardURL:         DefaultDashboard,
+		IntervalSeconds:      5,
+		BatchSize:            12,
+		BufferMaxMB:          100,
+		BufferMaxDays:        7,
+		FixesEnabled:         true,
+		LogLevel:             "info",
+		TopProcesses:         10,
 	}
 }
 
@@ -131,19 +141,12 @@ func (c *Config) applyEnv() error {
 // Validate checks every setting and fixes nothing silently.
 func (c *Config) Validate() error {
 	c.APIURL = strings.TrimRight(c.APIURL, "/")
-	u, err := url.Parse(c.APIURL)
-	if err != nil || u.Host == "" {
-		return fmt.Errorf("api_url %q is not a valid address", c.APIURL)
+	if err := checkAddress("api_url", c.APIURL); err != nil {
+		return err
 	}
-	switch u.Scheme {
-	case "https":
-	case "http":
-		// Plain HTTP only for a server on this same PC (development).
-		if h := u.Hostname(); h != "localhost" && h != "127.0.0.1" && h != "::1" {
-			return fmt.Errorf("api_url must use https:// (http is only allowed for localhost)")
-		}
-	default:
-		return fmt.Errorf("api_url must start with https://")
+	c.DashboardURL = strings.TrimRight(c.DashboardURL, "/")
+	if err := checkAddress("dashboard_url", c.DashboardURL); err != nil {
+		return err
 	}
 	interval := c.Interval()
 	if interval < MinInterval || interval > MaxInterval {
@@ -169,6 +172,24 @@ func (c *Config) Validate() error {
 	return nil
 }
 
+// checkAddress accepts https://, or plain http:// for this same PC (development).
+func checkAddress(name, value string) error {
+	u, err := url.Parse(value)
+	if err != nil || u.Host == "" {
+		return fmt.Errorf("%s %q is not a valid address", name, value)
+	}
+	switch u.Scheme {
+	case "https":
+		return nil
+	case "http":
+		if h := u.Hostname(); h == "localhost" || h == "127.0.0.1" || h == "::1" {
+			return nil
+		}
+		return fmt.Errorf("%s must use https:// (http is only allowed for localhost)", name)
+	}
+	return fmt.Errorf("%s must start with https://", name)
+}
+
 func (c Config) Interval() time.Duration { return time.Duration(c.IntervalSeconds) * time.Second }
 func (c Config) BufferMaxBytes() int64   { return int64(c.BufferMaxMB) << 20 }
 func (c Config) BufferMaxAge() time.Duration {
@@ -188,6 +209,7 @@ func (c *Config) UseServer(api string) bool {
 		return false
 	}
 	c.APIURL = api
+	c.DashboardURL = DefaultDashboard
 	c.DeviceID = ""
 	c.DeviceKeyProtected = ""
 	return true

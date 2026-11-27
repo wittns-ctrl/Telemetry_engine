@@ -161,6 +161,20 @@ type AgentNext struct {
 	PollSeconds int       `json:"poll_seconds"`
 }
 
+// PCNotification is a critical alert to show on this PC. Only the words come
+// from the server; the agent builds the link from its own dashboard_url.
+type PCNotification struct {
+	AlertID  string `json:"alert_id"`
+	Severity string `json:"severity"`
+	Title    string `json:"title"`
+	Body     string `json:"body"`
+}
+
+type PendingNotifications struct {
+	Notifications []PCNotification `json:"notifications"`
+	PollSeconds   int              `json:"poll_seconds"`
+}
+
 type FixResult struct {
 	Status   string         `json:"status"` // succeeded, failed or declined
 	Message  string         `json:"message"`

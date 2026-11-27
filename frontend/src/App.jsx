@@ -38,6 +38,27 @@ import {
   AUTH_LOGOUT_EVENT,
 } from './services/api';
 
+// The alert a notification linked to, kept for this tab until it's shown, so
+// signing in first doesn't lose it. The address bar is tidied straight away.
+const LINKED_ALERT_KEY = 'lectio_linked_alert';
+function takeLinkedAlert() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('alert');
+    if (id && /^[a-f0-9]{24}$/.test(id)) {
+      sessionStorage.setItem(LINKED_ALERT_KEY, id);
+      params.delete('alert');
+      const rest = params.toString();
+      window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : '') + window.location.hash);
+    }
+    // Kept until the alert is opened: signing in with Google reloads the page.
+    const saved = sessionStorage.getItem(LINKED_ALERT_KEY);
+    return saved && /^[a-f0-9]{24}$/.test(saved) ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
 function App() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -56,6 +77,13 @@ function App() {
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [pendingNav, setPendingNav] = useState(null);
   const [alertsOpen, setAlertsOpen] = useState(false);  // the alerts window (bell, menu, pop-up)
+  // An alert to open straight away: the PC's notification links to /?alert=<id>.
+  const [linkedAlert, setLinkedAlert] = useState(() => takeLinkedAlert());
+  useEffect(() => {
+    if (!isAuthenticated || !linkedAlert) return;
+    try { sessionStorage.removeItem(LINKED_ALERT_KEY); } catch { /* storage blocked */ }
+    setAlertsOpen(true);
+  }, [isAuthenticated, linkedAlert]);
   const goTo = useCallback((id) => {
     // "Alerts" isn't a page: it opens the alerts window over the current one.
     if (id === 'alerts') {
@@ -208,7 +236,12 @@ function App() {
 
           <AlertPopup onSeeAll={() => setAlertsOpen(true)} />
 
-          {alertsOpen && <AlertsModal onClose={() => setAlertsOpen(false)} />}
+          {alertsOpen && (
+            <AlertsModal
+              initialAlertId={linkedAlert}
+              onClose={() => { setAlertsOpen(false); setLinkedAlert(null); }}
+            />
+          )}
 
           <ConfirmDialog
             open={isLogoutOpen}

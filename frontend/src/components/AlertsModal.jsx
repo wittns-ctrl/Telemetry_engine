@@ -12,14 +12,19 @@ import { Modal } from "./ui";
  * the user's PCs in plain words, each with "How to fix"; that turns the
  * window into the alert's fix options, with a back arrow and "Why is this
  * happening?" (the AI diagnosis).
+ *
+ * initialAlertId (from a PC notification's link) opens that alert's fixes
+ * with its diagnosis already on the way; if it has cleared since, the list
+ * says so.
  */
-export function AlertsModal({ onClose }) {
+export function AlertsModal({ onClose, initialAlertId = null }) {
   const [alerts, setAlerts] = useState(null);
   const [devices, setDevices] = useState({});
   const [error, setError] = useState(null);
   const [openId, setOpenId] = useState(null);
   const [sent, setSent] = useState(null);
   const [diagnosis, setDiagnosis] = useState({});
+  const [linkedGone, setLinkedGone] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,9 +33,20 @@ export function AlertsModal({ onClose }) {
         if (cancelled) return;
         setAlerts(sortAlerts(list));
         setDevices(Object.fromEntries((res?.devices || []).map((d) => [d.id, d])));
+        if (initialAlertId) {
+          const linked = list.find((a) => a.id === initialAlertId);
+          if (linked) {
+            setOpenId(linked.id);
+            diagnose(linked);
+          } else {
+            setLinkedGone(true);
+          }
+        }
       })
       .catch((err) => !cancelled && setError(err.message));
     return () => { cancelled = true; };
+    // Loads once per opening; initialAlertId only matters for that first load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const deviceOf = (a) => devices[a.device_id] || { id: a.device_id, device_name: "Your PC" };
@@ -126,6 +142,9 @@ export function AlertsModal({ onClose }) {
   return (
     <Modal title="Alerts" onClose={onClose}>
       {error && <p className="note w" role="alert">{error}</p>}
+      {linkedGone && (
+        <p className="note" role="status">The alert from your PC's notification has already cleared, or was closed.</p>
+      )}
       {!error && !alerts && <p className="sub" role="status">Loading your alerts…</p>}
       {alerts && count === 0 && (
         <div className="am-calm">
