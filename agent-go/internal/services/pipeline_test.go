@@ -181,8 +181,11 @@ func TestReadingsHeldOnAWrongServerArriveOnceItIsRight(t *testing.T) {
 	}
 	f.status.Store(0) // the right server answers again
 	waitFor(t, "the held readings", func() bool { return f.count() == 4 })
-	if buf.Stats().Batches != 0 || u.Stats.Rejected.Load() != 0 {
-		t.Fatal("expected every held reading sent, none dropped")
+	// The server has them; the agent deletes its copy only after the server's
+	// answer comes back, a moment later.
+	waitFor(t, "the buffer to empty", func() bool { return buf.Stats().Batches == 0 })
+	if u.Stats.Rejected.Load() != 0 {
+		t.Fatalf("expected none dropped, %d rejected", u.Stats.Rejected.Load())
 	}
 }
 

@@ -44,11 +44,18 @@ async def lifespan(app: FastAPI):
     await shared.close()
     await close_db()
 
+# The interactive docs and schema are a full map of the API: handy while
+# developing, but nothing a live server needs to show strangers.
+_public_docs = settings.APP_ENV != "production"
+
 app = FastAPI(
     title="Lectio API",
     description="High-Throughput Real-Time Telemetry Ingestion, Alerting, and Analytics Engine",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if _public_docs else None,
+    redoc_url="/redoc" if _public_docs else None,
+    openapi_url="/openapi.json" if _public_docs else None,
 )
 
 logger = logging.getLogger(__name__)
@@ -122,3 +129,14 @@ app.include_router(fixes_router.router, prefix="/api/v1")
 # --- WINDOWS AGENT DOWNLOAD ---
 app.include_router(agent_download_router.router, prefix="/api/v1")
 
+
+
+# TEMPORARY (remove after checking): which proxy headers carry the caller's
+# address on the live server. Shows only the caller's own and the proxies'
+# addresses, nothing about other visitors.
+@app.get("/api/v1/debug/client-address", include_in_schema=False)
+async def _debug_client_address(request: Request):
+    names = ("x-forwarded-for", "x-real-ip", "cf-connecting-ip", "true-client-ip",
+             "x-vercel-forwarded-for", "x-vercel-id", "forwarded", "rndr-id", "x-forwarded-proto")
+    return {"client": request.client.host if request.client else None,
+            "headers": {n: request.headers.get(n) for n in names if request.headers.get(n)}}
