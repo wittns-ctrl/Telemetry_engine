@@ -128,15 +128,3 @@ app.include_router(fixes_router.router, prefix="/api/v1")
 
 # --- WINDOWS AGENT DOWNLOAD ---
 app.include_router(agent_download_router.router, prefix="/api/v1")
-
-
-
-# TEMPORARY (remove after checking): which proxy headers carry the caller's
-# address on the live server. Shows only the caller's own and the proxies'
-# addresses, nothing about other visitors.
-@app.get("/api/v1/debug/client-address", include_in_schema=False)
-async def _debug_client_address(request: Request):
-    names = ("x-forwarded-for", "x-real-ip", "cf-connecting-ip", "true-client-ip",
-             "x-vercel-forwarded-for", "x-vercel-id", "forwarded", "rndr-id", "x-forwarded-proto")
-    return {"client": request.client.host if request.client else None,
-            "headers": {n: request.headers.get(n) for n in names if request.headers.get(n)}}

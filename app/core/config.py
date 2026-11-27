@@ -1,3 +1,5 @@
+import os
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings , SettingsConfigDict
 
@@ -59,6 +61,16 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH_PER_MINUTE: int = 10  # per IP: login, register, password reset, email verification
     RATE_LIMIT_INGEST_PER_MINUTE: int = 120  # per device key: agent telemetry uploads
     RATE_LIMIT_FIX_PER_MINUTE: int = 10  # per user: asking a PC to run or undo a fix (on top of the general budget)
+    # Who the visitor is behind the proxies. On Render (which sets RENDER=true)
+    # every request passes Cloudflare, whose CF-Connecting-IP can't be faked;
+    # requests through the website also carry Vercel's X-Vercel-Forwarded-For.
+    # Elsewhere the connection's own address is used. Don't turn this on
+    # without Cloudflare in front: anyone could then send the header.
+    TRUST_PROXY_CLIENT_HEADERS: bool = Field(default_factory=lambda: os.getenv("RENDER", "").lower() == "true")
+    # Address-based limits also apply to the connecting address at this many
+    # times the limit, so a faked X-Vercel-Forwarded-For can't dodge them while
+    # visitors sharing one Vercel server address aren't blocked together.
+    RATE_LIMIT_CONNECTION_MULTIPLIER: int = 10
 
     # Alert thresholds live in app/core/anomaly_rules.py (see docs/alert-thresholds.md).
 

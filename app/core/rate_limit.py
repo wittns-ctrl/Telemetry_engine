@@ -190,9 +190,28 @@ def _header(scope, name: bytes) -> str | None:
     return None
 
 
-def _client_ip(scope) -> str:
+def _addresses(scope) -> tuple[str, str]:
+    """(visitor, connection): who the request is for, and who connected.
+
+    Behind Render, the connection seen by the app is one of Render's own
+    machines, a different one each time, so it can't key a limit. Cloudflare
+    (in front of Render) sets CF-Connecting-IP to whoever reached it, which
+    can't be faked; for requests through the website that's a Vercel server,
+    and Vercel's X-Vercel-Forwarded-For names the visitor. A caller going
+    straight to Render can fake that header but not CF-Connecting-IP, which
+    is why address-based limits check both (see RateLimitMiddleware).
+    """
     client = scope.get("client")
-    return client[0] if client else "unknown"
+    own = client[0] if client else "unknown"
+    if not settings.TRUST_PROXY_CLIENT_HEADERS:
+        return own, own
+    connection = (_header(scope, b"cf-connecting-ip") or "").strip() or own
+    forwarded = (_header(scope, b"x-vercel-forwarded-for") or "").split(",")[0].strip()
+    return forwarded or connection, connection
+
+
+def _client_ip(scope) -> str:
+    return _addresses(scope)[0]
 
 
 def _user_id(scope) -> str | None:
@@ -208,6 +227,10 @@ def _user_id(scope) -> str | None:
         return None
     sub = payload.get("sub")
     return str(sub) if sub else None
+
+
+# Buckets keyed by the visitor's address (the rest are per user or device key).
+ADDRESS_KINDS = frozenset({"auth", "ip", "ingest-ip", "agent-ip"})
 
 
 def classify(scope) -> tuple[str, int] | None:
@@ -255,6 +278,15 @@ class RateLimitMiddleware:
 
         key, per_minute = bucket
         decision = await self.limiter.check(key, per_minute)
+        if decision.allowed and key.split(":", 1)[0] in ADDRESS_KINDS:
+            # Also limit the connecting address (generously: website visitors
+            # share Vercel's), so faking the visitor header doesn't escape the limit.
+            visitor, connection = _addresses(scope)
+            if connection != visitor:
+                wide = await self.limiter.check(
+                    f"conn:{connection}", per_minute * settings.RATE_LIMIT_CONNECTION_MULTIPLIER)
+                if not wide.allowed:
+                    decision = wide
         limit_headers = [
             (b"x-ratelimit-limit", str(decision.limit).encode()),
             (b"x-ratelimit-remaining", str(decision.remaining).encode()),

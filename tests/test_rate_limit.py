@@ -180,3 +180,61 @@ def test_code_and_google_sign_in_use_the_auth_budget():
     from app.core.rate_limit import AUTH_PATHS
     for path in ("/api/v1/auth/verify-email-code", "/api/v1/auth/google/login", "/api/v1/auth/google/callback"):
         assert path in AUTH_PATHS
+
+
+# ---------------------------------------------------------------------------
+# The visitor's address behind Cloudflare (Render) and Vercel
+# ---------------------------------------------------------------------------
+
+class TestAddressBehindProxies:
+    """Render hands the app a different internal address on every request, so
+    limits must key on the headers Cloudflare and Vercel set."""
+
+    LOGIN = "/api/v1/auth/login"
+
+    def test_without_trusted_proxies_the_connection_is_used(self, limits, monkeypatch):
+        monkeypatch.setattr(settings, "TRUST_PROXY_CLIENT_HEADERS", False)
+        scope = _scope(self.LOGIN, "POST", {"CF-Connecting-IP": "9.9.9.9", "X-Vercel-Forwarded-For": "5.5.5.5"})
+        assert classify(scope) == ("auth:1.2.3.4", 3)  # headers ignored: anyone could send them
+
+    def test_direct_to_render_uses_cloudflares_address(self, limits, monkeypatch):
+        monkeypatch.setattr(settings, "TRUST_PROXY_CLIENT_HEADERS", True)
+        scope = _scope(self.LOGIN, "POST", {"CF-Connecting-IP": "197.0.0.7"}, client=("10.0.0.1", 1))
+        assert classify(scope) == ("auth:197.0.0.7", 3)
+
+    def test_through_the_website_uses_vercels_visitor_address(self, limits, monkeypatch):
+        monkeypatch.setattr(settings, "TRUST_PROXY_CLIENT_HEADERS", True)
+        scope = _scope(self.LOGIN, "POST", {"CF-Connecting-IP": "13.245.28.86",
+                                            "X-Vercel-Forwarded-For": "197.0.0.7"}, client=("10.0.0.2", 1))
+        assert classify(scope) == ("auth:197.0.0.7", 3)
+
+    async def test_render_internal_addresses_no_longer_dodge_the_limit(self, limits, monkeypatch, mock_mongo_client):
+        from httpx import ASGITransport, AsyncClient
+        from app.main import app
+        monkeypatch.setattr(settings, "TRUST_PROXY_CLIENT_HEADERS", True)
+        body = {"username": "nobody@example.com", "password": "wrong-password"}
+        statuses = []
+        for i in range(4):
+            # A different Render machine each time, the same visitor.
+            transport = ASGITransport(app=app, client=(f"10.198.0.{i}", 1))
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                r = await client.post(self.LOGIN, data=body, headers={"CF-Connecting-IP": "197.0.0.7"})
+                statuses.append(r.status_code)
+        assert statuses[-1] == 429
+
+    async def test_faking_the_vercel_header_still_hits_the_connection_limit(
+            self, limits, monkeypatch, mock_mongo_client):
+        from httpx import ASGITransport, AsyncClient
+        from app.main import app
+        monkeypatch.setattr(settings, "TRUST_PROXY_CLIENT_HEADERS", True)
+        monkeypatch.setattr(settings, "RATE_LIMIT_CONNECTION_MULTIPLIER", 2)  # 3 x 2 = 6 a minute
+        body = {"username": "nobody@example.com", "password": "wrong-password"}
+        statuses = []
+        transport = ASGITransport(app=app, client=("10.198.0.9", 1))
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            for i in range(7):
+                r = await client.post(self.LOGIN, data=body, headers={
+                    "CF-Connecting-IP": "197.0.0.66", "X-Vercel-Forwarded-For": f"5.5.5.{i}"})
+                statuses.append(r.status_code)
+        assert 429 not in statuses[:6]
+        assert statuses[6] == 429
