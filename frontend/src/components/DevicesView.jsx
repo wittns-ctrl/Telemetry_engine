@@ -198,6 +198,11 @@ function locationText(device) {
   const loc = device.location;
   if (!loc) return "Waiting for the PC to report it. It needs Lectio agent 1.2.0 or later, running and signed in to Windows.";
   switch (loc.status) {
+    case "approximate": {
+      const why = { off: "Windows Location is off on the PC", no_user: "nobody is signed in to Windows", unavailable: "Windows couldn't find its position" }[loc.windows_status] || "Windows Location isn't available";
+      const area = [loc.city, loc.country].filter(Boolean).join(", ");
+      return `Approximate${area ? `: around ${area}` : ""}, from its internet address, because ${why}. It can be far off behind a VPN or a mobile connection. Only you can see it.`;
+    }
     case "ok":
       return `Found ${timeAgo(loc.measured_at)}${loc.accuracy_m ? `, accurate to about ${Math.round(loc.accuracy_m)} m` : ""}. Only you can see it.`;
     case "off":

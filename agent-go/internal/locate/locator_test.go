@@ -72,15 +72,23 @@ func TestSendsOnMovesAndHalfHourly(t *testing.T) {
 	}
 }
 
-func TestStatusChangesAreSentOnce(t *testing.T) {
+func TestWithoutAPositionItReportsHalfHourly(t *testing.T) {
+	// The server estimates from the internet address each time, so the
+	// estimate follows the PC from network to network.
 	srv := &fakeServer{wanted: true}
 	now := time.Now()
 	fix := Fix{Status: "off"}
 	l := locator(srv, &fix, &now)
 	l.checkOnce(context.Background())
+	now = now.Add(2 * time.Minute)
 	l.checkOnce(context.Background())
 	if len(srv.reports) != 1 || srv.reports[0].Status != "off" || srv.reports[0].Latitude != nil {
 		t.Fatalf("got %+v", srv.reports)
+	}
+	now = now.Add(30 * time.Minute)
+	l.checkOnce(context.Background())
+	if len(srv.reports) != 2 {
+		t.Fatalf("no half-hourly report without a position: %d", len(srv.reports))
 	}
 }
 

@@ -530,11 +530,16 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
   const big = group.layout.big ? byId[group.layout.big] : null;
   const bigNow = big ? read(big) : null;
 
-  // Where the PCs are: its exact position when the owner switched location on
-  // and the PC found it, otherwise its country (set on My Devices).
-  const spot = device.location_enabled && device.location?.status === "ok" ? device.location : null;
+  // Where the PCs are, when the owner switched location on: exactly (Windows
+  // Location) or roughly (from its internet address); otherwise its country
+  // (set on My Devices).
+  const spot = device.location_enabled && ["ok", "approximate"].includes(device.location?.status) ? device.location : null;
   const places = spot
-    ? [{ key: device.id, label: device.device_name, country: device.country || null, lngLat: [spot.longitude, spot.latitude], accuracy: spot.accuracy_m, health: healthOf(snapshot) }]
+    ? [{
+      key: device.id, label: device.device_name, country: device.country || spot.country || null,
+      lngLat: [spot.longitude, spot.latitude], accuracy: spot.accuracy_m,
+      approximate: spot.status === "approximate", area: spot.city || spot.country, health: healthOf(snapshot),
+    }]
     : device.country ? [{ country: device.country, health: healthOf(snapshot) }] : [];
 
   const pill = (id, tone) => {

@@ -123,7 +123,8 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
         const feature = p.country ? byName.get(p.country) || null : null;
         if (p.lngLat) {
           const [x, y] = p.lngLat;
-          return { ...p, feature, pin: p.lngLat, exact: true, bounds: [[x - 0.02, y - 0.02], [x + 0.02, y + 0.02]] };
+          const d = p.approximate ? 0.25 : 0.02; // an estimate is only good to its city
+          return { ...p, feature, pin: p.lngLat, exact: true, bounds: [[x - d, y - d], [x + d, y + d]] };
         }
         return { ...p, feature, pin: pinFor(libs.geo, feature), bounds: libs.geo.geoBounds(feature) };
       });
@@ -142,7 +143,8 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
       [Math.max(...all.map((b) => b[1][0])), Math.max(...all.map((b) => b[1][1]))],
     ];
     const exactOnly = placed.every((p) => p.exact);
-    map.fitBounds(bounds, { padding: 36, maxZoom: exactOnly ? 13 : 4, duration: 600 });
+    const rough = placed.some((p) => p.approximate);
+    map.fitBounds(bounds, { padding: 36, maxZoom: exactOnly ? (rough ? 9 : 13) : 4, duration: 600 });
   }, [libs, placed]);
 
   // Create the map once the library is in.
@@ -251,8 +253,9 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
     }
     const el = tipRef.current.getElement();
     el.querySelector("b").textContent = currentPin.label || currentPin.country;
-    el.querySelector("small").textContent = statusOf(currentPin.health)
-      + (currentPin.exact && currentPin.accuracy ? ` · ±${Math.round(currentPin.accuracy)} m` : "");
+    el.querySelector("small").textContent = statusOf(currentPin.health) + (
+      currentPin.approximate ? ` · approx.${currentPin.area ? `, ${currentPin.area} area` : ""}`
+        : currentPin.exact && currentPin.accuracy ? ` · ±${Math.round(currentPin.accuracy)} m` : "");
     el.querySelector("em").textContent = currentPin.health === null || currentPin.health === undefined ? "—" : `${currentPin.health}%`;
     tipRef.current.setLngLat(currentPin.pin).addTo(map);
     pinsRef.current.forEach((m, i) => m.getElement().classList.toggle("on", keyOf(placed[i] || {}) === keyOf(currentPin)));
@@ -271,7 +274,7 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
     setPicked(keyOf(place));
     const target = placed.find((p) => keyOf(p) === keyOf(place));
     if (mapRef.current && target) {
-      mapRef.current.fitBounds(target.bounds, { padding: 30, maxZoom: target.exact ? 15 : 5, duration: 900 });
+      mapRef.current.fitBounds(target.bounds, { padding: 30, maxZoom: target.approximate ? 10 : target.exact ? 15 : 5, duration: 900 });
     }
   };
 
@@ -279,7 +282,9 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
     <article className="card mapcard">
       <h3>Where your PCs are</h3>
       <p>
-        {ranked.some((p) => p.lngLat)
+        {ranked.some((p) => p.approximate)
+          ? "Each PC's position (exact, or approximate from its internet address), coloured by the share of its readings that are within their limits."
+          : ranked.some((p) => p.lngLat)
           ? "Each PC's exact position, coloured by the share of its readings that are within their limits."
           : "Countries shaded by the share of each PC's readings that are within their limits."}
       </p>
@@ -324,6 +329,10 @@ export function DeviceMap({ places = [], emptyText, onOpen }) {
           </span>
         )}
         {failed && <span className="empty geo-note">The map could not be loaded. Check your connection.</span>}
+        {ranked.some((p) => p.approximate) && (
+          // Required by the DB-IP Lite licence (CC BY 4.0) wherever an estimate shows.
+          <a className="geo-credit" href="https://db-ip.com" target="_blank" rel="noreferrer">Approximate position: IP geolocation by DB-IP</a>
+        )}
         {!failed && !ready && <span className="empty geo-note">Loading map…</span>}
       </div>
 

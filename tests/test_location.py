@@ -94,3 +94,74 @@ async def test_impossible_reports_are_refused(authenticated_client, keyed_device
 
 async def test_needs_a_device_key(async_client, keyed_device):
     assert (await async_client.get(URL, headers={"X-Device-Key": "wrong-key-0123456789abcdefghij"})).status_code == 401
+
+
+# ------------------------------------------------- estimate from the internet address
+
+from app.services import ip_location  # noqa: E402
+
+
+def off(status="off"):
+    return {"status": status, "source": "windows", "measured_at": datetime.now(timezone.utc).isoformat()}
+
+
+async def test_without_windows_location_the_address_gives_an_approximate_position(
+        authenticated_client, keyed_device, monkeypatch):
+    seen = []
+
+    def fake_lookup(address):
+        seen.append(address)
+        return ip_location.IPPlace(latitude=-1.94, longitude=30.06, city="Kigali", country="Rwanda")
+    monkeypatch.setattr(ip_location, "lookup", fake_lookup)
+    await switch(authenticated_client, keyed_device, True)
+    await authenticated_client.post(URL, headers=AGENT, json=off())
+
+    loc = (await authenticated_client.get(f"/api/v1/devices/{keyed_device.id}")).json()["location"]
+    assert loc["status"] == "approximate" and loc["source"] == "ip"
+    assert loc["city"] == "Kigali" and loc["country"] == "Rwanda" and loc["windows_status"] == "off"
+    assert loc["accuracy_m"] == ip_location.APPROXIMATE_M
+    assert seen  # the PC's own connection address was looked up
+    assert await LocationHistory.find(LocationHistory.device_id == keyed_device.id).count() == 1
+
+
+async def test_no_estimate_means_no_position(authenticated_client, keyed_device, monkeypatch):
+    monkeypatch.setattr(ip_location, "lookup", lambda address: None)
+    await switch(authenticated_client, keyed_device, True)
+    await authenticated_client.post(URL, headers=AGENT, json=off("unavailable"))
+    loc = (await authenticated_client.get(f"/api/v1/devices/{keyed_device.id}")).json()["location"]
+    assert loc["status"] == "unavailable" and loc["latitude"] is None
+
+
+async def test_windows_location_wins_over_the_estimate(authenticated_client, keyed_device, monkeypatch):
+    monkeypatch.setattr(ip_location, "lookup", lambda address: pytest.fail("looked up despite an exact position"))
+    await switch(authenticated_client, keyed_device, True)
+    await authenticated_client.post(URL, headers=AGENT, json=ok())
+    loc = (await authenticated_client.get(f"/api/v1/devices/{keyed_device.id}")).json()["location"]
+    assert loc["status"] == "ok" and loc["source"] == "windows"
+
+
+async def test_no_estimate_while_switched_off(async_client, keyed_device, monkeypatch):
+    monkeypatch.setattr(ip_location, "lookup", lambda address: pytest.fail("looked up while switched off"))
+    assert (await async_client.post(URL, headers=AGENT, json=off())).json() == {"stored": False}
+
+
+def test_private_and_bad_addresses_are_never_looked_up(monkeypatch):
+    monkeypatch.setattr(ip_location, "_open", lambda: pytest.fail("opened the database for a private address"))
+    for address in ("192.168.1.10", "10.0.0.5", "127.0.0.1", "::1", "not-an-ip", "", None):
+        assert ip_location.lookup(address) is None
+
+
+def test_country_names_follow_the_map():
+    assert ip_location.map_country("United States") == "United States of America"
+    assert ip_location.map_country("Rwanda") == "Rwanda"
+    assert ip_location.map_country("Atlantis") is None
+
+
+def test_a_missing_database_just_means_no_estimate(monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "IP_LOCATION_DB", "does/not/exist.mmdb")
+    ip_location.reset_for_tests()
+    try:
+        assert ip_location.lookup("8.8.8.8") is None
+    finally:
+        ip_location.reset_for_tests()

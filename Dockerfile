@@ -21,6 +21,11 @@ COPY pyproject.toml uv.lock ./
 # The redis extra too: with REDIS_URL set, several API containers share state.
 RUN uv sync --locked --no-dev --no-install-project --extra redis
 
+# Rough PC locations from internet addresses, looked up locally (DB-IP City
+# Lite, CC BY 4.0). A failed download leaves the API without estimates only.
+COPY scripts/fetch_ip_location_db.py ./scripts/
+RUN python scripts/fetch_ip_location_db.py /app/data/dbip-city-lite.mmdb
+
 
 FROM python:3.14-slim
 
@@ -29,6 +34,7 @@ RUN useradd --system --uid 10001 --home-dir /app lectio
 WORKDIR /app
 COPY --from=build /app/.venv /app/.venv
 COPY app ./app
+COPY --from=build /app/data ./data
 # The Windows agent handed out at /api/v1/agent/download, if one was built
 # (agent/build_exe.py). docker-compose.yml mounts the folder instead.
 COPY downloads ./downloads

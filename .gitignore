@@ -32,3 +32,6 @@ Thumbs.db
 
 # Local test-account credentials (see .claude/)
 .claude/test-account.json
+
+# DB-IP IP-to-City database (downloaded by scripts/fetch_ip_location_db.py)
+data/*.mmdb

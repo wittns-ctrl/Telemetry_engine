@@ -150,12 +150,17 @@ class SecurityMetrics(BaseModel):
 
 
 class DeviceLocation(BaseModel):
-    """Where the PC is, from Windows Location on the PC (or why it isn't known)."""
-    status: str = Field(..., max_length=16)  # ok, off, unavailable, no_user
+    """Where the PC is: exact from Windows Location ("ok"), roughly from its
+    internet address ("approximate"), or not known (off, unavailable, no_user)."""
+    status: str = Field(..., max_length=16)
     latitude: Optional[float] = Field(None, ge=-90, le=90)
     longitude: Optional[float] = Field(None, ge=-180, le=180)
     accuracy_m: Optional[float] = Field(None, ge=0)
-    source: str = Field("windows", max_length=16)
+    source: str = Field("windows", max_length=16)  # windows or ip
+    # For an estimate: the area, and why Windows Location couldn't say.
+    city: Optional[str] = Field(None, max_length=128)
+    country: Optional[str] = Field(None, max_length=64)
+    windows_status: Optional[str] = Field(None, max_length=16)
     measured_at: datetime
     received_at: datetime
 

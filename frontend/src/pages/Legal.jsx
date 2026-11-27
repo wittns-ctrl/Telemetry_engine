@@ -104,8 +104,10 @@ export function PrivacyPage() {
         <li>
           <b>Exact location, only if you switch it on</b> for a machine on My Devices: its position as found by Windows
           Location on that machine (from nearby Wi-Fi networks, or GPS if it has one), with how accurate it is and when it
-          was found. It is off until you switch it on, only you can see it, and switching it off deletes the position and
-          its history.
+          was found. When Windows Location can&apos;t give a position, we estimate a rough one (usually the city) from the
+          internet address the machine connects from, using a database kept on our own servers (DB-IP), so the address
+          is not sent to anyone else. It is off until you switch it on, only you can see it, and switching it off
+          deletes the position and its history.
         </li>
       </ul>
       <h3>Security records</h3>

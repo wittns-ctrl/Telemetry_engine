@@ -16,7 +16,7 @@ class LocationHistory(Document):
     latitude: float = Field(..., ge=-90, le=90)
     longitude: float = Field(..., ge=-180, le=180)
     accuracy_m: Optional[float] = Field(None, ge=0)
-    source: str = Field("windows", max_length=16)
+    source: str = Field("windows", max_length=16)  # windows (exact) or ip (approximate)
     measured_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:

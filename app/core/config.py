@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     # The Windows agent handed out at /api/v1/agent/download. agent/build_exe.py
     # copies each new build here; replace the file to publish a new version.
     AGENT_DOWNLOAD_PATH: str = "downloads/lectio-agent.exe"
+    # DB-IP "IP to City Lite" (CC BY 4.0), for a rough position when Windows
+    # Location can't give one. The Dockerfile downloads it into the image.
+    IP_LOCATION_DB: str = "data/dbip-city-lite.mmdb"
 
     # AI (Google Gemini) for diagnosis reports and fix advice. Reached through
     # Gemini's OpenAI-compatible endpoint, so the openai package is the client.

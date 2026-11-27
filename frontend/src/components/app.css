@@ -631,6 +631,7 @@
   .sec-tl li.bad b { color: var(--rose-text); }
   .sec-more { align-self: flex-start; padding: 0; border: 0; background: none; font: inherit; font-size: var(--fs-1); font-weight: 600; color: var(--ink-600); cursor: pointer; text-decoration: underline; }
   .sec .ap-sent, .sec .note { margin: 0; }
+  .geo-credit { position: absolute; left: 8px; top: 40px; z-index: 2; padding: 2px 6px; border-radius: 4px; background: rgba(255, 255, 255, 0.85); font-size: 11px; color: var(--ink-600); }
   .dev-shield { display: inline-flex; color: var(--green-dark); }
   .dev-shield svg { width: 16px; height: 16px; }
   .dev-shield.warn { color: #c2410c; }

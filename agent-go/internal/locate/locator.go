@@ -103,16 +103,17 @@ func (l *Locator) checkOnce(ctx context.Context) time.Duration {
 }
 
 // worthSending: a change of status, a move of more than about 100 m, or the
-// half-hourly "still here".
+// half-hourly "still here". Without a Windows position the half-hourly report
+// still goes: the server then estimates from the PC's internet address, which
+// changes when the PC moves to another network.
 func (l *Locator) worthSending(f Fix) bool {
 	if l.sent == nil || l.sent.Status != f.Status {
 		return true
 	}
-	if f.Status != "ok" {
-		return false
+	if l.now().Sub(l.sentAt) >= stillThere {
+		return true
 	}
-	return Distance(l.sent.Latitude, l.sent.Longitude, f.Latitude, f.Longitude) > moveMetres ||
-		l.now().Sub(l.sentAt) >= stillThere
+	return f.Status == "ok" && Distance(l.sent.Latitude, l.sent.Longitude, f.Latitude, f.Longitude) > moveMetres
 }
 
 func toReport(f Fix) models.LocationReport {
