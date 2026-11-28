@@ -283,7 +283,16 @@ class TelemetrySnapshotDocument(Document):
 
     class Settings:
         name = "telemetry_snapshots"
+        # A time-series collection (settings.TELEMETRY_TIMESERIES) takes no
+        # unique or TTL index: it expires readings itself, and duplicates are
+        # filtered before inserting (app/services/telemetry_store.py).
         indexes = [
+            IndexModel(
+                [("user_id", ASCENDING), ("device_id", ASCENDING), ("timestamp", DESCENDING)],
+                name="user_device_time",
+            ),
+            IndexModel([("device_id", ASCENDING), ("event_id", ASCENDING)], name="device_event"),
+        ] if settings.TELEMETRY_TIMESERIES else [
             # Every dashboard read: one device's readings, newest first.
             IndexModel(
                 [("user_id", ASCENDING), ("device_id", ASCENDING), ("timestamp", DESCENDING)],

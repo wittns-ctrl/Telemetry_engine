@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 
 from beanie import PydanticObjectId
 
+from app.services import activity
 from app.core.anomaly_rules import (
     BASELINE_RULES,
     AnomalyRule,
@@ -440,7 +441,8 @@ class AnomalyEngine:
                 f"New alert triggered: {rule.name} - {alert.message} "
                 f"(Device: {device_id}, User: {user_id})"
             )
-            
+            await activity.alert_opened(alert)
+
             return alert
             
         except Exception as e:
@@ -506,6 +508,7 @@ class AnomalyEngine:
                 alert.resolved_at = current_time
                 alert.resolved_reason = "recovered"
                 await alert.save()
+                await activity.alert_closed(alert, "recovered")
                 
                 # Reset breach state
                 breach_state.is_triggered = False
@@ -581,6 +584,7 @@ class AnomalyEngine:
             alert.resolved_at = _aware(now)
             alert.resolved_reason = "no_reading"
             await alert.save()
+            await activity.alert_closed(alert, "no_reading")
         except Exception as e:
             logger.error(f"Error closing stale alert {alert_id}: {e}")
             return None

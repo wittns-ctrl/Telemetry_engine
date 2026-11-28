@@ -38,13 +38,14 @@ from app.api.deps import get_current_user
 from app.api.v1.ingest import get_ingest_device
 from app.core.config import settings
 from app.core.fix_catalogue import FIXES, Fix, fixes_for, get_fix
-from app.core.rate_limit import limiter
+from app.core.rate_limit import _client_ip, limiter
 from app.core.websocket_manager import manager as stream_manager
 from app.models.alert import AnomalyAlertDocument
 from app.models.audit_log import AuditEventType, AuditLog
 from app.models.fix import FINAL_STATUSES, FixRequest, FixStatus
 from app.models.telemetry import Device
 from app.models.user import FixLevel, User
+from app.services import activity
 from app.services.fix_advisor import fix_advisor
 
 logger = logging.getLogger(__name__)
@@ -233,7 +234,7 @@ async def _audit(
         await AuditLog(
             user_id=str(req.user_id),
             event_type=event,
-            ip_address=request.client.host if request and request.client else None,
+            ip_address=_client_ip(request.scope) if request else None,
             user_agent=request.headers.get("user-agent") if request else None,
             success=success,
             details={
@@ -241,6 +242,7 @@ async def _audit(
                 "fix_request_id": str(req.id),
                 "device_id": str(req.device_id),
                 "fix_id": req.fix_id,
+                "fix_title": fix.title if (fix := get_fix(req.fix_id)) else req.fix_id,
                 "params": req.params,
                 "undo_of": str(req.undo_of) if req.undo_of else None,
                 "needs_pc_approval": req.needs_pc_approval,
@@ -427,6 +429,9 @@ async def agent_next(
     device.agent_last_seen = datetime.now(timezone.utc)
     changes = {"agent_last_seen": device.agent_last_seen}
     if agent_version:
+        if device.agent_version and device.agent_version != agent_version:
+            await activity.record(device.user_id, AuditEventType.AGENT_UPDATED, device_id=str(device.id),
+                                  version=agent_version, previous=device.agent_version)
         device.agent_version = agent_version
         changes["agent_version"] = agent_version
     await Device.get_pymongo_collection().update_one({"_id": device.id}, {"$set": changes})

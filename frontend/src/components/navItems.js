@@ -1,4 +1,4 @@
-import { House, Monitor, Bell, LifeBuoy, Radio, ChartSpline, Server, Database, Settings } from "lucide-react";
+import { House, Monitor, Bell, ScrollText, LifeBuoy, Radio, ChartSpline, Server, Database, Settings } from "lucide-react";
 
 // The sidebar, kept short for people who aren't technical: four everyday
 // items, the expert tools folded under "Advanced", and Settings. Ids must
@@ -8,6 +8,7 @@ export const MAIN_ITEMS = [
   { id: "dashboard", label: "Home", icon: House },
   { id: "devices", label: "My PCs", icon: Monitor },
   { id: "alerts", label: "Alerts", icon: Bell },
+  { id: "activity", label: "Activity", icon: ScrollText },
   { id: "help", label: "Help", icon: LifeBuoy },
 ];
 
@@ -26,6 +27,7 @@ export const ALL_PAGES = [...MAIN_ITEMS, ...ADVANCED_ITEMS, ...OTHER_ITEMS].filt
 
 // One line under each page's title, saying what the page is for.
 export const PAGE_INTROS = {
+  activity: "Everything that happened on your account and PCs in the last 7 days.",
   live: "Every reading as your PC sends it, for watching things in real time.",
   analytics: "How your readings have changed over days and weeks.",
   sensors: "Each sensor Lectio reads on your PCs, with its latest value.",

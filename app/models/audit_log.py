@@ -24,6 +24,13 @@ class AuditEventType(str, Enum):
     FIX_CANCELLED = "fix_cancelled"
     FIX_RESULT = "fix_result"
     FIX_REVERTED = "fix_reverted"
+    # The activity log (app/services/activity.py).
+    ALERT_OPENED = "alert_opened"
+    ALERT_CLOSED = "alert_closed"
+    DEVICE_LINKED = "device_linked"
+    DEVICE_REMOVED = "device_removed"
+    AGENT_UPDATED = "agent_updated"
+    DAILY_REPORT = "daily_report"
 
 
 class AuditLog(Document):
@@ -44,4 +51,6 @@ class AuditLog(Document):
         name = "AuditLog"
         indexes = [
             IndexModel([("user_id", ASCENDING), ("created_at", DESCENDING)], name="user_created"),
+            # The activity log keeps 7 days: MongoDB deletes older entries itself.
+            IndexModel([("created_at", ASCENDING)], name="created_ttl", expireAfterSeconds=7 * 24 * 60 * 60),
         ]

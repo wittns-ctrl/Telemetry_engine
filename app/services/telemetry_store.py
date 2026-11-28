@@ -48,14 +48,17 @@ def to_record(device: Device, snapshot: TelemetrySnapshot, event_id: Optional[st
     """
     # Security changes rarely and its threat list is long, so it isn't stored
     # with every reading; the latest goes on the Device (store_readings).
-    record = snapshot.model_dump(exclude={"processes", "security"})
+    # Empty readings (most PCs report no voltages, VRM or fan speeds) aren't
+    # stored at all: about half of every record was nulls. Reading back
+    # fills them in again as None.
+    record = snapshot.model_dump(exclude={"processes", "security"}, exclude_none=True)
     record["_id"] = PydanticObjectId()
     record["device_id"] = device.id
     record["user_id"] = device.user_id
     # The top-programs list is only useful live (it goes out over the
-    # WebSocket); storing it every 2 s would add about 40 MB per PC per day.
-    record["processes"] = []
-    record["event_id"] = event_id
+    # WebSocket), so it isn't stored; reading back gives an empty list.
+    if event_id is not None:
+        record["event_id"] = event_id
     return record
 
 
@@ -81,6 +84,17 @@ async def store_readings(device: Device, readings: list[tuple[Optional[str], Tel
         return result
 
     collection = TelemetrySnapshotDocument.get_pymongo_collection()
+    # Readings already stored (a batch sent again after a lost reply). A
+    # time-series collection can't have a unique index, so check first.
+    ids = [record["event_id"] for record, _ in pairs if record.get("event_id")]
+    if ids:
+        stored_ids = {doc["event_id"] async for doc in collection.find(
+            {"device_id": device.id, "event_id": {"$in": ids}}, projection={"event_id": 1, "_id": 0})}
+        if stored_ids:
+            result.duplicates += sum(1 for record, _ in pairs if record.get("event_id") in stored_ids)
+            pairs = [(record, snap) for record, snap in pairs if record.get("event_id") not in stored_ids]
+            if not pairs:
+                return result
     rejected: set[int] = set()
     newest = max(snapshot.timestamp for _, snapshot in pairs)
 

@@ -1,0 +1,21 @@
+Copyright (c) 2026 [OWNER NAME]. All rights reserved.
+
+This repository is published so that its code can be read. No licence is
+granted to copy, modify, distribute, sublicense, host or sell this software or
+any part of it, in source or compiled form, without the prior written
+permission of the copyright holder.
+
+The Lectio Windows agent (lectio-agent.exe) may be downloaded and installed by
+users of the Lectio service solely to connect their own computers to that
+service.
+
+Third-party components included in or used by this software remain under
+their own licences; see docs/third-party-notices.md.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

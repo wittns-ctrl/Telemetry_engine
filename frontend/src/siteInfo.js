@@ -7,7 +7,7 @@ export const SITE = {
   contactEmail: null, // e.g. 'hello@yourdomain.com'
   hosting: null, // where the database lives, e.g. 'MongoDB Atlas, EU (Frankfurt) region'
   emailProvider: null, // who sends verification and reset emails, e.g. 'Brevo' or 'Amazon SES'
-  logRetention: null, // how long sign-in security logs are kept, e.g. '12 months'
+  logRetention: '7 days', // the activity log (sign-ins, alerts, fixes) expires after this
   governingLaw: null, // e.g. 'Rwanda' or 'England and Wales'
   lastUpdated: '11 November 2026',
 };

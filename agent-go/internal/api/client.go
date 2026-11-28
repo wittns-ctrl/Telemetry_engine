@@ -16,6 +16,7 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -27,6 +28,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"lectio/agent/internal/models"
@@ -49,6 +51,8 @@ var (
 type StatusError struct {
 	Code int
 	Body string
+
+	compressed bool // the request body was gzip-compressed
 }
 
 func (e *StatusError) Error() string {
@@ -85,6 +89,7 @@ type Client struct {
 	http      *http.Client
 	deviceKey string
 	Version   string
+	noGzip    atomic.Bool // the server refused a compressed body once
 }
 
 // New returns a client for the API at base (e.g. https://api.example.com).
@@ -112,14 +117,32 @@ func (c *Client) SetDeviceKey(key string) { c.deviceKey = key }
 // Base is the API address this client talks to (for log messages).
 func (c *Client) Base() string { return c.base }
 
+// gzipFrom: request bodies at least this big are sent gzip-compressed
+// (JSON readings shrink to about a fifth), unless the server refused that once.
+const gzipFrom = 1024
+
 func (c *Client) do(ctx context.Context, method, path string, query url.Values, body any, form url.Values,
 	auth string, want int, out any) error {
+	err := c.send(ctx, method, path, query, body, form, auth, want, out, !c.noGzip.Load())
+	var se *StatusError
+	if errors.As(err, &se) && se.compressed && (se.Code == http.StatusBadRequest ||
+		se.Code == http.StatusUnsupportedMediaType || se.Code == http.StatusUnprocessableEntity) {
+		// An older server that can't read compressed bodies: stop compressing.
+		c.noGzip.Store(true)
+		return c.send(ctx, method, path, query, body, form, auth, want, out, false)
+	}
+	return err
+}
+
+func (c *Client) send(ctx context.Context, method, path string, query url.Values, body any, form url.Values,
+	auth string, want int, out any, mayCompress bool) error {
 	u := c.base + path
 	if len(query) > 0 {
 		u += "?" + query.Encode()
 	}
 	var reader io.Reader
 	contentType := ""
+	compressed := false
 	switch {
 	case form != nil:
 		reader = strings.NewReader(form.Encode())
@@ -131,6 +154,13 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 		}
 		reader = bytes.NewReader(data)
 		contentType = "application/json"
+		if mayCompress && len(data) >= gzipFrom {
+			var buf bytes.Buffer
+			zw := gzip.NewWriter(&buf)
+			if _, err := zw.Write(data); err == nil && zw.Close() == nil {
+				reader, compressed = &buf, true
+			}
+		}
 	}
 	req, err := http.NewRequestWithContext(ctx, method, u, reader)
 	if err != nil {
@@ -140,6 +170,9 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	req.Header.Set("Accept", "application/json")
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
+	}
+	if compressed {
+		req.Header.Set("Content-Encoding", "gzip")
 	}
 	switch {
 	case auth != "":
@@ -160,7 +193,7 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 		return ErrUnauthorized
 	}
 	if resp.StatusCode != want {
-		return &StatusError{Code: resp.StatusCode, Body: snippet(raw)}
+		return &StatusError{Code: resp.StatusCode, Body: snippet(raw), compressed: compressed}
 	}
 	if out != nil {
 		if err := json.Unmarshal(raw, out); err != nil {
@@ -222,6 +255,13 @@ func (c *Client) NextFix(ctx context.Context) (models.AgentNext, error) {
 	var out models.AgentNext
 	q := url.Values{"agent_version": {c.Version}}
 	err := c.do(ctx, http.MethodGet, "/api/v1/agent/fixes/next", q, nil, nil, "", http.StatusOK, &out)
+	return out, err
+}
+
+// DailyCheck asks the server for the day's health report.
+func (c *Client) DailyCheck(ctx context.Context, req models.DailyCheck) (models.DailyCheckReply, error) {
+	var out models.DailyCheckReply
+	err := c.do(ctx, http.MethodPost, "/api/v1/agent/daily-check", nil, req, nil, "", http.StatusOK, &out)
 	return out, err
 }
 

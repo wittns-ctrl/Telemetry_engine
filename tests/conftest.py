@@ -18,6 +18,9 @@ os.environ["APP_ENV"] = "development"
 # tests at a real Redis, mixing their data into it and stalling on the network.
 # (tests/test_shared_redis.py uses its own LECTIO_TEST_REDIS_URL.)
 os.environ["REDIS_URL"] = ""
+# The in-memory test database can't make time-series collections; tests use
+# the classic layout (the time-series move is tested against a real MongoDB).
+os.environ["TELEMETRY_TIMESERIES"] = "false"
 
 import pytest
 import asyncio

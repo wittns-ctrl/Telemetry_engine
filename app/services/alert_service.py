@@ -290,6 +290,8 @@ class AlertService:
                 alert.resolved_at = datetime.now(timezone.utc)
                 alert.resolved_reason = "closed_by_user"
                 await alert.save()
+                from app.services import activity
+                await activity.alert_closed(alert, "closed_by_user")
 
                 # Imported here: the engine module depends on this one's models.
                 from app.services.anomaly_engine import anomaly_engine

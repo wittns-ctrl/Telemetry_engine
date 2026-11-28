@@ -471,6 +471,16 @@ export async function fetchOpenAlerts() {
   return data?.alerts || [];
 }
 
+/** The PC's end-of-day health checks, newest first (kept 30 days). */
+export async function fetchReports(deviceId) {
+  return apiJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/reports`, {}, "Couldn't load the daily checks");
+}
+
+/** The account's activity log, newest first (kept 7 days). kind: all, signin, alerts, fixes, pcs, security. */
+export async function fetchActivity(kind = "all") {
+  return apiJson(`/api/v1/activity?kind=${encodeURIComponent(kind)}`, {}, "Couldn't load your activity");
+}
+
 /** How many alerts are open across all the user's PCs (for the header bell). */
 export async function fetchOpenAlertCount() {
   const data = await apiJson("/api/v1/alerts?is_active=true&limit=500", {}, "Failed to load alerts");

@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 900" width="1500" height="900" font-family="Segoe UI, Plus Jakarta Sans, Arial, sans-serif">
+  <title>Lectio: from a reading to a fix</title>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#232327"/>
+    </marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c70036"/>
+    </marker>
+    <style>
+      .head { fill: #0e0e10; }
+      .ht { font-size: 14px; font-weight: 700; fill: #fff; }
+      .hs { font-size: 11px; fill: #b9b9bf; }
+      .life { stroke: #d9d9dc; stroke-width: 2; stroke-dasharray: 6 5; }
+      .m { stroke: #232327; stroke-width: 1.6; fill: none; marker-end: url(#a); }
+      .mr { stroke: #c70036; stroke-width: 1.8; fill: none; marker-end: url(#r); }
+      .t { font-size: 12.5px; fill: #0e0e10; font-weight: 600; }
+      .s { font-size: 11px; fill: #5f5f68; }
+      .step { fill: #ec003f; }
+      .sn { font-size: 11px; font-weight: 700; fill: #fff; }
+      .note { fill: #f5f5f6; stroke: #d9d9dc; }
+    </style>
+  </defs>
+  <rect width="1500" height="900" fill="#fff"/>
+  <text x="40" y="44" font-size="24" font-weight="700" fill="#0e0e10">Lectio — from a reading to a fix</text>
+  <text x="40" y="68" font-size="13" fill="#5f5f68">Example: the processor stays at or above 95 °C for 30 seconds (rule CPU_OVERHEATING_CRITICAL)</text>
+
+  <!-- participants -->
+  <g>
+    <rect class="head" x="60" y="96" width="200" height="52" rx="10"/><text class="ht" x="78" y="118">Agent on the PC</text><text class="hs" x="78" y="136">Go service + user helper</text>
+    <rect class="head" x="360" y="96" width="200" height="52" rx="10"/><text class="ht" x="378" y="118">Lectio API</text><text class="hs" x="378" y="136">ingest · rules · alerts</text>
+    <rect class="head" x="660" y="96" width="200" height="52" rx="10"/><text class="ht" x="678" y="118">MongoDB / Redis</text><text class="hs" x="678" y="136">readings · alerts · live relay</text>
+    <rect class="head" x="960" y="96" width="200" height="52" rx="10"/><text class="ht" x="978" y="118">Email / Gemini</text><text class="hs" x="978" y="136">SendLiberty · Google AI</text>
+    <rect class="head" x="1260" y="96" width="200" height="52" rx="10"/><text class="ht" x="1278" y="118">Owner's dashboard</text><text class="hs" x="1278" y="136">web app in the browser</text>
+  </g>
+  <line class="life" x1="160" y1="148" x2="160" y2="870"/>
+  <line class="life" x1="460" y1="148" x2="460" y2="870"/>
+  <line class="life" x1="760" y1="148" x2="760" y2="870"/>
+  <line class="life" x1="1060" y1="148" x2="1060" y2="870"/>
+  <line class="life" x1="1360" y1="148" x2="1360" y2="870"/>
+
+  <!-- 1 -->
+  <circle class="step" cx="40" cy="186" r="11"/><text class="sn" x="36" y="190">1</text>
+  <path class="m" d="M160,190 L455,190"/>
+  <text class="t" x="176" y="182">reading every 5 s (batch, device key)</text>
+  <text class="s" x="176" y="206">offline: kept on disk, sent later in order</text>
+  <!-- 2 -->
+  <circle class="step" cx="40" cy="236" r="11"/><text class="sn" x="36" y="240">2</text>
+  <path class="m" d="M460,240 L755,240"/>
+  <text class="t" x="476" y="232">store (7-day raw, hourly/daily summaries)</text>
+  <path class="m" d="M460,262 L1355,262"/>
+  <text class="s" x="800" y="256">live reading over WebSocket (via Redis relay) — charts update at once</text>
+  <!-- 3 -->
+  <circle class="step" cx="40" cy="306" r="11"/><text class="sn" x="36" y="310">3</text>
+  <rect class="note" x="380" y="288" width="330" height="48" rx="8"/>
+  <text class="t" x="394" y="308">58 rules checked on every reading</text>
+  <text class="s" x="394" y="326">must last 30 s before an alert opens (no false alarms)</text>
+  <!-- 4 -->
+  <circle class="step" cx="40" cy="366" r="11"/><text class="sn" x="36" y="370">4</text>
+  <path class="m" d="M460,370 L755,370"/>
+  <text class="t" x="476" y="362">alert saved: CRITICAL, 96 °C</text>
+  <path class="mr" d="M460,392 L1055,392"/>
+  <text class="s" x="800" y="386">alert email (Warning+Critical, max 1 per 30 min)</text>
+  <path class="mr" d="M460,414 L1355,414"/>
+  <text class="s" x="1080" y="408">pop-up + bell (live alert feed)</text>
+  <!-- 5 -->
+  <circle class="step" cx="40" cy="456" r="11"/><text class="sn" x="36" y="460">5</text>
+  <path class="m" d="M160,460 L455,460"/>
+  <text class="t" x="176" y="452">“any new critical alerts?” every 15 s</text>
+  <path class="mr" d="M455,484 L165,484"/>
+  <text class="s" x="176" y="500">“Processor overheating — 96°C can slow or shut down your PC”</text>
+  <rect class="note" x="60" y="512" width="220" height="44" rx="8"/>
+  <text class="t" x="72" y="530">Windows notification</text>
+  <text class="s" x="72" y="546">Open dashboard · Dismiss</text>
+  <!-- 6 -->
+  <circle class="step" cx="40" cy="596" r="11"/><text class="sn" x="36" y="600">6</text>
+  <path class="m" d="M1360,600 L465,600"/>
+  <text class="t" x="900" y="592">“Why is this happening?”</text>
+  <path class="m" d="M460,620 L1055,620"/>
+  <text class="s" x="560" y="614">alert + 5 minutes of readings (no name or email)</text>
+  <path class="m" d="M1060,640 L465,640"/>
+  <text class="s" x="560" y="656">diagnosis: likely cause, urgency, steps (rule-based if Gemini is down)</text>
+  <path class="m" d="M460,668 L1355,668"/>
+  <text class="s" x="900" y="662">diagnosis + suggested fixes shown</text>
+  <!-- 7 -->
+  <circle class="step" cx="40" cy="716" r="11"/><text class="sn" x="36" y="720">7</text>
+  <path class="m" d="M1360,720 L465,720"/>
+  <text class="t" x="900" y="712">owner picks “Cool it down now”</text>
+  <path class="m" d="M160,746 L455,746"/>
+  <text class="s" x="176" y="740">fix check-in every 10 s</text>
+  <path class="m" d="M455,768 L165,768"/>
+  <text class="s" x="176" y="784">fix id + parameters (never commands); checked again on the PC</text>
+  <rect class="note" x="60" y="796" width="240" height="44" rx="8"/>
+  <text class="t" x="72" y="814">Runs it (big fixes ask at the PC)</text>
+  <text class="s" x="72" y="830">undo kept on the PC</text>
+  <!-- 8 -->
+  <circle class="step" cx="40" cy="866" r="11"/><text class="sn" x="36" y="870">8</text>
+  <path class="m" d="M160,860 L455,860"/>
+  <text class="t" x="176" y="852">result reported → audit log</text>
+  <path class="m" d="M460,878 L1355,878"/>
+  <text class="s" x="800" y="872">result shown; the alert closes by itself once the reading is back to normal for 30 s</text>
+</svg>

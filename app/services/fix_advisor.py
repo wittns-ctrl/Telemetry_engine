@@ -16,6 +16,7 @@ from typing import Optional
 
 from openai import AsyncOpenAI, AuthenticationError, PermissionDeniedError
 
+from app.services.llm import chat_json
 from app.core.config import settings
 from app.core.fix_catalogue import Fix
 from app.models.alert import AnomalyAlertDocument
@@ -108,16 +109,10 @@ Fixes Lectio can carry out on the PC (choose ONLY from these ids):
 Pick up to {MAX_PC_OPTIONS} that would help most, best first. For each, write one short, friendly sentence
 (at most 15 words, no jargon) saying why it helps this person. Reply as JSON:
 {{"options": [{{"id": "...", "reason": "..."}}]}}"""
-        response = await self.client.chat.completions.create(
-            model=settings.GEMINI_MODEL,
-            messages=[
-                {"role": "system", "content": "You help non-technical people fix their PCs. Be brief, plain and calm."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2,
-            response_format={"type": "json_object"},
-        )
-        data = json.loads(response.choices[0].message.content or "{}")
+        data, _ = await chat_json(self.client, [
+            {"role": "system", "content": "You help non-technical people fix their PCs. Be brief, plain and calm."},
+            {"role": "user", "content": prompt},
+        ])
         allowed = {f.id: f for f in runnable}
         options: list[Option] = []
         for item in data.get("options", []) if isinstance(data, dict) else []:

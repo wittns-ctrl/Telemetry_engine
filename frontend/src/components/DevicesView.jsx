@@ -260,7 +260,7 @@ export function ExactLocation({ device, onSaved }) {
  * live readings on the right. Telemetry is pushed by the host agent
  * (agent/telemetry_agent.py) and streamed here over WebSocket.
  */
-export function DevicesView({ onOpenAlerts }) {
+export function DevicesView({ onOpenAlerts, onOpenAlert }) {
   const [devices, setDevices] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(true);
   const [error, setError] = useState(null);
@@ -681,6 +681,9 @@ export function DevicesView({ onOpenAlerts }) {
                             <b>{words.title}</b>
                             <span className="sub">{words.detail} · {timeAgo(a.created_at)}</span>
                           </div>
+                          <button type="button" className="bk am-fix" onClick={() => onOpenAlert?.(a.id)}>
+                            <Wrench strokeWidth={2} aria-hidden="true" /> Fix
+                          </button>
                         </li>
                       );
                     })}

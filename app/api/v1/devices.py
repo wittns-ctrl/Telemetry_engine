@@ -18,6 +18,9 @@ from app.api.deps import get_current_user
 from app.models.user import User, UserRole
 from app.models.rollup import TelemetryRollupDocument
 from app.models.location import LocationHistory
+from app.models.daily_report import DailyReport
+from app.models.audit_log import AuditEventType
+from app.services import activity
 from app.models.telemetry import Device, TelemetrySnapshotDocument
 from app.models.alert import AnomalyAlertDocument
 from app.models.fix import FixRequest
@@ -103,6 +106,7 @@ async def register_device(
     await device.save()
 
     logger.info(f"Device {device.id} registered for user {user_id}")
+    await activity.record(user_id, AuditEventType.DEVICE_LINKED, device_id=str(device.id), device_name=device.device_name)
     return DeviceRegisterResponse(device=_to_response(device), device_key=device_key)
 
 
@@ -331,6 +335,7 @@ async def delete_device(
         await LocationHistory.find(
             LocationHistory.device_id == device_oid, LocationHistory.user_id == current_user.id,
         ).delete()
+        await DailyReport.find(DailyReport.device_id == device_oid, DailyReport.user_id == current_user.id).delete()
         alerts = await AnomalyAlertDocument.find(
             AnomalyAlertDocument.device_id == device_oid,
             AnomalyAlertDocument.user_id == current_user.id,
@@ -340,6 +345,8 @@ async def delete_device(
             FixRequest.user_id == current_user.id,
         ).delete()
         await device.delete()
+        await activity.record(user_id, AuditEventType.DEVICE_REMOVED, device_id=str(device.id),
+                              device_name=device.device_name)
 
         logger.info(
             f"Device {device_id} deleted by user {user_id} "

@@ -614,6 +614,54 @@
   /* Health summary (option B): four plain questions, answered in a sentence. */
   .hs { display: flex; flex-direction: column; gap: calc(6 * var(--u)); }
   .hs-list { margin: 0; padding: calc(2 * var(--u)) calc(10 * var(--u)); list-style: none; }
+  /* Daily check (approved design A): score ring, findings, numbered to-do. */
+  .dr { display: flex; flex-direction: column; gap: calc(5 * var(--u)); }
+  .dr-head { gap: calc(7 * var(--u)); }
+  .dr-title { margin: 0; font-size: var(--fs-4); font-weight: 600; color: var(--ink); }
+  .dr-ring { --c: var(--green); flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%;
+    background: radial-gradient(closest-side, #fff 78%, transparent 79% 100%), conic-gradient(var(--c) calc(var(--p) * 1%), var(--ink-100) 0); }
+  .dr-ring b { font-size: 16px; font-weight: 700; color: var(--ink); }
+  .dr-ring.fair { --c: #f59e0b; }
+  .dr-ring.bad { --c: var(--rose); }
+  .dr-pick { width: auto; max-width: 46%; }
+  .dr-summary { margin: 0; }
+  .dr-sub { margin: calc(2 * var(--u)) 0 0; font-size: var(--fs-2); font-weight: 600; color: var(--ink); }
+  .dr-found, .dr-todo { margin: 0; padding-left: 1.4em; font-size: var(--fs-2); color: var(--ink-600); }
+  .dr-found { list-style: disc; }
+  .dr-todo { list-style: decimal; }
+  .dr-found li + li, .dr-todo li + li { margin-top: 2px; }
+  .dr-found li::marker { color: var(--green); }
+  .dr-found li.warn::marker { color: #f59e0b; }
+  .dr-found li.bad::marker { color: var(--rose); }
+  .dr-todo li::marker { font-weight: 600; color: var(--ink); }
+  .dr-found li.bad { color: var(--rose-text); }
+  .dr-todo li { color: var(--ink); }
+  .dr-source { margin: 0; }
+
+  /* Activity log (approved design A): chips, then the last 7 days grouped by day. */
+  .act { gap: calc(8 * var(--u)); }
+  .act-title { margin: 0; font-size: var(--fs-5); font-weight: 600; color: var(--ink); }
+  .act-chips { display: flex; flex-wrap: wrap; gap: calc(3 * var(--u)); }
+  .act-chip { padding: 4px 12px; border-radius: 999px; background: var(--tile); font: inherit; font-size: var(--fs-1); font-weight: 600; color: var(--ink-600); cursor: pointer; }
+  .act-chip.on { background: var(--ink); color: #fff; }
+  .act-day-title { margin: calc(4 * var(--u)) 0 calc(2 * var(--u)); font-size: var(--fs-2); font-weight: 600; color: var(--ink); }
+  .act-list { margin: 0; padding: 0; list-style: none; }
+  .act-row { display: flex; align-items: center; gap: calc(6 * var(--u)); padding: calc(5 * var(--u)) 0; border-top: 1px solid var(--line); }
+  .act-ico { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; background: var(--tile); color: var(--ink-600); }
+  .act-ico svg { width: 15px; height: 15px; }
+  .act-ico.bad { background: var(--rose-soft); color: var(--rose); }
+  .act-ico.warn { background: #fff4e5; color: #c2410c; }
+  .act-ico.ok { background: var(--green-pale); color: var(--green-dark); }
+  .act-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .act-text b { font-size: var(--fs-2); font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+  .act-text .sub { overflow-wrap: anywhere; }
+  .act-time { flex: none; }
+  .bk.am-fix { background: var(--green-dark); }
+  .bk.am-fix:hover:not(:disabled) { background: var(--green-deep); }
+  .am-row .am-fix { flex: none; }
+  .cf-btn.ap-fix { display: inline-flex; align-items: center; gap: 6px; background: var(--green-dark); }
+  .cf-btn.ap-fix svg { width: 15px; height: 15px; }
+
   /* Security tab (approved design D): status, then what happened, newest first. */
   .sec { display: flex; flex-direction: column; gap: calc(9 * var(--u)); }
   .sec-head { gap: calc(6 * var(--u)); }

@@ -16,6 +16,7 @@ const SensorsView = named(() => import('./components/SensorsView'), 'SensorsView
 const HelpView = named(() => import('./components/HelpView'), 'HelpView');
 const SettingsView = named(() => import('./components/SettingsView'), 'SettingsView');
 const DevicesView = named(() => import('./components/DevicesView'), 'DevicesView');
+const ActivityView = named(() => import('./components/ActivityView'), 'ActivityView');
 import { AuthPage } from './components/AuthPage';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { AlertPopup } from './components/AlertPopup';
@@ -44,6 +45,14 @@ const LINKED_ALERT_KEY = 'lectio_linked_alert';
 function takeLinkedAlert() {
   try {
     const params = new URLSearchParams(window.location.search);
+    // A daily-check notification links to /?report=<id>; the report card picks it up.
+    const report = params.get('report');
+    if (report && /^[a-f0-9]{24}$/.test(report)) {
+      sessionStorage.setItem('lectio_linked_report', report);
+      params.delete('report');
+      const rest0 = params.toString();
+      window.history.replaceState(null, '', window.location.pathname + (rest0 ? `?${rest0}` : '') + window.location.hash);
+    }
     const id = params.get('alert');
     if (id && /^[a-f0-9]{24}$/.test(id)) {
       sessionStorage.setItem(LINKED_ALERT_KEY, id);
@@ -79,6 +88,12 @@ function App() {
   const [alertsOpen, setAlertsOpen] = useState(false);  // the alerts window (bell, menu, pop-up)
   // An alert to open straight away: the PC's notification links to /?alert=<id>.
   const [linkedAlert, setLinkedAlert] = useState(() => takeLinkedAlert());
+  // "Fix" on any alert: the alerts window straight at that alert's fixes and diagnosis.
+  const openAlert = useCallback((id) => {
+    setAlertsOpen(false);
+    setLinkedAlert(id);
+    setTimeout(() => setAlertsOpen(true), 0);
+  }, []);
   useEffect(() => {
     if (!isAuthenticated || !linkedAlert) return;
     try { sessionStorage.removeItem(LINKED_ALERT_KEY); } catch { /* storage blocked */ }
@@ -209,7 +224,9 @@ function App() {
               <Suspense fallback={<div className="empty" role="status">Loading…</div>}>
                 {activeNav === 'dashboard' && <Dashboard onNavigate={goTo} tab={dashboardTab} onTabChange={setDashboardTab} />}
 
-                {activeNav === 'devices' && <DevicesView onOpenAlerts={() => setAlertsOpen(true)} />}
+                {activeNav === 'devices' && <DevicesView onOpenAlerts={() => setAlertsOpen(true)} onOpenAlert={openAlert} />}
+
+                {activeNav === 'activity' && <ActivityView onOpenAlert={openAlert} />}
 
                 {activeNav === 'metrics' && <MetricsStudioView onNavigate={goTo} />}
 
@@ -234,7 +251,7 @@ function App() {
           </div>
 
 
-          <AlertPopup onSeeAll={() => setAlertsOpen(true)} />
+          <AlertPopup onSeeAll={() => setAlertsOpen(true)} onFix={openAlert} />
 
           {alertsOpen && (
             <AlertsModal

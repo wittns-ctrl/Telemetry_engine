@@ -9,6 +9,7 @@ from pymongo.errors import ConnectionFailure
 from fastapi.middleware.gzip import GZipMiddleware
 from app.core.config import settings
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.gzip_request import GzipRequestMiddleware
 from app.db.session import init_db, close_db
 from app.core.cache import cache
 from app.services.ingest_processor import ingest_processor
@@ -26,6 +27,8 @@ from app.api.v1 import ingest as ingest_router
 from app.api.v1 import agent_download as agent_download_router
 from app.api.v1 import agent_alerts as agent_alerts_router
 from app.api.v1 import agent_location as agent_location_router
+from app.api.v1 import activity as activity_router
+from app.api.v1 import reports as reports_router
 from app.api.v1 import fixes as fixes_router
 
 
@@ -83,6 +86,10 @@ async def database_unreachable(request: Request, exc: ConnectionFailure):
         headers={"Retry-After": "15"},
     )
 
+# The agent gzip-compresses its uploads; unpack them (size-capped) before
+# the routes read the body. Innermost, so rate limiting runs first.
+app.add_middleware(GzipRequestMiddleware)
+
 # Rate limiting. Added before CORS so CORS wraps it and 429 responses still
 # carry the CORS headers the browser needs to read them.
 app.add_middleware(RateLimitMiddleware)
@@ -120,6 +127,8 @@ app.include_router(metrics_router.router, prefix="/api/v1")
 app.include_router(alerts_router.router, prefix="/api/v1")
 app.include_router(agent_alerts_router.router, prefix="/api/v1")
 app.include_router(agent_location_router.router, prefix="/api/v1")
+app.include_router(activity_router.router, prefix="/api/v1")
+app.include_router(reports_router.router, prefix="/api/v1")
 
 # --- DIAGNOSTICS ROUTES ---
 app.include_router(diagnostics_router.router, prefix="/api/v1")

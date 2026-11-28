@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Any
 from beanie import PydanticObjectId
 
 from openai import AsyncOpenAI, APIError, APIConnectionError, RateLimitError
+from app.services.llm import chat_json
 from app.core.config import settings
 from app.core.fix_catalogue import fixes_for
 from app.models.alert import AnomalyAlertDocument
@@ -378,15 +379,10 @@ class AIDiagnosticService:
             Exception: If LLM API call fails
         """
         try:
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=self.build_messages(alert, telemetry_context),
-                temperature=LLM_TEMPERATURE,
-                response_format={"type": "json_object"}
-            )
-
-            llm_data = json.loads(response.choices[0].message.content or "{}")
+            llm_data, model = await chat_json(
+                self.client, self.build_messages(alert, telemetry_context), temperature=LLM_TEMPERATURE)
             report = validate_llm_reply(llm_data, alert.severity.value)
+            logger.info("Diagnosis for alert %s written by %s", alert.id, model)
 
             return DiagnosticReport(
                 alert_id=str(alert.id),

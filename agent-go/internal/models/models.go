@@ -230,6 +230,20 @@ type LocationReport struct {
 	MeasuredAt time.Time `json:"measured_at"`
 }
 
+// DailyCheck asks for the PC's end-of-day health report.
+type DailyCheck struct {
+	Day              string `json:"day"` // the PC's local date, YYYY-MM-DD
+	UTCOffsetMinutes int    `json:"utc_offset_minutes"`
+}
+
+type DailyCheckReply struct {
+	Status   string `json:"status"` // ready or no_data
+	ReportID string `json:"report_id"`
+	Score    *int   `json:"score"`
+	Title    string `json:"title"`
+	Body     string `json:"body"`
+}
+
 type FixResult struct {
 	Status   string         `json:"status"` // succeeded, failed or declined
 	Message  string         `json:"message"`

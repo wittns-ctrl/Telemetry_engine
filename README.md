@@ -1,149 +1,112 @@
 # Lectio
 
-Free PC health monitoring for Windows. A small agent on each PC sends its
-hardware readings every 2 seconds; Lectio stores them, raises an alert when
-something stays over a safe limit (a hot CPU, a weak power supply, a failing
-drive), emails the owner, explains the likely cause, and can carry out a fix on
-the PC once the owner allows it.
+Free PC health, security and location monitoring for Windows.
 
-```
-PC: agent ──readings every 2 s──▶ API (FastAPI) ──▶ MongoDB
-                                    │  anomaly rules → alerts → email / webhook
-                                    │  AI or rule-based diagnosis, fixes
-browser: React app ◀──REST + live WebSocket──┘
-```
+A small agent on each PC reads its hardware every 5 seconds and checks Microsoft
+Defender every 2 minutes. Lectio stores the readings, raises an alert when
+something stays outside a safe limit (a hot processor, a failing drive, memory
+running out, malware Defender couldn't remove), tells the owner by email, on
+the dashboard and with a Windows notification on the PC, explains the likely
+cause, and can carry out a fix on the PC once the owner allows it. Owners can
+also see where each PC is on a map, if they switch that on.
+
+- **Live site:** https://getlectio.vercel.app
+- **API:** https://telemetry-engine-w57g.onrender.com (reached by the site through `/api/*`)
+- **Agent download:** https://github.com/wittns-ctrl/Telemetry_engine/releases/latest
+
+![Lectio system architecture](docs/images/architecture.png)
 
 ## Repository layout
 
 | Path | What it is |
 | --- | --- |
-| `app/` | The API: FastAPI with Beanie on MongoDB. Routes in `app/api/v1/`, anomaly rules in `app/core/anomaly_rules.py`, the fix catalogue in `app/core/fix_catalogue.py`. |
-| `agent/` | The Windows agent: reads hardware through WMI, pywin32 and psutil, sends snapshots, runs fixes. Tester instructions in [`agent/README.md`](agent/README.md). |
-| `frontend/` | The website and signed-in app: React and Vite. |
-| `tests/` | Backend tests (pytest). They use an in-memory database and never connect to a real MongoDB. |
-| `Dockerfile`, `docker-compose.yml` | Container build for the API, and a compose file that runs it with MongoDB. |
+| `app/` | The API: FastAPI with Beanie on MongoDB. Routes in `app/api/v1/`, alert rules in `app/core/anomaly_rules.py`, the fix catalogue in `app/core/fix_catalogue.py`. |
+| `agent-go/` | **The Windows agent** (Go): a Windows service that collects readings, buffers them offline, uploads them, runs fixes, shows notifications and reports location. See [`agent-go/README.md`](agent-go/README.md). |
+| `agent/` | The earlier Python agent, kept for reference and for the server's fix tests. Not shipped. |
+| `frontend/` | The website and signed-in app: React 19 and Vite, deployed on Vercel. |
+| `tests/` | Backend tests (pytest) against an in-memory database; they never touch a real MongoDB or Redis. |
+| `docs/` | Architecture, API, deployment, operations, product and legal documents ([index below](#documentation)). |
+| `scripts/` | Build helpers, such as the IP-location database download. |
+| `Dockerfile`, `docker-compose.yml` | The API's container image (used by Render) and a local stack with MongoDB. |
 | `.github/workflows/tests.yml` | Runs the backend tests on every push to `main` and every pull request. |
 
 ## Run it locally
 
 You need Python 3.14 with [uv](https://docs.astral.sh/uv/), Node.js 20.19+ or
-22.12+, and MongoDB (local, Docker or Atlas).
+22.12+, Go 1.27 (for the agent) and a MongoDB (local, Docker or Atlas).
 
 **API**
 
 ```bash
 cp .env.example .env
-```
-
-Set at least `MONGODB_URI`, `MONGO_DB` and `SECRET_KEY` in `.env` (generate a
-key with `python -c "import secrets; print(secrets.token_urlsafe(48))"`). Then:
-
-```bash
-uv sync
-```
-
-```bash
+uv sync --all-extras
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-API docs are at http://localhost:8000/docs.
+Set at least `MONGODB_URI`, `MONGO_DB` and `SECRET_KEY` in `.env`. With
+`APP_ENV=development` the interactive API docs are at http://localhost:8000/docs
+(they are switched off in production).
 
 **Frontend**
 
 ```bash
 npm --prefix frontend install
-```
-
-```bash
 npm --prefix frontend run dev
 ```
 
-Open http://localhost:5173 and create an account. The API only accepts
-requests from `FRONTEND_URL` (default `http://localhost:5173`).
+Open http://localhost:5173. Point `VITE_API_BASE` in `frontend/.env` at
+`http://localhost:8000` to use the local API; the API only accepts browser
+requests from `FRONTEND_URL`.
 
 **Agent (on a Windows PC)**
 
-```bash
-uv sync --extra agent
+```powershell
+cd agent-go
+.\build.ps1                                   # local API and site, for development
+.\build.ps1 -Api https://your-api -Version 1.2.0   # a release build
 ```
 
-```bash
-uv run python -m agent.telemetry_agent --api http://localhost:8000
-```
-
-It asks you to sign in once, registers the PC, then sends readings. Add
-`--no-fixes` to stop it carrying out fixes. To give testers a single
-`lectio-agent.exe` instead, see [`agent/README.md`](agent/README.md#for-developers).
+Double-click `dist\lectio-agent.exe` to sign in, link the PC and install the
+service. `lectio-agent run` runs it in a window instead; `lectio-agent status`
+shows how uploads are going.
 
 ## Tests
 
 ```bash
-uv run pytest -q
+uv run pytest -q                        # backend (630+ tests)
+cd agent-go && go test ./...            # agent
+npm --prefix frontend run build         # frontend
+npx --prefix frontend oxlint frontend/src
 ```
 
-The suite covers auth, tenant isolation (no user can see another's devices,
-readings, alerts or fixes), ingestion, anomaly rules, alerts and emails, AI
-diagnosis, fixes and their safety rules, rate limiting and retention. CI runs it
-on Linux, so Windows-only code must stay mockable: tests patch
-`app.services.sensor_service._wmi_client` rather than importing `wmi`.
-
-Frontend checks:
-
-```bash
-npm --prefix frontend run lint
-```
-
-```bash
-npm --prefix frontend run build
-```
+The backend suite covers sign-in, tenant isolation (nobody can see another
+account's devices, readings, alerts, fixes or location), ingestion, every alert
+rule, notifications, AI diagnosis, fixes and their safety rules, rate limits
+(including behind Render and Vercel), security, location and retention. Tests
+force `APP_ENV=development` and in-memory state whatever `.env` says.
 
 ## Configuration
 
-Every API setting is listed with comments in [`.env.example`](.env.example).
-The ones that matter in production:
+Every API setting is listed with comments in [`.env.example`](.env.example);
+the frontend's in [`frontend/.env.example`](frontend/.env.example). The ones that
+matter in production are explained in [docs/deployment.md](docs/deployment.md).
 
-| Setting | Why |
+## Documentation
+
+| Area | Documents |
 | --- | --- |
-| `SECRET_KEY` | Signs sign-in tokens. Long and random; never reuse the example. |
-| `MONGODB_URI`, `MONGO_DB` | The database. |
-| `FRONTEND_URL` | The site's address; the API rejects browser requests from anywhere else. |
-| `SENDLIBERTY_API_KEY`, `EMAIL_FROM` | Verification, password-reset and alert emails, sent through [SendLiberty](https://sendliberty.com) from a connected Gmail account. Without them, none are sent. |
-| `GEMINI_API_KEY` | Optional. Google Gemini for diagnoses and fix advice; without it, both use the built-in rules. |
-| `TELEMETRY_RETENTION_DAYS` | How long readings are kept (default 30). MongoDB deletes older ones itself. |
-| `RATE_LIMIT_*` | Requests per minute for sign-in, agent uploads, fixes and everything else. |
-
-The frontend reads its API address at build time: see
-[`frontend/.env.example`](frontend/.env.example).
-
-## Deploy
-
-```bash
-docker compose up --build
-```
-
-runs the API with its own MongoDB on port 8000, reading settings from `.env`.
-To use a hosted database instead, drop the `mongo` service and the two
-`MONGODB_URI` / `MONGO_DB` lines from `docker-compose.yml`.
-
-- Serve the API over HTTPS. Behind a reverse proxy, set `FORWARDED_ALLOW_IPS`
-  to the proxy's address so rate limits see each visitor's IP.
-- The image runs one worker on purpose: rate-limit counters live in process
-  memory, so more workers would each allow the full limit. Move them to a
-  shared store such as Redis before scaling out.
-- Build the frontend with `VITE_API_BASE` set to the API's public address and
-  serve `frontend/dist/` as a static site.
-- Publish the Windows agent: build it on Windows with the production API URL
-  (`uv run python agent/build_exe.py --api https://your-api`), which copies it
-  to `downloads/lectio-agent.exe`. The API serves that file at
-  `/api/v1/agent/download`, and the site's "Download for Windows" buttons
-  appear once it is there. With Docker, `downloads/` is baked into the image
-  (and mounted by `docker-compose.yml`); elsewhere, set `AGENT_DOWNLOAD_PATH`.
+| How it's built | [Architecture](docs/architecture.md) · [API reference](docs/api.md) · [Alert thresholds](docs/alert-thresholds.md) |
+| Running it | [Deployment](docs/deployment.md) · [Agent releases](docs/agent-release.md) · [Runbook](docs/runbook.md) · [Backup and restore](docs/backup-restore.md) · [Secrets register](docs/secrets-register.md) · [Incident response](docs/incident-response.md) |
+| Product | [Product specification](docs/product-spec.md) · [Roadmap](docs/roadmap.md) · [User guide](docs/user-guide.md) · [Test plan](docs/test-plan.md) |
+| Security and legal | [Security policy](SECURITY.md) · [Security assessment](docs/security-assessment.md) · [Legal pages to complete](docs/legal-checklist.md) · [Data processing agreement](docs/data-processing-agreement.md) · [Third-party notices](docs/third-party-notices.md) |
+| Project | [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Licence](LICENSE) · [UI screenshots](docs/images/ui/) |
 
 ## Known limits
 
-- Many readings (temperatures, fan speeds, drive health) depend on what the PC
-  exposes. Some laptops report no CPU temperature through Windows, and drive
-  health needs `smartctl`; those readings show as "No reading".
-- `lectio-agent.exe` is not code-signed yet, so Windows SmartScreen warns on
-  first run.
-- The agent does not start with Windows on its own.
+- Some readings (CPU package temperature, voltages, fan speeds, drive health)
+  depend on what the PC exposes; many PCs report no value and the alert rules
+  for them stay silent.
+- `lectio-agent.exe` is not code-signed, so Windows SmartScreen warns on first run.
+- On Render's free plan the API sleeps after 15 minutes without traffic; the
+  first request afterwards takes up to a minute.
+- Location from the internet address is city-level and wrong behind a VPN.

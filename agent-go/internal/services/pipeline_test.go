@@ -1,6 +1,7 @@
 package services
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"io"
@@ -44,8 +45,17 @@ func newFake(t *testing.T) (*fakeServer, *api.Client) {
 			w.WriteHeader(int(code))
 			return
 		}
+		var body io.Reader = r.Body
+		if r.Header.Get("Content-Encoding") == "gzip" { // the agent compresses big batches
+			zr, err := gzip.NewReader(r.Body)
+			if err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			body = zr
+		}
 		var b models.Batch
-		_ = json.NewDecoder(r.Body).Decode(&b)
+		_ = json.NewDecoder(body).Decode(&b)
 		f.mu.Lock()
 		resp := models.BatchResponse{Status: "accepted", Received: len(b.Readings)}
 		for _, rd := range b.Readings {

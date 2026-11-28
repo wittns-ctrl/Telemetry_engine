@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Flame, TriangleAlert, X } from "lucide-react";
+import { Flame, TriangleAlert, X, Wrench } from "lucide-react";
 import { alertFeedUrl, fetchDevices, refreshAccessToken, requestFix } from "../services/api";
 import { FixOptions } from "./fixes";
 
@@ -31,7 +31,7 @@ function saveSeen(seen) {
  * Fed by the user's alert feed (/api/v1/ws/alert-feed). Each alert pops up
  * once per browser session; several at once queue up.
  */
-export function AlertPopup({ onSeeAll }) {
+export function AlertPopup({ onSeeAll, onFix }) {
   const [queue, setQueue] = useState([]);
   const [devices, setDevices] = useState({});
   const devicesRef = useRef(devices);
@@ -149,7 +149,11 @@ export function AlertPopup({ onSeeAll }) {
         )}
         <div className="cf-actions">
           <button type="button" className="cf-btn cf-cancel" onClick={dismiss}>{sent ? "Done" : "Not now"}</button>
-          <button type="button" className="cf-btn cf-go ap-all" onClick={() => { setSent(false); setQueue([]); onSeeAll?.(); }}>See all alerts</button>
+          <button type="button" className="cf-btn cf-cancel ap-all" onClick={() => { setSent(false); setQueue([]); onSeeAll?.(); }}>See all alerts</button>
+          {/* Every alert: its fixes, best first, with why it happened. */}
+          <button type="button" className="cf-btn cf-go ap-fix" onClick={() => { const id = alert.id; setSent(false); setQueue((prev) => prev.slice(1)); onFix?.(id); }}>
+            <Wrench strokeWidth={2} aria-hidden="true" /> Fix
+          </button>
         </div>
       </div>
     </div>,

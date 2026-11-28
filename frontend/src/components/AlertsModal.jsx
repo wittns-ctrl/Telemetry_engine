@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Check, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 import { closeAlert, fetchDevices, fetchOpenAlerts, requestDiagnosis, requestFix } from "../services/api";
 import { alertWords, sortAlerts } from "./alertWords";
 import { DiagnosisPanel } from "./DiagnosisPanel";
@@ -168,7 +168,9 @@ export function AlertsModal({ onClose, initialAlertId = null }) {
                       {words.detail} · {timeAgo(a.created_at)}
                     </span>
                   </div>
-                  <button type="button" className="bk" onClick={() => setOpenId(a.id)}>How to fix</button>
+                  <button type="button" className="bk am-fix" onClick={() => { setOpenId(a.id); if (!diagnosis[a.id]) diagnose(a); }}>
+                    <Wrench strokeWidth={2} aria-hidden="true" /> Fix
+                  </button>
                 </li>
               );
             })}

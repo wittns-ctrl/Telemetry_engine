@@ -88,12 +88,21 @@ class Settings(BaseSettings):
     # DB-IP "IP to City Lite" (CC BY 4.0), for a rough position when Windows
     # Location can't give one. The Dockerfile downloads it into the image.
     IP_LOCATION_DB: str = "data/dbip-city-lite.mmdb"
+    # Store raw readings in a MongoDB time-series collection (columnar
+    # compression: roughly 10-20% of the classic size). Needs MongoDB 7.0+;
+    # older servers keep the classic collection. app.db.session moves existing
+    # readings across on first start.
+    TELEMETRY_TIMESERIES: bool = True
 
     # AI (Google Gemini) for diagnosis reports and fix advice. Reached through
     # Gemini's OpenAI-compatible endpoint, so the openai package is the client.
     # Without a key, both features use Lectio's built-in rules.
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.5-flash"
+    # Fast, non-thinking-heavy models answer in 1-3 s; gemini-3.5-flash took
+    # 20-35 s and often returned nothing (see app/services/llm.py).
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
+    GEMINI_FALLBACK_MODEL: str = "gemini-3-flash-preview"
+    GEMINI_REASONING_EFFORT: str = "minimal"
     GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"
     GEMINI_TIMEOUT_SECONDS: float = 30.0
     # Fix options are shown while someone waits, so Gemini gets less time there;

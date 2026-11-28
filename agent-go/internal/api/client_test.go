@@ -1,9 +1,11 @@
 package api
 
 import (
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,6 +24,65 @@ func server(t *testing.T, h http.HandlerFunc) *Client {
 	return c
 }
 
+// body is the request body, uncompressed if the agent gzipped it.
+func body(t *testing.T, r *http.Request) io.Reader {
+	if r.Header.Get("Content-Encoding") != "gzip" {
+		return r.Body
+	}
+	zr, err := gzip.NewReader(r.Body)
+	if err != nil {
+		t.Fatalf("bad gzip: %v", err)
+	}
+	return zr
+}
+
+func TestBigBodiesAreCompressedSmallOnesNot(t *testing.T) {
+	var encodings []string
+	c := server(t, func(w http.ResponseWriter, r *http.Request) {
+		encodings = append(encodings, r.Header.Get("Content-Encoding"))
+		var b models.Batch
+		if err := json.NewDecoder(body(t, r)).Decode(&b); err != nil {
+			t.Errorf("unreadable body: %v", err)
+		}
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"status":"accepted"}`))
+	})
+	big := models.Batch{}
+	for i := 0; i < 40; i++ {
+		big.Readings = append(big.Readings, models.Reading{EventID: strings.Repeat("x", 30)})
+	}
+	_, _ = c.DailyCheck(context.Background(), models.DailyCheck{Day: "2026-11-28"}) // a few bytes: sent as is
+	_, _ = c.SendBatch(context.Background(), big)
+	if len(encodings) != 2 || encodings[0] != "" || encodings[1] != "gzip" {
+		t.Fatalf("encodings %q", encodings)
+	}
+}
+
+func TestAServerThatCantReadGzipGetsPlainJSON(t *testing.T) {
+	calls := 0
+	c := server(t, func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.Header.Get("Content-Encoding") == "gzip" {
+			w.WriteHeader(http.StatusUnprocessableEntity) // an older API
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"status":"accepted","received":40,"stored":40}`))
+	})
+	big := models.Batch{}
+	for i := 0; i < 40; i++ {
+		big.Readings = append(big.Readings, models.Reading{EventID: strings.Repeat("y", 30)})
+	}
+	resp, err := c.SendBatch(context.Background(), big)
+	if err != nil || resp.Stored != 40 || calls != 2 {
+		t.Fatalf("resp %+v err %v calls %d", resp, err, calls)
+	}
+	_, _ = c.SendBatch(context.Background(), big) // remembered: plain straight away
+	if calls != 3 {
+		t.Fatalf("calls %d", calls)
+	}
+}
+
 func TestSendBatchSendsTheKeyAndJSON(t *testing.T) {
 	c := server(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/telemetry/ingest/batch" || r.Method != http.MethodPost {
@@ -31,7 +92,7 @@ func TestSendBatchSendsTheKeyAndJSON(t *testing.T) {
 			t.Error("device key not sent (or a bearer token leaked)")
 		}
 		var b models.Batch
-		if err := json.NewDecoder(r.Body).Decode(&b); err != nil || len(b.Readings) != 2 || b.Readings[0].EventID != "evt-1" {
+		if err := json.NewDecoder(body(t, r)).Decode(&b); err != nil || len(b.Readings) != 2 || b.Readings[0].EventID != "evt-1" {
 			t.Errorf("bad body: %v %+v", err, b)
 		}
 		w.WriteHeader(http.StatusAccepted)
