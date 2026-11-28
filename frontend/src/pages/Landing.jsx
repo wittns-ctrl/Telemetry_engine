@@ -70,8 +70,28 @@ function PhoneLive() {
 const CHASE = 12; // how tightly scroll-linked motion follows the scroll position (per second)
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const ease = (t) => 1 - (1 - t) ** 3; // ease-out cubic
-// Ease-out with a small overshoot, so a falling card lands and settles.
-const land = (t) => 1 + 2.4 * (t - 1) ** 3 + 1.4 * (t - 1) ** 2;
+const smoothstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+// Feature cards follow the scroll through a critically damped spring: they
+// pick up speed and come to rest smoothly, with no jerk and no overshoot.
+const CAS_OMEGA = 10.5; // spring stiffness (rad/s); higher follows the scroll more tightly
+// Each card's landing is its own small spring, kicked when the card touches
+// the pile, so the settle always plays out even if scrolling stops.
+const BOUNCE_OMEGA = 24;
+const BOUNCE_DAMPING = 0.42; // under 1: one soft rebound, then still
+const SUBSTEPS = 4; // springs are integrated in small steps for stability at low frame rates
+// A card counts as landed near the end of its fall, and only stops counting
+// well before that, so its contents can't flicker at the boundary.
+const LAND_ON = 0.98;
+const LAND_OFF = 0.85;
+// Scroll pacing, in screen heights. Each card gets its own stretch: FALL to
+// drop in, then READ where it sits still on top so it can be read before the
+// next one comes. A wheel flick is roughly a quarter to half a screen, so one
+// flick can no longer carry several cards past.
+const PACE = { LEAD: 0.35, FALL: 0.65, READ: 0.55, TAIL: 0.2 };
+// Fastest a card may fall, in cards per second, however hard the flick:
+// a drop always takes at least ~0.6 s, so it never rushes past.
+const MAX_DROP_SPEED = 1.6;
 // Where each card comes to rest on the pile, and which way it swings in from.
 const CASCADE_REST = [
   { r: -2.4, x: -6 },
@@ -112,10 +132,30 @@ function useLandingMotion(rootRef) {
     // 2. Scroll-linked motion: the tablet lies flat as it rises, and the
     //    feature cards cascade onto a pile while their section is pinned.
     let tabTo = 0; let tabAt = 0;
-    let casTo = 0; let casAt = 0; let casIn = false;
+    let casTo = 0; let casAt = 0; let casVel = 0; let casIn = false;
     let raf = 0; let last = 0; let dirty = true;
     const drops = cards.length - 1; // the first card is already on the table
-    const HOLD = 0.15; // a little scroll at the end where the full pile just sits
+    const snaps = $$('[data-cascade-snap]');
+    const step = PACE.FALL + PACE.READ;
+
+    // Size the stage for the pacing, and put a snap point where each card has
+    // just landed, so a scroll that stops nearby settles on a readable card.
+    // In pixels from the real window height, so layout and motion agree.
+    function layoutCascade() {
+      if (reduce) return;
+      const vh = window.innerHeight;
+      cascade.style.height = `${Math.round(vh * (1 + PACE.LEAD + drops * step + PACE.TAIL))}px`;
+      // Snapping honours the page's scroll-padding-top (room for the floating
+      // nav), so shift each point down by it to stop at the intended offset.
+      const pad = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop) || 0;
+      snaps.forEach((el, k) => {
+        const at = k === 0 ? PACE.LEAD * 0.5 : PACE.LEAD + (k - 1) * step + PACE.FALL + PACE.READ * 0.15;
+        el.style.top = `${Math.round(vh * at + pad)}px`;
+      });
+    }
+    // Per card: landing spring (offset px, velocity px/s), whether it has
+    // touched down this fall, and whether its contents are showing.
+    const cardState = cards.map((_, i) => ({ b: 0, bv: 0, hit: false, landed: i === 0 }));
 
     function readScroll() {
       const vh = window.innerHeight;
@@ -123,8 +163,14 @@ function useLandingMotion(rootRef) {
       const zr = tabletZone.getBoundingClientRect();
       tabTo = clamp((vh - zr.top) / (vh * 0.85), 0, 1);
       const cr = cascade.getBoundingClientRect();
-      const cmax = cr.height - vh;
-      casTo = cmax > 0 ? clamp(-cr.top / cmax, 0, 1) * (drops + HOLD) : drops;
+      // Screens scrolled into the stage, mapped to cards: after a short lead,
+      // each card falls over FALL and then rests for READ.
+      const into = (-cr.top / vh) - PACE.LEAD;
+      if (into <= 0) casTo = 0;
+      else {
+        const k = Math.floor(into / step);
+        casTo = Math.min(drops, k + clamp((into - k * step) / PACE.FALL, 0, 1));
+      }
       // The first card is already on the table; it plays once its stage is mostly in view.
       const wasIn = casIn;
       casIn = cr.top < vh * 0.35 && cr.bottom > vh * 0.5;
@@ -144,25 +190,60 @@ function useLandingMotion(rootRef) {
       const t = cards.map((_, i) => (i === 0 ? 1 : clamp(casAt - (i - 1), 0, 1)));
       cards.forEach((card, i) => {
         const rest = CASCADE_REST[i % CASCADE_REST.length];
-        const fall = 1 - land(t[i]);
+        const st = cardState[i];
+        const u = 1 - t[i]; // distance still to fall
         const side = rest.from || 0;
         // Cards that have landed on top push this one back into the pile.
         let depth = 0;
         for (let j = i + 1; j < cards.length; j += 1) depth += ease(t[j]);
-        const y = fall * -(vh * 0.95) - depth * 16;
-        const x = rest.x + fall * side * 90;
-        const r = rest.r + fall * side * 13;
+        // The card comes in on an arc: height falls off faster than the
+        // sideways swing, and the tilt straightens last of all (u^2.4), so
+        // it lines up just before it touches down.
+        const y = -(vh * 0.95) * u * u - depth * 16 + st.b;
+        const x = rest.x + side * 90 * u ** 1.6;
+        const r = rest.r + side * 13 * u ** 2.4;
         const s = 1 - depth * 0.045;
-        card.style.transform = `translate3d(${x.toFixed(1)}px,${y.toFixed(1)}px,0) rotate(${r.toFixed(2)}deg) scale(${s.toFixed(4)})`;
-        card.style.opacity = i === 0 ? '' : clamp(t[i] * 5, 0, 1).toFixed(3);
+        // A touch of squash while the landing spring is moving fast (at most 2%).
+        const squash = 1 - clamp(-st.bv / 2600, -0.02, 0.02);
+        card.style.transform = `translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,0) rotate(${r.toFixed(3)}deg) scale(${s.toFixed(4)},${(s * squash).toFixed(4)})`;
+        card.style.opacity = i === 0 ? '' : smoothstep(0, 0.22, t[i]).toFixed(3);
         card.style.setProperty('--dim', Math.min(depth, 2).toFixed(3));
         // A card plays its content animation once it has landed and is on top.
-        // land() reaches the pile at t≈0.42 and bottoms out its bounce at t≈0.6,
-        // so the content starts there rather than leaving a blank card on screen.
-        const landed = i === 0 ? casIn : t[i] > 0.6;
-        card.classList.toggle('is-landed', landed);
-        card.classList.toggle('is-top', landed && depth < 0.5);
+        if (i === 0) st.landed = casIn;
+        else st.landed = st.landed ? t[i] > LAND_OFF : t[i] > LAND_ON;
+        card.classList.toggle('is-landed', st.landed);
+        card.classList.toggle('is-top', st.landed && depth < 0.5);
       });
+    }
+
+    // Advance the springs by dt seconds. Returns true while anything is still moving.
+    function stepCascade(dt) {
+      const h = dt / SUBSTEPS;
+      const w = CAS_OMEGA;
+      for (let k = 0; k < SUBSTEPS; k += 1) {
+        // Critically damped spring towards the scroll position (semi-implicit Euler).
+        casVel += (-2 * w * casVel - w * w * (casAt - casTo)) * h;
+        casVel = clamp(casVel, -MAX_DROP_SPEED, MAX_DROP_SPEED);
+        casAt += casVel * h;
+      }
+      let busy = Math.abs(casTo - casAt) > 0.0005 || Math.abs(casVel) > 0.001;
+      cards.forEach((_, i) => {
+        if (i === 0) return;
+        const st = cardState[i];
+        const p = clamp(casAt - (i - 1), 0, 1);
+        // Touchdown: kick the landing spring, harder for a faster fall.
+        if (p >= 0.999 && !st.hit) {
+          st.hit = true;
+          st.bv = -38 * Math.max(2.2, Math.abs(casVel) * 2.4);
+        }
+        if (p < 0.9) st.hit = false; // lifted back up: it can land again
+        for (let k = 0; k < SUBSTEPS; k += 1) {
+          st.bv += (-2 * BOUNCE_DAMPING * BOUNCE_OMEGA * st.bv - BOUNCE_OMEGA * BOUNCE_OMEGA * st.b) * h;
+          st.b += st.bv * h;
+        }
+        if (Math.abs(st.b) < 0.01 && Math.abs(st.bv) < 0.5) { st.b = 0; st.bv = 0; } else busy = true;
+      });
+      return busy;
     }
 
     function paint() {
@@ -178,20 +259,25 @@ function useLandingMotion(rootRef) {
       last = now;
       const k = reduce ? 1 : 1 - Math.exp(-dt * CHASE);
       const tg = tabTo - tabAt;
-      const cg = casTo - casAt;
-      const moving = Math.abs(tg) > 0.0002 || Math.abs(cg) > 0.0005;
-      if (moving) { tabAt += tg * k; casAt += cg * k; }
-      if (moving || dirty) { paint(); dirty = false; }
+      const tabMoving = Math.abs(tg) > 0.0002;
+      if (tabMoving) tabAt += tg * k;
+      let casMoving = false;
+      if (reduce) casAt = casTo;
+      else if (dt > 0) casMoving = stepCascade(dt);
+      if (tabMoving || casMoving || dirty) { paint(); dirty = false; }
       raf = requestAnimationFrame(frame);
     }
 
-    const onResize = () => { dirty = true; readScroll(); };
+    const onResize = () => { dirty = true; layoutCascade(); readScroll(); };
     window.addEventListener('scroll', readScroll, { passive: true });
     window.addEventListener('resize', onResize);
-    document.documentElement.classList.add('lp-smooth');
+    document.documentElement.classList.add('lp-smooth'); // before layoutCascade: it sets the scroll padding
+    layoutCascade();
     readScroll();
     tabAt = tabTo;
     casAt = casTo;
+    // Cards already on the pile at load (page opened scrolled down) don't bounce.
+    cardState.forEach((st, i) => { if (i > 0 && casAt - (i - 1) >= 0.999) st.hit = true; });
     paint();
     raf = requestAnimationFrame(frame);
 
@@ -589,6 +675,8 @@ export default function Landing() {
           <h2>Everything you need to keep your PC healthy</h2>
         </div>
         <div className="lp-cascade" data-cascade>
+          {/* Snap points, one per card, placed by layoutCascade(). */}
+          {STACK.map((c) => <span key={c.title} className="lp-cascade-snap" data-cascade-snap aria-hidden="true" />)}
           <div className="lp-cascade-pin">
           {STACK.map((c, i) => (
             <article key={c.title} className="lp-stack-card" data-cascade-card style={{ '--i': i }}>
