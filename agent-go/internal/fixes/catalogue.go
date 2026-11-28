@@ -162,6 +162,15 @@ var Catalogue = map[string]Fix{
 		ID: "defender_remove_threats", Title: "Remove the threats Defender found", Size: Big,
 		Summary: "Ask Microsoft Defender to quarantine or remove the threats it found and couldn't deal with on its own.",
 	},
+	AIScript: {
+		ID: AIScript, Title: "Run Lectio AI's script", Size: Big,
+		Summary: "Run a short script Lectio AI wrote for this alert.",
+		Params: map[string]Param{
+			"script":  {Required: true, Check: checkScript},
+			"sha256":  {Required: true, Check: checkHash},
+			"summary": {Required: true, Check: checkSummary},
+		},
+	},
 }
 
 // CleanParams validates parameters against the fix's rules (unknown names are refused).

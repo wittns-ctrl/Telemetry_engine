@@ -46,7 +46,7 @@ KINDS = {
                E.EMAIL_VERIFICATION, E.OAUTH_LOGIN, E.ACCOUNT_DEACTIVATION},
     "alerts": {E.ALERT_OPENED, E.ALERT_CLOSED},
     "fixes": {E.FIX_REQUESTED, E.FIX_UNDO_REQUESTED, E.FIX_CANCELLED, E.FIX_RESULT, E.FIX_REVERTED},
-    "pcs": {E.DEVICE_LINKED, E.DEVICE_REMOVED, E.AGENT_UPDATED, E.DAILY_REPORT},
+    "pcs": {E.DEVICE_LINKED, E.DEVICE_REMOVED, E.AGENT_UPDATED, E.DAILY_REPORT, E.PC_INCIDENT},
     "security": {E.TOKEN_REUSE, E.SUSPICIOUS_ACTIVITY},
 }
 
@@ -134,6 +134,10 @@ def describe(entry: AuditLog, pc_names: dict[str, str]) -> dict:
         title, detail = "PC removed", pc
     elif e == E.AGENT_UPDATED:
         title, detail = f"Lectio agent updated to {d.get('version', '')}", pc
+    elif e == E.PC_INCIDENT:
+        title = "PC stopped unexpectedly"
+        detail = " · ".join(p for p in (pc, d.get("cause_text") or "") if p)
+        tone = "bad"
     elif e == E.DAILY_REPORT:
         title, detail = f"Daily health check: {d.get('score', '')}/100", pc
         tone = "ok" if (d.get("score") or 0) >= 70 else "warn"

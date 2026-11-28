@@ -29,6 +29,9 @@ from app.api.v1 import agent_alerts as agent_alerts_router
 from app.api.v1 import agent_location as agent_location_router
 from app.api.v1 import activity as activity_router
 from app.api.v1 import reports as reports_router
+from app.api.v1 import incidents as incidents_router
+from app.api.v1 import ai_scripts as ai_scripts_router
+from app.services.offline_watch import offline_watch
 from app.api.v1 import fixes as fixes_router
 
 
@@ -38,11 +41,14 @@ async def lifespan(app: FastAPI):
     startup_checks.enforce()
     await init_db()
     ingest_processor.start(settings.INGEST_WORKERS, settings.INGEST_QUEUE_SIZE)
+    # Notice PCs that stop without shutting down normally (alert + email).
+    offline_watch.start()
     # With REDIS_URL: receive live updates sent by the other API processes.
     manager.start_relay()
     logger.info("Shared state: %s", shared.mode())
     yield
     # Graceful shutdown: finish queued alert checks, then close connections.
+    await offline_watch.stop()
     await ingest_processor.stop()
     await manager.stop_relay()
     await cache.close()
@@ -129,6 +135,8 @@ app.include_router(agent_alerts_router.router, prefix="/api/v1")
 app.include_router(agent_location_router.router, prefix="/api/v1")
 app.include_router(activity_router.router, prefix="/api/v1")
 app.include_router(reports_router.router, prefix="/api/v1")
+app.include_router(incidents_router.router, prefix="/api/v1")
+app.include_router(ai_scripts_router.router, prefix="/api/v1")
 
 # --- DIAGNOSTICS ROUTES ---
 app.include_router(diagnostics_router.router, prefix="/api/v1")

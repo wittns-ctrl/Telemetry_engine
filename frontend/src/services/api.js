@@ -476,6 +476,25 @@ export async function fetchReports(deviceId) {
   return apiJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/reports`, {}, "Couldn't load the daily checks");
 }
 
+/** Solve with AI: ask Lectio AI for a script for one alert (shown, not run). */
+export async function requestAiScript(deviceId, alertId) {
+  return apiJson(
+    `/api/v1/devices/${encodeURIComponent(deviceId)}/alerts/${encodeURIComponent(alertId)}/ai-script`,
+    { method: "POST" },
+    "Lectio AI couldn't write a script",
+  );
+}
+
+/** Send the script that was shown to the PC (it still asks there first). */
+export async function runAiScript(scriptId) {
+  return apiJson(`/api/v1/ai-scripts/${encodeURIComponent(scriptId)}/run`, { method: "POST" }, "Couldn't send the script to your PC");
+}
+
+/** The PC's outages in the last 7 days, newest first, each with its story. */
+export async function fetchIncidents(deviceId) {
+  return apiJson(`/api/v1/devices/${encodeURIComponent(deviceId)}/incidents`, {}, "Couldn't load the PC's outages");
+}
+
 /** The account's activity log, newest first (kept 7 days). kind: all, signin, alerts, fixes, pcs, security. */
 export async function fetchActivity(kind = "all") {
   return apiJson(`/api/v1/activity?kind=${encodeURIComponent(kind)}`, {}, "Couldn't load your activity");

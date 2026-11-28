@@ -31,6 +31,7 @@ class AuditEventType(str, Enum):
     DEVICE_REMOVED = "device_removed"
     AGENT_UPDATED = "agent_updated"
     DAILY_REPORT = "daily_report"
+    PC_INCIDENT = "pc_incident"
 
 
 class AuditLog(Document):

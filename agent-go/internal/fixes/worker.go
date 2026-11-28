@@ -168,6 +168,10 @@ func (w *Worker) Handle(ctx context.Context, fix models.AgentFix) {
 		}
 	}
 
+	if fix.FixID == AIScript && !fix.Undo && !scriptMatches(params) {
+		w.report(ctx, fix.ID, "failed", "This PC refused the script: it isn't the one that was shown.", nil)
+		return
+	}
 	if fix.NeedsPCApproval || known.Size == Big {
 		title := known.Title
 		if fix.Undo {
@@ -175,6 +179,9 @@ func (w *Worker) Handle(ctx context.Context, fix models.AgentFix) {
 		}
 		text := known.Summary + describe(params) +
 			"\n\nLectio was asked to do this from your account on the website.\nAllow it now?"
+		if fix.FixID == AIScript {
+			text = aiScriptQuestion(params)
+		}
 		if !w.Ask(title, text) {
 			log.Info("fix declined at the PC")
 			w.report(ctx, fix.ID, "declined", "Someone at the PC chose not to allow this.", nil)

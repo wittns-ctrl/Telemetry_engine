@@ -186,7 +186,45 @@ function LocationCard({ device, onSaved }) {
       {status.state === "done" && <p className="note" role="status">{status.text}</p>}
       {status.state === "error" && <p className="note w" role="alert">{status.text}</p>}
       <ExactLocation device={device} onSaved={onSaved} />
+      <AiScriptsSwitch device={device} onSaved={onSaved} />
     </Card>
+  );
+}
+
+/** "Solve with AI" scripts: off until the owner switches them on for this PC. */
+function AiScriptsSwitch({ device, onSaved }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const on = Boolean(device.ai_scripts_enabled);
+  const toggle = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      onSaved(await updateDevice(device.id, { ai_scripts_enabled: !on }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const id = `ai-scripts-${device.id}`;
+  const text = on
+    ? "On. Solve with AI can send a script Lectio AI wrote to this PC. Every script is shown to you first, checked for safety, and someone at the PC must read it and click Allow. Needs Lectio agent 1.3.0 or later."
+    : "Off. When on, Solve with AI on an alert can send a short script Lectio AI wrote to this PC. You read it first, and someone at the PC must allow it.";
+  return (
+    <>
+      <div className="switch-row">
+        <span className="f1">
+          <b id={`${id}-label`} className="t7">Let Lectio AI run scripts</b>
+          <span id={`${id}-desc`} className="sub" style={{ display: "block" }}>{text}</span>
+        </span>
+        <button type="button" role="switch" aria-checked={on} aria-labelledby={`${id}-label`}
+          aria-describedby={`${id}-desc`} className={cx("switch", on && "on")} onClick={toggle} disabled={saving}>
+          <i aria-hidden="true" />
+        </button>
+      </div>
+      {error && <p className="note w" role="alert">{error}</p>}
+    </>
   );
 }
 

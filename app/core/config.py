@@ -47,6 +47,8 @@ class Settings(BaseSettings):
     ALERT_EMAILS_ENABLED: bool = True
     ALERT_EMAIL_MIN_SEVERITY: str = "WARNING"  # INFO, WARNING or CRITICAL
     ALERT_EMAIL_COOLDOWN_MINUTES: int = 30  # at most one email per device and rule in this time
+    # A PC silent this long without saying goodbye raises a "went offline" alert and email (0 = off).
+    OFFLINE_ALERT_MINUTES: int = 5
 
     # Every raw reading is kept this long, then deleted by MongoDB (TTL index on
     # telemetry_snapshots.timestamp). Longer graphs read the hourly and daily

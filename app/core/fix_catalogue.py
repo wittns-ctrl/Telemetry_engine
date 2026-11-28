@@ -119,6 +119,30 @@ class Fix:
         return out
 
 
+def _ai_script(value: Any) -> str:
+    from app.core.script_check import check  # here, not at the top: script_check is a leaf module anyway
+    if not isinstance(value, str):
+        raise ValueError("script must be text")
+    result = check(value)
+    if not result.ok:
+        raise ValueError(f"script refused: {result.reason}")
+    return value.replace("\r\n", "\n").strip()
+
+
+def _sha256(value: Any) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise ValueError("sha256 must be 64 lowercase hex characters")
+    return value
+
+
+def _summary(value: Any) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("summary must be text")
+    return value.strip()[:200]
+
+
+AI_SCRIPT = "ai_script"
+
 HEAT = (
     "CPU_OVERHEATING_CRITICAL", "CPU_OVERHEATING_WARNING", "CPU_PACKAGE_OVERHEATING_CRITICAL",
     "CPU_PACKAGE_OVERHEATING_WARNING", "CPU_THERMAL_THROTTLING_WARNING",
@@ -252,6 +276,20 @@ FIXES: dict[str, Fix] = {f.id: f for f in [
         "turn_protection_on", "Turn virus protection back on",
         "Open Windows Security on the PC, go to Virus & threat protection, Manage settings, and switch Real-time protection on. Windows doesn't let programs do this for you, to stop malware switching it off.",
         SMALL, undoable=False, helps_with=PROTECTION_OFF, manual=True,
+    ),
+    # "Solve with AI": only ever queued by POST /ai-scripts/{id}/run (never
+    # suggested, never requestable directly). Always asks on the PC, showing
+    # the exact script; the agent checks it again with the same rules.
+    Fix(
+        AI_SCRIPT, "Run Lectio AI's script",
+        "Run a short script Lectio AI wrote for this alert, after someone at the PC reads it and clicks Allow.",
+        BIG, undoable=False,
+        params={"script": Param(_ai_script), "sha256": Param(_sha256), "summary": Param(_summary)},
+    ),
+    Fix(
+        "check_pc_is_on", "Check the PC is on and online",
+        "Look at the PC: is it on, awake and connected to the internet? If it's frozen, hold the power button for 10 seconds and start it again. Once it's back, run a virus scan.",
+        SMALL, undoable=False, helps_with=("PC_OFFLINE_CRITICAL",), manual=True,
     ),
     Fix(
         "disconnect_internet", "Disconnect the PC from the internet",

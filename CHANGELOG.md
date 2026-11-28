@@ -16,6 +16,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Daily check**: at 8 pm (or on the next start) the agent asks for the day's
   health report: a score out of 100, what was found and a numbered to-do list,
   with a Windows notification linking to it. Reports are kept 30 days.
+- **Offline alert:** a PC silent for 5 minutes without shutting down, sleeping
+  or stopping the agent normally raises a critical alert and emails the owner;
+  a second email follows when it's back (`OFFLINE_ALERT_MINUTES`, 0 = off).
+- **Unexpected shutdowns:** after a restart the agent reads Windows' record
+  (Kernel-Power 41: blue screen, power button held, power lost) and the
+  Dashboard shows the story in order with "Run a full scan". Kept 30 days.
+- **Solve with AI** (design A) on every alert: Lectio AI writes a short
+  PowerShell script with plain steps; you can read the exact script and send
+  it to the PC. Off until switched on per PC (My Devices); every script must
+  pass the same strict checker on the server and the agent (only listed
+  commands; no downloads, deleting, closing programs, security settings,
+  accounts or Lectio), and someone at the PC must read it and click Yes
+  ("No" is the default). Scripts are kept 30 days.
 
 ### Changed
 - AI advice now uses `gemini-3.1-flash-lite` (answers in 1–3 s) with

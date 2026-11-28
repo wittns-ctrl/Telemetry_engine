@@ -75,6 +75,9 @@ func (WindowsRunner) Run(fixID string, p map[string]any) (string, map[string]any
 	case "defender_remove_threats":
 		msg, err := defenderRemoveThreats()
 		return msg, nil, err
+	case AIScript:
+		msg, err := runAIScript(p["script"].(string))
+		return msg, nil, err
 	}
 	return "", nil, fail("This PC's Lectio doesn't know that fix.")
 }
@@ -463,7 +466,8 @@ func AskOnPC(title, text string) bool {
 	}
 	t, _ := windows.UTF16FromString("Lectio: " + title)
 	m, _ := windows.UTF16FromString(text)
-	const style = 0x4 | 0x20 | 0x40000 | 0x10000 // MB_YESNO | MB_ICONQUESTION | MB_TOPMOST | MB_SETFOREGROUND
+	// MB_YESNO | MB_ICONQUESTION | MB_DEFBUTTON2 (No is the default) | MB_TOPMOST | MB_SETFOREGROUND
+	const style = 0x4 | 0x20 | 0x100 | 0x40000 | 0x10000
 	var response uint32
 	r, _, _ := procWTSSendMessage.Call(
 		0, // WTS_CURRENT_SERVER_HANDLE

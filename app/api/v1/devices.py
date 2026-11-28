@@ -19,6 +19,8 @@ from app.models.user import User, UserRole
 from app.models.rollup import TelemetryRollupDocument
 from app.models.location import LocationHistory
 from app.models.daily_report import DailyReport
+from app.models.incident import Incident
+from app.models.ai_script import AiScript
 from app.models.audit_log import AuditEventType
 from app.services import activity
 from app.models.telemetry import Device, TelemetrySnapshotDocument
@@ -55,6 +57,7 @@ def _to_response(device: Device) -> DeviceResponse:
         agent_last_seen=device.agent_last_seen,
         security=device.security,
         location_enabled=device.location_enabled,
+        ai_scripts_enabled=device.ai_scripts_enabled,
         location=device.location,
         is_active=device.is_active,
         created_at=device.created_at,
@@ -202,6 +205,8 @@ async def update_device(
         device.location_enabled = body.location_enabled
         if not body.location_enabled:
             device.location = None  # switching off forgets where it was
+    if "ai_scripts_enabled" in sent and body.ai_scripts_enabled is not None:
+        device.ai_scripts_enabled = body.ai_scripts_enabled
     await device.save()
     if turned_off:
         await LocationHistory.find(LocationHistory.device_id == device.id).delete()
@@ -336,6 +341,8 @@ async def delete_device(
             LocationHistory.device_id == device_oid, LocationHistory.user_id == current_user.id,
         ).delete()
         await DailyReport.find(DailyReport.device_id == device_oid, DailyReport.user_id == current_user.id).delete()
+        await Incident.find(Incident.device_id == device_oid, Incident.user_id == current_user.id).delete()
+        await AiScript.find(AiScript.device_id == device_oid, AiScript.user_id == current_user.id).delete()
         alerts = await AnomalyAlertDocument.find(
             AnomalyAlertDocument.device_id == device_oid,
             AnomalyAlertDocument.user_id == current_user.id,

@@ -27,6 +27,7 @@ import (
 	"lectio/agent/internal/config"
 	"lectio/agent/internal/daily"
 	"lectio/agent/internal/fixes"
+	"lectio/agent/internal/incident"
 	"lectio/agent/internal/locate"
 	"lectio/agent/internal/logging"
 	"lectio/agent/internal/notify"
@@ -325,6 +326,11 @@ func agentRun(ctx context.Context, console bool) error {
 			}
 			return &daily.Checker{Client: c, Show: show, Dashboard: cfg.DashboardURL, PCName: cfg.DeviceName,
 				Dir: dir, Log: log.With("component", "daily")}
+		},
+		Incidents: func(c *api.Client) services.FixRunner {
+			r := &incident.Reporter{Client: c, Read: incident.ReadWindows, Dir: dir, Log: log.With("component", "incidents")}
+			service.SetPowerHook(r.Goodbye)
+			return r
 		},
 		Location: func(c *api.Client) services.FixRunner {
 			return &locate.Locator{Client: c, Find: locate.FindOnPC, Log: log.With("component", "location")}

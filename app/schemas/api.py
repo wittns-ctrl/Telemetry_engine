@@ -44,6 +44,7 @@ class DeviceResponse(BaseModel):
     agent_last_seen: Optional[datetime] = Field(None, description="When the agent last checked in for fixes")
     security: Optional[SecurityMetrics] = Field(None, description="Latest antivirus status and threats")
     location_enabled: bool = Field(False, description="The owner lets this PC report its exact location")
+    ai_scripts_enabled: bool = Field(False, description="The owner lets Lectio AI's scripts run on this PC")
     location: Optional[DeviceLocation] = Field(None, description="The latest position, while location is on")
     is_active: bool = Field(True, description="Whether device is actively reporting")
     created_at: datetime = Field(..., description="Device registration timestamp")
@@ -78,6 +79,7 @@ class DeviceUpdateRequest(BaseModel):
     device_name: Optional[str] = Field(None, min_length=1, max_length=128)
     country: Optional[str] = Field(None, max_length=64)
     location_enabled: Optional[bool] = Field(None, description="Let this PC report its exact location")
+    ai_scripts_enabled: Optional[bool] = Field(None, description="Let Lectio AI's scripts run on this PC (each asks on the PC)")
 
     @field_validator("device_name")
     @classmethod

@@ -206,11 +206,21 @@ class Device(Document):
     # Updated each time the agent checks for fixes (GET /agent/fixes/next).
     agent_version: Optional[str] = Field(None, max_length=32, description="Version of the Lectio agent on this PC")
     agent_last_seen: Optional[datetime] = Field(None, description="When the agent last checked in")
+    # Offline watch (app/services/offline_watch.py). goodbye_at: the agent said
+    # the PC is shutting down, sleeping or stopping the agent, so silence after
+    # it is expected. offline_since: the watch noticed the silence (the PC's
+    # last sign of life); offline_expected: it followed a goodbye.
+    goodbye_at: Optional[datetime] = Field(None, description="When the agent last said the PC is going away")
+    goodbye_reason: Optional[str] = Field(None, max_length=16, description="shutdown, sleep or stop")
+    offline_since: Optional[datetime] = Field(None, description="Silent since (set by the offline watch)")
+    offline_expected: bool = Field(False, description="The silence followed a goodbye")
     # The latest antivirus report (the agent refreshes it every 2 minutes).
     security: Optional[SecurityMetrics] = Field(None, description="Latest antivirus status and threats")
     # Exact location: off until the owner switches it on for this PC. Only
     # the owner's own requests can read it (every device route checks that).
     location_enabled: bool = Field(False, description="The owner lets this PC report its location")
+    # "Solve with AI" scripts: off until the owner switches them on for this PC.
+    ai_scripts_enabled: bool = Field(False, description="The owner lets Lectio AI's scripts run on this PC (each still asks on the PC)")
     location: Optional[DeviceLocation] = Field(None, description="The latest position, while location is on")
     # SHA-256 of the agent's device key. The plaintext key is shown once at registration.
     ingest_key_hash: Optional[str] = Field(None, description="Hash of the device ingest key")

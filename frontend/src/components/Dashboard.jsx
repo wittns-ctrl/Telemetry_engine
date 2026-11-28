@@ -11,6 +11,7 @@ import {
 import { HealthSummary } from "./HealthSummary";
 import { SecurityCard } from "./SecurityCard";
 import { DailyReportCard } from "./DailyReportCard";
+import { IncidentCard } from "./IncidentCard";
 import { AddDevice } from "./DevicesView";
 import { GROUPS, READING_COUNT, valueOf, maxOf, statusOf, display, show, isCharted, healthOf } from "./readings";
 import { Card, Chip, Stat, Pill, Ring, Gauge, Tabs, Seg, LineGraph, Modal, Promo, Empty } from "./ui";
@@ -456,6 +457,7 @@ export function Dashboard({ onNavigate, tab: tabProp, onTabChange }) {
       <div className="page">
         <div className="row ac wrap">{status}</div>
         <HealthSummary snapshot={snapshot} security={security} alerts={alerts} onOpenTab={setTab} onOpenAlerts={() => onNavigate?.("alerts")} />
+        <IncidentCard device={device} onSeeReadings={() => setTab("cpu")} />
         <DailyReportCard device={device} />
         {notice}
       </div>

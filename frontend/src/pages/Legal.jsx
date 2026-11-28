@@ -159,7 +159,7 @@ export function PrivacyPage() {
         <li>Your account details, machines, readings and alerts are kept while your account is open.</li>
         <li>Security records are kept for <Fill value={LEGAL.logRetention} label="retention period" />.</li>
         <li>A machine&apos;s location history is kept for 30 days, then deleted automatically.</li>
-        <li>Daily health check reports are kept for 30 days, then deleted automatically.</li>
+        <li>Daily health check reports, records of unexpected shutdowns and scripts written by Lectio AI are kept for 30 days, then deleted automatically.</li>
         <li>
           You can delete your account at any time under Settings. This immediately and permanently erases your account,
           machines, readings, alerts and security records, and signs you out everywhere. Copies in our backups are

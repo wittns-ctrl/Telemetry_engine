@@ -98,6 +98,13 @@ class AlertNotifier:
         except Exception:
             logger.exception("Could not send notifications for alert %s", getattr(alert, "id", None))
 
+    @staticmethod
+    def may_email(user: Optional[User]) -> bool:
+        """Alert emails are on, can be sent, and this user wants them."""
+        if not settings.ALERT_EMAILS_ENABLED or not email_service.is_configured():
+            return False
+        return bool(user and user.is_active and user.email_verified and user.email_alerts)
+
     async def _email_owner(self, alert: AnomalyAlertDocument, user: Optional[User], device_name: Optional[str]) -> bool:
         if not settings.ALERT_EMAILS_ENABLED:
             return False

@@ -249,3 +249,21 @@ type FixResult struct {
 	Message  string         `json:"message"`
 	UndoData map[string]any `json:"undo_data"`
 }
+
+// Goodbye tells the server the PC is going away normally, so its silence
+// raises no "went offline without warning" alert.
+type Goodbye struct {
+	Reason string `json:"reason"` // shutdown, sleep or stop
+}
+
+// CrashReport is Windows' record that the last shutdown wasn't clean.
+type CrashReport struct {
+	Cause        string     `json:"cause"` // bluescreen, forced_off or power_lost
+	At           time.Time  `json:"at"`
+	BugcheckCode string     `json:"bugcheck_code,omitempty"`
+	LastAlive    *time.Time `json:"last_alive,omitempty"`
+}
+
+type CrashReply struct {
+	IncidentID string `json:"incident_id"`
+}

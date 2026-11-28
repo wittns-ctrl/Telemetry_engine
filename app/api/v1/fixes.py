@@ -37,7 +37,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import get_current_user
 from app.api.v1.ingest import get_ingest_device
 from app.core.config import settings
-from app.core.fix_catalogue import FIXES, Fix, fixes_for, get_fix
+from app.core.fix_catalogue import AI_SCRIPT, FIXES, Fix, fixes_for, get_fix
 from app.core.rate_limit import _client_ip, limiter
 from app.core.websocket_manager import manager as stream_manager
 from app.models.alert import AnomalyAlertDocument
@@ -337,6 +337,8 @@ async def request_fix(device_id: str, body: FixCreate, request: Request, current
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Unknown fix")
     if fix.manual:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="This one is a step for you to do; Lectio can't do it on the PC")
+    if fix.id == AI_SCRIPT:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Use Solve with AI on the alert to run an AI script")
     try:
         params = fix.clean_params(body.params)
     except ValueError as e:
@@ -461,6 +463,16 @@ async def agent_next(
         await _audit(req, AuditEventType.FIX_CANCELLED, "server", fix_level=level.value)
         await _announce(req)
         return AgentNext(fix=None, poll_seconds=5)
+    # An AI script needs the PC's switch still on (the owner may have turned it off since).
+    if fix.id == AI_SCRIPT:
+        fresh = await Device.get(device.id)
+        if fresh is None or not fresh.ai_scripts_enabled:
+            req.status, req.finished_at = FixStatus.CANCELLED, datetime.now(timezone.utc)
+            req.message = "Cancelled: AI scripts are switched off for this PC."
+            await req.save()
+            await _audit(req, AuditEventType.FIX_CANCELLED, "server")
+            await _announce(req)
+            return AgentNext(fix=None, poll_seconds=5)
     # Big fixes always ask on the PC, whatever is stored on the request.
     req.needs_pc_approval = req.needs_pc_approval or _needs_approval(fix.needs_pc_approval, level)
 

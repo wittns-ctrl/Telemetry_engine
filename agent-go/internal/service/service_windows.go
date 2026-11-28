@@ -309,12 +309,15 @@ func Run(run func(ctx context.Context) error) error {
 	return svc.Run(Name, &handler{run: run})
 }
 
+// PBT_APMSUSPEND: the power event sent just before sleep or hibernation.
+const pbtAPMSuspend = 4
+
 type handler struct {
 	run func(ctx context.Context) error
 }
 
 func (h *handler) Execute(_ []string, requests <-chan svc.ChangeRequest, status chan<- svc.Status) (bool, uint32) {
-	const accepts = svc.AcceptStop | svc.AcceptShutdown
+	const accepts = svc.AcceptStop | svc.AcceptShutdown | svc.AcceptPowerEvent
 	status <- svc.Status{State: svc.StartPending}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -336,8 +339,19 @@ func (h *handler) Execute(_ []string, requests <-chan svc.ChangeRequest, status 
 			switch req.Cmd {
 			case svc.Interrogate:
 				status <- req.CurrentStatus
+			case svc.PowerEvent:
+				// The PC is going to sleep or hibernating (Fast Startup "shut
+				// down" too): say so while the network still works.
+				if req.EventType == pbtAPMSuspend {
+					callPowerHook("sleep")
+				}
 			case svc.Stop, svc.Shutdown:
 				status <- svc.Status{State: svc.StopPending, WaitHint: uint32(stopTimeout.Milliseconds())}
+				if req.Cmd == svc.Shutdown {
+					callPowerHook("shutdown")
+				} else {
+					callPowerHook("stop")
+				}
 				cancel()
 				select {
 				case <-done:

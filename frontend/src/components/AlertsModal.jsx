@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ArrowLeft, Check, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 import { closeAlert, fetchDevices, fetchOpenAlerts, requestDiagnosis, requestFix } from "../services/api";
 import { alertWords, sortAlerts } from "./alertWords";
+import { AiScriptPanel } from "./AiScriptPanel";
 import { DiagnosisPanel } from "./DiagnosisPanel";
 import { FixOptions } from "./fixes";
 import { timeAgo } from "./format";
@@ -115,6 +116,8 @@ export function AlertsModal({ onClose, initialAlertId = null }) {
             }}
           />
         )}
+        {/* Solve with AI (design A); not for a PC that's offline: it couldn't run anything. */}
+        {open.rule_name !== "PC_OFFLINE_CRITICAL" && <AiScriptPanel key={`ai-${open.id}`} device={device} alert={open} />}
         {diagnosis[open.id] && <DiagnosisPanel state={diagnosis[open.id]} onRetry={() => diagnose(open)} />}
         <div className="row ac wrap">
           {!diagnosis[open.id] && (

@@ -250,6 +250,57 @@ class EmailService:
         return await self.send_email(to_email, subject, html_content, text_content)
 
 
+    def _plain_card(self, title: str, paragraphs: list[str], button_url: str, footer: str) -> str:
+        """A simple Lectio email: dark header, a title, short paragraphs and one button. Text is escaped."""
+        e = html.escape
+        body = "".join(f'<p style="margin: 0 0 12px;">{e(p)}</p>' for p in paragraphs)
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>{e(title)}</title></head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: #0e0e10; padding: 24px 30px; border-radius: 10px 10px 0 0;">
+                    <h1 style="color: white; margin: 0; font-size: 22px;">Lectio</h1>
+                </div>
+                <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+                    <h2 style="margin: 0 0 14px; font-size: 18px; color: #0e0e10;">{e(title)}</h2>
+                    {body}
+                    <div style="text-align: center; margin: 26px 0;">
+                        <a href="{e(button_url, quote=True)}" style="display: inline-block; background: #2f9e44; color: white; padding: 12px 26px; text-decoration: none; border-radius: 999px; font-weight: bold;">Open Lectio</a>
+                    </div>
+                    <p style="font-size: 13px; color: #666; margin: 0;">{e(footer)}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+    async def send_offline_email(self, to_email: str, user_name: Optional[str], device_name: str,
+                                 silent_at: str, last_reading: Optional[str], dashboard_url: str) -> bool:
+        """Design C: a PC stopped reporting without shutting down normally."""
+        title = f"{device_name} stopped reporting"
+        paragraphs = [f"Hello{' ' + user_name if user_name else ''},",
+                      f"Your PC went silent at {silent_at} without a normal shutdown."]
+        if last_reading:
+            paragraphs[-1] += f" Just before, {last_reading}."
+        paragraphs.append("If nobody switched it off, check it's still on and run a virus scan when it's back.")
+        footer = "We'll email again when it's back. You can turn alert emails off in Settings."
+        text = "\n\n".join(paragraphs + [f"Open Lectio: {dashboard_url}", footer]) + "\n"
+        return await self.send_email(to_email, title[:150], self._plain_card(title, paragraphs, dashboard_url, footer), text)
+
+    async def send_back_online_email(self, to_email: str, user_name: Optional[str], device_name: str,
+                                     back_at: str, off_for: str, dashboard_url: str) -> bool:
+        """The follow-up to send_offline_email."""
+        title = f"{device_name} is back online"
+        paragraphs = [f"Hello{' ' + user_name if user_name else ''},",
+                      f"Your PC started reporting again at {back_at}, after {off_for} offline.",
+                      "Lectio is working out what happened. The Dashboard shows the whole story once it knows."]
+        footer = "You can turn alert emails off in Settings."
+        text = "\n\n".join(paragraphs + [f"Open Lectio: {dashboard_url}", footer]) + "\n"
+        return await self.send_email(to_email, title[:150], self._plain_card(title, paragraphs, dashboard_url, footer), text)
+
+
 # Global email service instance
 email_service = EmailService()
 

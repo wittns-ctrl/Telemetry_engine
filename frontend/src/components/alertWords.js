@@ -66,6 +66,8 @@ const KINDS = [
     title: (pc) => `${own(pc)} virus protection is out of date`, detail: (a) => `Definitions are ${n(a.trigger_value)} days old` },
   { rules: ["SECURITY_SCAN_OLD_CRITICAL", "SECURITY_SCAN_OLD_WARNING"],
     title: (pc) => `${pc} hasn't been scanned for viruses`, detail: (a) => `No scan for ${n(a.trigger_value)} days` },
+  { rules: ["PC_OFFLINE_CRITICAL"],
+    title: (pc) => `${pc} went offline without warning`, detail: (a) => a.message.split(": ").slice(1).join(": ") || a.message },
   { rules: ["NETWORK_SATURATED_INFO"],
     title: (pc) => `${own(pc)} internet connection is full`, detail: (a) => `${n(a.trigger_value)}% of the link in use` },
 ];

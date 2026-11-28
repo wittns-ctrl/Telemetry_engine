@@ -9,6 +9,8 @@
 //	GET  /api/v1/agent/fixes/next             check in, take the next fix
 //	POST /api/v1/agent/fixes/{id}/result      report a fix's result
 //	POST /api/v1/agent/fixes/{id}/reverted    a timed fix ran out
+//	POST /api/v1/agent/goodbye               the PC is going away normally
+//	POST /api/v1/agent/incident              Windows recorded an unexpected shutdown
 //
 // After linking, every call authenticates with the X-Device-Key header.
 // TLS certificates are always verified (TLS 1.2 or newer).
@@ -262,6 +264,18 @@ func (c *Client) NextFix(ctx context.Context) (models.AgentNext, error) {
 func (c *Client) DailyCheck(ctx context.Context, req models.DailyCheck) (models.DailyCheckReply, error) {
 	var out models.DailyCheckReply
 	err := c.do(ctx, http.MethodPost, "/api/v1/agent/daily-check", nil, req, nil, "", http.StatusOK, &out)
+	return out, err
+}
+
+// Goodbye says the PC is shutting down, going to sleep or stopping the agent.
+func (c *Client) Goodbye(ctx context.Context, reason string) error {
+	return c.do(ctx, http.MethodPost, "/api/v1/agent/goodbye", nil, models.Goodbye{Reason: reason}, nil, "", http.StatusNoContent, nil)
+}
+
+// ReportCrash sends Windows' record of an unexpected shutdown.
+func (c *Client) ReportCrash(ctx context.Context, r models.CrashReport) (models.CrashReply, error) {
+	var out models.CrashReply
+	err := c.do(ctx, http.MethodPost, "/api/v1/agent/incident", nil, r, nil, "", http.StatusOK, &out)
 	return out, err
 }
 

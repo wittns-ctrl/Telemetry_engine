@@ -37,6 +37,8 @@ type Agent struct {
 	Location func(*api.Client) FixRunner
 	// Daily asks for the end-of-day health check (package daily).
 	Daily func(*api.Client) FixRunner
+	// Incidents says goodbye on shutdown and reports Windows' crash records (package incident).
+	Incidents func(*api.Client) FixRunner
 
 	started time.Time
 }
@@ -137,6 +139,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 	if a.Daily != nil {
 		start("daily", a.Daily(client).Run, ctx)
+	}
+	if a.Incidents != nil {
+		start("incidents", a.Incidents(client).Run, ctx)
 	}
 
 	a.Log.Info("agent started", "api", cfg.APIURL, "interval", cfg.Interval().String(), "version", a.Version)

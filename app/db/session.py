@@ -24,6 +24,8 @@ from app.models.fix import FixRequest
 from app.models.rollup import TelemetryRollupDocument
 from app.models.location import LocationHistory
 from app.models.daily_report import DailyReport
+from app.models.incident import Incident
+from app.models.ai_script import AiScript
 
 
 # Every Beanie document the app uses. The test suite's in-memory database
@@ -42,6 +44,8 @@ DOCUMENT_MODELS = [
     FixRequest,
     LocationHistory,
     DailyReport,
+    Incident,
+    AiScript,
 ]
 
 
